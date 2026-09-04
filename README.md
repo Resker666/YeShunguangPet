@@ -61,3 +61,7 @@ bin\Release\net8.0-windows\win-x64\publish
 - 右键打开动作/设置菜单
 - 托盘双击显示或隐藏
 - 开启点击穿透后，窗口不再接收鼠标；需要从托盘菜单关闭点击穿透
+
+
+## 
+Unofficial non-commercial fan-made desktop pet. This project is not affiliated with, endorsed by, or sponsored by HoYoverse. Zenless Zone Zero and related characters belong to their respective owners.
