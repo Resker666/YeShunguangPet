@@ -14,10 +14,8 @@
         Loaded="Window_Loaded"
         SourceInitialized="Window_SourceInitialized"
         Closing="Window_Closing"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown"
-        MouseLeftButtonUp="Window_MouseLeftButtonUp"
-        MouseMove="Window_MouseMove"
-        LostMouseCapture="Window_LostMouseCapture">
+        LocationChanged="Window_LocationChanged"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Grid Background="Transparent">
         <Image x:Name="SpriteImage"
                Width="192"

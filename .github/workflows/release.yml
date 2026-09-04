@@ -1,0 +1,64 @@
+name: Build release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Verify tag version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content -LiteralPath "YeShunguangPet.Wpf.csproj"
+          $group = $project.Project.PropertyGroup |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_.Version) } |
+            Select-Object -First 1
+          $expectedTag = "v$($group.Version)"
+          if ("${{ github.ref_name }}" -ne $expectedTag) {
+            throw "Tag ${{ github.ref_name }} does not match project version $expectedTag."
+          }
+
+      - name: Build portable package
+        shell: pwsh
+        run: .\scripts\package-release.ps1
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YeShunguangPet-windows-x64
+          path: artifacts/*
+
+      - name: Create or update GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $files = Get-ChildItem -LiteralPath "artifacts" -File |
+            Select-Object -ExpandProperty FullName
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $files --clobber
+          }
+          else {
+            gh release create $tag $files --title $tag --generate-notes --verify-tag
+          }

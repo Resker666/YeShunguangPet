@@ -25,36 +25,47 @@ public sealed class PetSettings
 
     public static PetSettings Load()
     {
+        PetSettings settings;
         try
         {
-            if (!File.Exists(SettingsPath))
-            {
-                return new PetSettings();
-            }
-
-            var json = File.ReadAllText(SettingsPath);
-            return JsonSerializer.Deserialize<PetSettings>(json) ?? new PetSettings();
+            settings = File.Exists(SettingsPath)
+                ? JsonSerializer.Deserialize<PetSettings>(File.ReadAllText(SettingsPath)) ?? new PetSettings()
+                : new PetSettings();
         }
         catch
         {
-            return new PetSettings();
+            settings = new PetSettings();
         }
+
+        settings.Normalize();
+        settings.LaunchAtStartup = IsLaunchAtStartupEnabled();
+        return settings;
     }
 
     public void Save()
     {
         Directory.CreateDirectory(SettingsDirectory);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(SettingsPath, json);
+        var temporaryPath = SettingsPath + ".tmp";
+
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, SettingsPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
     }
 
     public static void SetLaunchAtStartup(bool enabled)
     {
-        using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
-        if (key is null)
-        {
-            return;
-        }
+        using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true)
+            ?? throw new InvalidOperationException("无法打开当前用户的开机启动设置。");
 
         if (enabled)
         {
@@ -62,14 +73,59 @@ public sealed class PetSettings
                 ?? Process.GetCurrentProcess().MainModule?.FileName
                 ?? string.Empty;
 
-            if (!string.IsNullOrWhiteSpace(exe))
+            if (string.IsNullOrWhiteSpace(exe))
             {
-                key.SetValue(AppName, $"\"{exe}\"");
+                throw new InvalidOperationException("无法确定当前程序路径。");
             }
+
+            key.SetValue(AppName, $"\"{exe}\"");
         }
         else
         {
             key.DeleteValue(AppName, throwOnMissingValue: false);
+        }
+    }
+
+    public static bool IsLaunchAtStartupEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
+            var configuredCommand = key?.GetValue(AppName) as string;
+            var exe = Environment.ProcessPath
+                ?? Process.GetCurrentProcess().MainModule?.FileName
+                ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(configuredCommand) || string.IsNullOrWhiteSpace(exe))
+            {
+                return false;
+            }
+
+            var trimmedCommand = configuredCommand.Trim();
+            return string.Equals(trimmedCommand, exe, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmedCommand, $"\"{exe}\"", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void Normalize()
+    {
+        if (!double.IsFinite(Scale) || Scale <= 0)
+        {
+            Scale = 1.0;
+        }
+
+        if (Left.HasValue && !double.IsFinite(Left.Value))
+        {
+            Left = null;
+        }
+
+        if (Top.HasValue && !double.IsFinite(Top.Value))
+        {
+            Top = null;
         }
     }
 }

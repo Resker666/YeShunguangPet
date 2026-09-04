@@ -2,3 +2,4 @@ bin/
 obj/
 .dotnet/
 .dotnet-install.ps1
+artifacts/

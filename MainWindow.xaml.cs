@@ -33,11 +33,10 @@ public partial class MainWindow : Window
     private bool _isDragging;
     private bool _isExiting;
     private bool _sourceReady;
-    private Point _dragStartScreen;
-    private double _dragStartLeft;
-    private double _dragStartTop;
+    private double _lastDragLeft;
 
     private WinForms.NotifyIcon? _trayIcon;
+    private Drawing.Icon? _applicationIcon;
     private WinForms.ToolStripMenuItem? _trayTopmostItem;
     private WinForms.ToolStripMenuItem? _trayClickThroughItem;
     private WinForms.ToolStripMenuItem? _trayStartupItem;
@@ -81,6 +80,7 @@ public partial class MainWindow : Window
         ApplyScale(_settings.Scale, save: false);
         Topmost = _settings.Topmost;
         SetInitialPosition();
+        EnsureWindowInWorkArea();
         UpdateMenuChecks();
 
         PlayAnimation(PetState.Idle, restart: true);
@@ -107,7 +107,24 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _trayIcon?.Dispose();
+        _applicationIcon?.Dispose();
         base.OnClosed(e);
+    }
+
+    public void ShowAndActivate()
+    {
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+        NativeMethods.ActivateWindow(this);
     }
 
     private void LoadSpriteSheet()
@@ -148,6 +165,7 @@ public partial class MainWindow : Window
         var area = SystemParameters.WorkArea;
         Left = Math.Max(area.Left, area.Right - Width - 48);
         Top = Math.Max(area.Top, area.Bottom - Height - 32);
+        EnsureWindowInWorkArea();
         SaveWindowPosition();
     }
 
@@ -282,76 +300,56 @@ public partial class MainWindow : Window
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_settings.ClickThrough)
+        if (_settings.ClickThrough || e.ChangedButton != MouseButton.Left)
         {
             return;
         }
 
         _isDragging = true;
-        _dragStartScreen = CurrentCursorScreenPoint();
-        _dragStartLeft = Left;
-        _dragStartTop = Top;
-        CaptureMouse();
+        _lastDragLeft = Left;
         PlayAnimation(PetState.RunningRight, restart: true);
         e.Handled = true;
-    }
 
-    private void Window_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isDragging)
+        try
         {
-            return;
+            DragMove();
         }
-
-        var cursor = CurrentCursorScreenPoint();
-        var dx = cursor.X - _dragStartScreen.X;
-        var dy = cursor.Y - _dragStartScreen.Y;
-        Left = _dragStartLeft + dx;
-        Top = _dragStartTop + dy;
-
-        if (Math.Abs(dx) > 3)
+        catch (InvalidOperationException)
         {
-            PlayAnimation(dx >= 0 ? PetState.RunningRight : PetState.RunningLeft);
+            // The mouse can be released before WPF starts the native drag loop.
         }
-
-        e.Handled = true;
-    }
-
-    private void Window_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!_isDragging)
-        {
-            return;
-        }
-
-        FinishDrag();
-        e.Handled = true;
-    }
-
-    private void Window_LostMouseCapture(object sender, MouseEventArgs e)
-    {
-        if (_isDragging && WinForms.Control.MouseButtons != WinForms.MouseButtons.Left)
+        finally
         {
             FinishDrag();
         }
     }
 
-    private void FinishDrag()
+    private void Window_LocationChanged(object? sender, EventArgs e)
     {
-        _isDragging = false;
-        if (IsMouseCaptured)
+        if (!_isDragging)
         {
-            ReleaseMouseCapture();
+            return;
         }
 
-        SaveWindowPosition();
-        PlayAnimation(PetState.Idle, restart: true);
+        var dx = Left - _lastDragLeft;
+        if (Math.Abs(dx) > 0.5)
+        {
+            PlayAnimation(dx >= 0 ? PetState.RunningRight : PetState.RunningLeft);
+            _lastDragLeft = Left;
+        }
     }
 
-    private static Point CurrentCursorScreenPoint()
+    private void FinishDrag()
     {
-        var cursor = WinForms.Cursor.Position;
-        return new Point(cursor.X, cursor.Y);
+        if (!_isDragging)
+        {
+            return;
+        }
+
+        _isDragging = false;
+        EnsureWindowInWorkArea();
+        SaveWindowPosition();
+        PlayAnimation(PetState.Idle, restart: true);
     }
 
     private void BuildWindowContextMenu()
@@ -461,7 +459,7 @@ public partial class MainWindow : Window
         _trayIcon = new WinForms.NotifyIcon
         {
             Text = "叶瞬光",
-            Icon = Drawing.SystemIcons.Application,
+            Icon = LoadApplicationIcon(),
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -476,8 +474,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            Show();
-            Activate();
+            ShowAndActivate();
         }
     }
 
@@ -488,6 +485,7 @@ public partial class MainWindow : Window
         ApplyScale(_settings.Scale + delta, save: true);
         Left = centerX - Width / 2;
         Top = centerY - Height / 2;
+        EnsureWindowInWorkArea();
         SaveWindowPosition();
     }
 
@@ -530,7 +528,7 @@ public partial class MainWindow : Window
         try
         {
             PetSettings.SetLaunchAtStartup(enabled);
-            _settings.LaunchAtStartup = enabled;
+            _settings.LaunchAtStartup = PetSettings.IsLaunchAtStartupEnabled();
             _settings.Save();
         }
         catch (Exception ex)
@@ -581,9 +579,38 @@ public partial class MainWindow : Window
         _settings.Save();
     }
 
+    private void EnsureWindowInWorkArea()
+    {
+        NativeMethods.EnsureWindowInWorkArea(this);
+    }
+
+    private Drawing.Icon LoadApplicationIcon()
+    {
+        if (_applicationIcon is not null)
+        {
+            return _applicationIcon;
+        }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(Environment.ProcessPath))
+            {
+                _applicationIcon = Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath);
+            }
+        }
+        catch
+        {
+            _applicationIcon = null;
+        }
+
+        return _applicationIcon ?? Drawing.SystemIcons.Application;
+    }
+
     private void ExitApplication()
     {
         _isExiting = true;
+        _frameTimer.Stop();
+        _ambientTimer.Stop();
         SaveWindowPosition();
 
         if (_trayIcon is not null)

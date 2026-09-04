@@ -8,6 +8,18 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>YeShunguangPet</AssemblyName>
     <RootNamespace>YeShunguangPet</RootNamespace>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <InformationalVersion>1.0.1</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyTitle>叶瞬光桌面宠物</AssemblyTitle>
+    <Authors>Resker666</Authors>
+    <Product>叶瞬光桌面宠物</Product>
+    <Description>来自云岿山、灵动自信的 Q 版剑客桌面助手</Description>
+    <RepositoryUrl>https://github.com/Resker666/YeShunguangPet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <ApplicationIcon>Assets\YeShunguangPet.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
