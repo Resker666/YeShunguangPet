@@ -17,6 +17,12 @@ public sealed class PetSettings
     public bool Topmost { get; set; } = true;
     public bool ClickThrough { get; set; }
     public bool LaunchAtStartup { get; set; }
+    public bool LookAtMouse { get; set; } = true;
+    public bool RandomIdleActions { get; set; } = true;
+    public int IdleActionIntervalSeconds { get; set; } = 45;
+    public bool DesktopRoaming { get; set; }
+    public int RoamIntervalSeconds { get; set; } = 75;
+    public double RoamSpeed { get; set; } = 70;
 
     public static string SettingsDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
@@ -111,12 +117,42 @@ public sealed class PetSettings
         }
     }
 
+    public PetSettings Clone()
+    {
+        return new PetSettings
+        {
+            Left = Left,
+            Top = Top,
+            Scale = Scale,
+            Topmost = Topmost,
+            ClickThrough = ClickThrough,
+            LaunchAtStartup = LaunchAtStartup,
+            LookAtMouse = LookAtMouse,
+            RandomIdleActions = RandomIdleActions,
+            IdleActionIntervalSeconds = IdleActionIntervalSeconds,
+            DesktopRoaming = DesktopRoaming,
+            RoamIntervalSeconds = RoamIntervalSeconds,
+            RoamSpeed = RoamSpeed
+        };
+    }
+
     private void Normalize()
     {
-        if (!double.IsFinite(Scale) || Scale <= 0)
+        if (!double.IsFinite(Scale))
         {
             Scale = 1.0;
         }
+
+        Scale = Math.Clamp(Scale, 0.5, 2.5);
+        IdleActionIntervalSeconds = Math.Clamp(IdleActionIntervalSeconds, 15, 120);
+        RoamIntervalSeconds = Math.Clamp(RoamIntervalSeconds, 20, 180);
+
+        if (!double.IsFinite(RoamSpeed))
+        {
+            RoamSpeed = 70;
+        }
+
+        RoamSpeed = Math.Clamp(RoamSpeed, 20, 160);
 
         if (Left.HasValue && !double.IsFinite(Left.Value))
         {

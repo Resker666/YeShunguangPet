@@ -4,10 +4,11 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using WinForms = System.Windows.Forms;
 using Drawing = System.Drawing;
+using WinForms = System.Windows.Forms;
 
 namespace YeShunguangPet;
 
@@ -18,11 +19,21 @@ public partial class MainWindow : Window
     private const double ScaleStep = 0.1;
     private const double LookRadius = 520;
     private const double LookDeadZone = 42;
+    private const double MinRoamDistance = 96;
+    private const double MaxRoamDistance = 420;
+
+    private const int SummonHotkeyId = 0x5911;
+    private const uint ModAlt = 0x0001;
+    private const uint ModControl = 0x0002;
+    private const uint ModNoRepeat = 0x4000;
+    private const uint VirtualKeyY = 0x59;
 
     private readonly PetSettings _settings;
     private readonly Dictionary<(int Row, int Column), BitmapSource> _frameCache = new();
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _ambientTimer;
+    private readonly DispatcherTimer _roamTimer;
+    private readonly Random _random = new();
 
     private BitmapSource? _spriteSheet;
     private PetAnimation _animation = PetAnimations.Get(PetState.Idle);
@@ -31,18 +42,32 @@ public partial class MainWindow : Window
     private int _lastLookDirection = -1;
     private bool _isLookMode;
     private bool _isDragging;
+    private bool _isMenuOpen;
+    private bool _isRoaming;
     private bool _isExiting;
     private bool _sourceReady;
+    private bool _summonHotkeyRegistered;
     private double _lastDragLeft;
+    private double _roamTargetLeft;
+    private int _roamDirection;
+    private DateTime _lastRoamTickUtc;
+    private DateTime _nextIdleActionUtc = DateTime.MaxValue;
+    private DateTime _nextRoamUtc = DateTime.MaxValue;
+    private HwndSource? _windowSource;
+    private SettingsWindow? _settingsWindow;
 
     private WinForms.NotifyIcon? _trayIcon;
     private Drawing.Icon? _applicationIcon;
     private WinForms.ToolStripMenuItem? _trayTopmostItem;
     private WinForms.ToolStripMenuItem? _trayClickThroughItem;
     private WinForms.ToolStripMenuItem? _trayStartupItem;
+    private WinForms.ToolStripMenuItem? _trayRandomIdleItem;
+    private WinForms.ToolStripMenuItem? _trayRoamingItem;
     private MenuItem? _windowTopmostItem;
     private MenuItem? _windowClickThroughItem;
     private MenuItem? _windowStartupItem;
+    private MenuItem? _windowRandomIdleItem;
+    private MenuItem? _windowRoamingItem;
 
     public MainWindow()
     {
@@ -60,6 +85,12 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(100)
         };
         _ambientTimer.Tick += AmbientTimer_Tick;
+
+        _roamTimer = new DispatcherTimer(DispatcherPriority.Render)
+        {
+            Interval = TimeSpan.FromMilliseconds(33)
+        };
+        _roamTimer.Tick += RoamTimer_Tick;
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -70,6 +101,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error("Failed to load sprite sheet.", ex);
             MessageBox.Show(ex.Message, "叶瞬光启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
             ExitApplication();
             return;
@@ -85,12 +117,30 @@ public partial class MainWindow : Window
 
         PlayAnimation(PetState.Idle, restart: true);
         _ambientTimer.Start();
+        AppLogger.Info("Main window loaded.");
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
     {
         _sourceReady = true;
         NativeMethods.SetClickThrough(this, _settings.ClickThrough);
+
+        _windowSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        _windowSource?.AddHook(WindowMessageHook);
+        _summonHotkeyRegistered = NativeMethods.RegisterGlobalHotKey(
+            this,
+            SummonHotkeyId,
+            ModControl | ModAlt | ModNoRepeat,
+            VirtualKeyY);
+
+        if (!_summonHotkeyRegistered)
+        {
+            AppLogger.Error("Failed to register Ctrl+Alt+Y summon hotkey.");
+        }
+        else
+        {
+            AppLogger.Info("Ctrl+Alt+Y summon hotkey registered.");
+        }
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
@@ -101,11 +151,12 @@ public partial class MainWindow : Window
         }
 
         e.Cancel = true;
-        Hide();
+        HidePet();
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        ReleaseNativeResources();
         _trayIcon?.Dispose();
         _applicationIcon?.Dispose();
         base.OnClosed(e);
@@ -125,6 +176,50 @@ public partial class MainWindow : Window
 
         Activate();
         NativeMethods.ActivateWindow(this);
+
+        if (_state == PetState.Idle && !_isRoaming)
+        {
+            EnsureIdleBehaviorSchedule();
+        }
+    }
+
+    public void RecallToPrimaryScreen()
+    {
+        StopRoaming(returnToIdle: false);
+
+        if (_settings.ClickThrough)
+        {
+            SetClickThrough(false);
+        }
+
+        ResetPosition();
+        ShowAndActivate();
+        PlayAnimation(PetState.Waving, restart: true);
+        AppLogger.Info("Pet recalled to the primary work area.");
+    }
+
+    internal void PrepareForApplicationShutdown()
+    {
+        _isExiting = true;
+        _isRoaming = false;
+        _roamTimer.Stop();
+        ReleaseNativeResources();
+    }
+
+    private IntPtr WindowMessageHook(
+        IntPtr hwnd,
+        int message,
+        IntPtr wParam,
+        IntPtr lParam,
+        ref bool handled)
+    {
+        if (message == NativeMethods.WmHotkey && wParam.ToInt32() == SummonHotkeyId)
+        {
+            RecallToPrimaryScreen();
+            handled = true;
+        }
+
+        return IntPtr.Zero;
     }
 
     private void LoadSpriteSheet()
@@ -185,6 +280,18 @@ public partial class MainWindow : Window
         ShowFrame(_animation.Row, _frameIndex);
         _frameTimer.Interval = CurrentFrameDuration();
         _frameTimer.Start();
+
+        if (state == PetState.Idle)
+        {
+            EnsureIdleBehaviorSchedule();
+        }
+    }
+
+    private void TriggerUserAnimation(PetState state)
+    {
+        ShowAndActivate();
+        StopRoaming(returnToIdle: false);
+        PlayAnimation(state, restart: true);
     }
 
     private void FrameTimer_Tick(object? sender, EventArgs e)
@@ -213,11 +320,44 @@ public partial class MainWindow : Window
 
     private void AmbientTimer_Tick(object? sender, EventArgs e)
     {
-        if (_isDragging || _state != PetState.Idle)
+        if (!IsVisible ||
+            _isDragging ||
+            _isMenuOpen ||
+            _isRoaming ||
+            _settingsWindow is not null ||
+            _state != PetState.Idle)
         {
             return;
         }
 
+        if (_settings.LookAtMouse && TryShowLookAtCursor())
+        {
+            return;
+        }
+
+        if (_isLookMode)
+        {
+            PlayAnimation(PetState.Idle, restart: true);
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (_settings.DesktopRoaming && now >= _nextRoamUtc)
+        {
+            StartRoaming();
+            return;
+        }
+
+        if (_settings.RandomIdleActions && now >= _nextIdleActionUtc)
+        {
+            _nextIdleActionUtc = DateTime.MaxValue;
+            var state = _random.Next(2) == 0 ? PetState.Waving : PetState.Jumping;
+            PlayAnimation(state, restart: true);
+        }
+    }
+
+    private bool TryShowLookAtCursor()
+    {
         var cursor = WinForms.Cursor.Position;
         var center = PointToScreen(new Point(ActualWidth / 2, ActualHeight / 2));
         var dx = cursor.X - center.X;
@@ -226,15 +366,11 @@ public partial class MainWindow : Window
 
         if (distance < LookDeadZone || distance > LookRadius)
         {
-            if (_isLookMode)
-            {
-                PlayAnimation(PetState.Idle, restart: true);
-            }
-
-            return;
+            return false;
         }
 
         ShowLookDirection(ComputeLookDirection(dx, dy));
+        return true;
     }
 
     private static int ComputeLookDirection(double dx, double dy)
@@ -298,6 +434,149 @@ public partial class MainWindow : Window
         return frame;
     }
 
+    private void ResetIdleBehaviorSchedule()
+    {
+        var now = DateTime.UtcNow;
+        _nextIdleActionUtc = _settings.RandomIdleActions
+            ? now + RandomizedDelay(_settings.IdleActionIntervalSeconds)
+            : DateTime.MaxValue;
+        _nextRoamUtc = _settings.DesktopRoaming
+            ? now + RandomizedDelay(_settings.RoamIntervalSeconds)
+            : DateTime.MaxValue;
+    }
+
+    private void EnsureIdleBehaviorSchedule()
+    {
+        var now = DateTime.UtcNow;
+
+        if (!_settings.RandomIdleActions)
+        {
+            _nextIdleActionUtc = DateTime.MaxValue;
+        }
+        else if (_nextIdleActionUtc == DateTime.MaxValue || _nextIdleActionUtc <= now)
+        {
+            _nextIdleActionUtc = now + RandomizedDelay(_settings.IdleActionIntervalSeconds);
+        }
+
+        if (!_settings.DesktopRoaming)
+        {
+            _nextRoamUtc = DateTime.MaxValue;
+        }
+        else if (_nextRoamUtc == DateTime.MaxValue || _nextRoamUtc <= now)
+        {
+            _nextRoamUtc = now + RandomizedDelay(_settings.RoamIntervalSeconds);
+        }
+    }
+
+    private TimeSpan RandomizedDelay(double baseSeconds)
+    {
+        var factor = 0.75 + _random.NextDouble() * 0.5;
+        return TimeSpan.FromSeconds(baseSeconds * factor);
+    }
+
+    private void StartRoaming()
+    {
+        var workArea = GetCurrentWorkAreaInDips();
+        var minimumLeft = workArea.Left;
+        var maximumLeft = Math.Max(minimumLeft, workArea.Right - Width);
+        Left = Math.Clamp(Left, minimumLeft, maximumLeft);
+
+        var leftSpace = Left - minimumLeft;
+        var rightSpace = maximumLeft - Left;
+        if (leftSpace < 24 && rightSpace < 24)
+        {
+            _nextRoamUtc = DateTime.MaxValue;
+            EnsureIdleBehaviorSchedule();
+            return;
+        }
+
+        if (leftSpace >= MinRoamDistance && rightSpace >= MinRoamDistance)
+        {
+            _roamDirection = _random.Next(2) == 0 ? -1 : 1;
+        }
+        else
+        {
+            _roamDirection = rightSpace >= leftSpace ? 1 : -1;
+        }
+
+        var availableDistance = _roamDirection > 0 ? rightSpace : leftSpace;
+        var minimumDistance = Math.Min(MinRoamDistance, availableDistance);
+        var maximumDistance = Math.Min(MaxRoamDistance, availableDistance);
+        var distance = minimumDistance + _random.NextDouble() * Math.Max(0, maximumDistance - minimumDistance);
+
+        _roamTargetLeft = Left + _roamDirection * distance;
+        _lastRoamTickUtc = DateTime.UtcNow;
+        _isRoaming = true;
+        _nextRoamUtc = DateTime.MaxValue;
+        PlayAnimation(_roamDirection > 0 ? PetState.RunningRight : PetState.RunningLeft, restart: true);
+        _roamTimer.Start();
+    }
+
+    private void RoamTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!_isRoaming || !_settings.DesktopRoaming || !IsVisible)
+        {
+            StopRoaming(returnToIdle: true);
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var elapsedSeconds = Math.Min(0.1, (now - _lastRoamTickUtc).TotalSeconds);
+        _lastRoamTickUtc = now;
+
+        var nextLeft = Left + _roamDirection * _settings.RoamSpeed * elapsedSeconds;
+        var reachedTarget = _roamDirection > 0
+            ? nextLeft >= _roamTargetLeft
+            : nextLeft <= _roamTargetLeft;
+
+        Left = reachedTarget ? _roamTargetLeft : nextLeft;
+        if (reachedTarget)
+        {
+            StopRoaming(returnToIdle: true);
+        }
+    }
+
+    private void StopRoaming(bool returnToIdle)
+    {
+        if (!_isRoaming)
+        {
+            return;
+        }
+
+        _isRoaming = false;
+        _roamTimer.Stop();
+        EnsureWindowInWorkArea();
+        SaveWindowPosition();
+
+        if (returnToIdle && !_isDragging)
+        {
+            PlayAnimation(PetState.Idle, restart: true);
+        }
+    }
+
+    private Rect GetCurrentWorkAreaInDips()
+    {
+        if (!NativeMethods.TryGetWindowWorkArea(this, out var nativeArea))
+        {
+            return SystemParameters.WorkArea;
+        }
+
+        try
+        {
+            var relativeTopLeft = PointFromScreen(new Point(nativeArea.Left, nativeArea.Top));
+            var relativeBottomRight = PointFromScreen(new Point(nativeArea.Right, nativeArea.Bottom));
+            return new Rect(
+                Left + relativeTopLeft.X,
+                Top + relativeTopLeft.Y,
+                Math.Max(0, relativeBottomRight.X - relativeTopLeft.X),
+                Math.Max(0, relativeBottomRight.Y - relativeTopLeft.Y));
+        }
+        catch (InvalidOperationException)
+        {
+            return SystemParameters.WorkArea;
+        }
+    }
+
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_settings.ClickThrough || e.ChangedButton != MouseButton.Left)
@@ -305,6 +584,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        StopRoaming(returnToIdle: false);
         _isDragging = true;
         _lastDragLeft = Left;
         PlayAnimation(PetState.RunningRight, restart: true);
@@ -355,17 +635,19 @@ public partial class MainWindow : Window
     private void BuildWindowContextMenu()
     {
         var menu = new ContextMenu();
-        menu.Items.Add(CreateMenuItem("待机", (_, _) => PlayAnimation(PetState.Idle, restart: true)));
-        menu.Items.Add(CreateMenuItem("打招呼", (_, _) => PlayAnimation(PetState.Waving, restart: true)));
-        menu.Items.Add(CreateMenuItem("跳一下", (_, _) => PlayAnimation(PetState.Jumping, restart: true)));
-        menu.Items.Add(CreateMenuItem("工作中", (_, _) => PlayAnimation(PetState.Running, restart: true)));
-        menu.Items.Add(CreateMenuItem("等待确认", (_, _) => PlayAnimation(PetState.Waiting, restart: true)));
-        menu.Items.Add(CreateMenuItem("检查成果", (_, _) => PlayAnimation(PetState.Review, restart: true)));
-        menu.Items.Add(CreateMenuItem("失败一下", (_, _) => PlayAnimation(PetState.Failed, restart: true)));
+        menu.Items.Add(CreateMenuItem("设置...", (_, _) => Dispatcher.BeginInvoke(OpenSettings)));
         menu.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("待机", (_, _) => TriggerUserAnimation(PetState.Idle)));
+        menu.Items.Add(CreateMenuItem("打招呼", (_, _) => TriggerUserAnimation(PetState.Waving)));
+        menu.Items.Add(CreateMenuItem("跳一下", (_, _) => TriggerUserAnimation(PetState.Jumping)));
+        menu.Items.Add(CreateMenuItem("工作中", (_, _) => TriggerUserAnimation(PetState.Running)));
+        menu.Items.Add(CreateMenuItem("等待确认", (_, _) => TriggerUserAnimation(PetState.Waiting)));
+        menu.Items.Add(CreateMenuItem("检查成果", (_, _) => TriggerUserAnimation(PetState.Review)));
+        menu.Items.Add(CreateMenuItem("失败一下", (_, _) => TriggerUserAnimation(PetState.Failed)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("召回主屏幕", (_, _) => RecallToPrimaryScreen(), "Ctrl+Alt+Y"));
         menu.Items.Add(CreateMenuItem("放大", (_, _) => ChangeScale(ScaleStep)));
         menu.Items.Add(CreateMenuItem("缩小", (_, _) => ChangeScale(-ScaleStep)));
-        menu.Items.Add(CreateMenuItem("重置位置", (_, _) => ResetPosition()));
         menu.Items.Add(new Separator());
 
         _windowTopmostItem = CreateCheckMenuItem("总在最前", _settings.Topmost, (_, _) =>
@@ -386,6 +668,24 @@ public partial class MainWindow : Window
         });
         menu.Items.Add(_windowClickThroughItem);
 
+        _windowRandomIdleItem = CreateCheckMenuItem("随机待机", _settings.RandomIdleActions, (_, _) =>
+        {
+            if (_windowRandomIdleItem is not null)
+            {
+                SetRandomIdle(_windowRandomIdleItem.IsChecked);
+            }
+        });
+        menu.Items.Add(_windowRandomIdleItem);
+
+        _windowRoamingItem = CreateCheckMenuItem("桌面走动", _settings.DesktopRoaming, (_, _) =>
+        {
+            if (_windowRoamingItem is not null)
+            {
+                SetDesktopRoaming(_windowRoamingItem.IsChecked);
+            }
+        });
+        menu.Items.Add(_windowRoamingItem);
+
         _windowStartupItem = CreateCheckMenuItem("开机启动", _settings.LaunchAtStartup, (_, _) =>
         {
             if (_windowStartupItem is not null)
@@ -396,14 +696,20 @@ public partial class MainWindow : Window
         menu.Items.Add(_windowStartupItem);
 
         menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("隐藏", (_, _) => Hide()));
+        menu.Items.Add(CreateMenuItem("隐藏", (_, _) => HidePet()));
         menu.Items.Add(CreateMenuItem("退出", (_, _) => ExitApplication()));
+        menu.Opened += (_, _) => BeginMenuInteraction();
+        menu.Closed += (_, _) => EndMenuInteraction();
         ContextMenu = menu;
     }
 
-    private static MenuItem CreateMenuItem(string header, RoutedEventHandler click)
+    private static MenuItem CreateMenuItem(string header, RoutedEventHandler click, string? gesture = null)
     {
-        var item = new MenuItem { Header = header };
+        var item = new MenuItem
+        {
+            Header = header,
+            InputGestureText = gesture ?? string.Empty
+        };
         item.Click += click;
         return item;
     }
@@ -423,10 +729,14 @@ public partial class MainWindow : Window
     private void CreateTrayIcon()
     {
         var menu = new WinForms.ContextMenuStrip();
+        menu.Opening += (_, _) => Dispatcher.Invoke(BeginMenuInteraction);
+        menu.Closed += (_, _) => Dispatcher.Invoke(EndMenuInteraction);
+        menu.Items.Add("设置...", null, (_, _) => Dispatcher.BeginInvoke(OpenSettings));
         menu.Items.Add("显示/隐藏", null, (_, _) => Dispatcher.Invoke(ToggleVisibility));
-        menu.Items.Add("待机", null, (_, _) => Dispatcher.Invoke(() => PlayAnimation(PetState.Idle, restart: true)));
-        menu.Items.Add("打招呼", null, (_, _) => Dispatcher.Invoke(() => PlayAnimation(PetState.Waving, restart: true)));
-        menu.Items.Add("重置位置", null, (_, _) => Dispatcher.Invoke(ResetPosition));
+        menu.Items.Add("召回主屏幕 (Ctrl+Alt+Y)", null, (_, _) => Dispatcher.Invoke(RecallToPrimaryScreen));
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("待机", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Idle)));
+        menu.Items.Add("打招呼", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Waving)));
         menu.Items.Add(new WinForms.ToolStripSeparator());
 
         _trayTopmostItem = new WinForms.ToolStripMenuItem("总在最前")
@@ -444,6 +754,22 @@ public partial class MainWindow : Window
         };
         _trayClickThroughItem.Click += (_, _) => Dispatcher.Invoke(() => SetClickThrough(_trayClickThroughItem.Checked));
         menu.Items.Add(_trayClickThroughItem);
+
+        _trayRandomIdleItem = new WinForms.ToolStripMenuItem("随机待机")
+        {
+            CheckOnClick = true,
+            Checked = _settings.RandomIdleActions
+        };
+        _trayRandomIdleItem.Click += (_, _) => Dispatcher.Invoke(() => SetRandomIdle(_trayRandomIdleItem.Checked));
+        menu.Items.Add(_trayRandomIdleItem);
+
+        _trayRoamingItem = new WinForms.ToolStripMenuItem("桌面走动")
+        {
+            CheckOnClick = true,
+            Checked = _settings.DesktopRoaming
+        };
+        _trayRoamingItem.Click += (_, _) => Dispatcher.Invoke(() => SetDesktopRoaming(_trayRoamingItem.Checked));
+        menu.Items.Add(_trayRoamingItem);
 
         _trayStartupItem = new WinForms.ToolStripMenuItem("开机启动")
         {
@@ -466,11 +792,113 @@ public partial class MainWindow : Window
         _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ToggleVisibility);
     }
 
+    private void OpenSettings()
+    {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        ShowAndActivate();
+        StopRoaming(returnToIdle: true);
+
+        var dialog = new SettingsWindow(_settings, _summonHotkeyRegistered)
+        {
+            Owner = this
+        };
+
+        PetSettings? result = null;
+        _settingsWindow = dialog;
+        try
+        {
+            if (dialog.ShowDialog() == true)
+            {
+                result = dialog.Result;
+            }
+        }
+        finally
+        {
+            _settingsWindow = null;
+        }
+
+        if (result is not null)
+        {
+            ApplySettings(result);
+        }
+        else if (_state == PetState.Idle)
+        {
+            EnsureIdleBehaviorSchedule();
+        }
+    }
+
+    private void BeginMenuInteraction()
+    {
+        _isMenuOpen = true;
+        StopRoaming(returnToIdle: true);
+    }
+
+    private void EndMenuInteraction()
+    {
+        _isMenuOpen = false;
+        if (_state == PetState.Idle)
+        {
+            EnsureIdleBehaviorSchedule();
+        }
+    }
+
+    private void ApplySettings(PetSettings updated)
+    {
+        StopRoaming(returnToIdle: false);
+
+        if (updated.LaunchAtStartup != _settings.LaunchAtStartup)
+        {
+            try
+            {
+                PetSettings.SetLaunchAtStartup(updated.LaunchAtStartup);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Failed to update launch-at-startup setting.", ex);
+                MessageBox.Show(ex.Message, "开机启动设置失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        var centerX = Left + Width / 2;
+        var centerY = Top + Height / 2;
+        _settings.Scale = updated.Scale;
+        _settings.Topmost = updated.Topmost;
+        _settings.ClickThrough = updated.ClickThrough;
+        _settings.LaunchAtStartup = PetSettings.IsLaunchAtStartupEnabled();
+        _settings.LookAtMouse = updated.LookAtMouse;
+        _settings.RandomIdleActions = updated.RandomIdleActions;
+        _settings.IdleActionIntervalSeconds = updated.IdleActionIntervalSeconds;
+        _settings.DesktopRoaming = updated.DesktopRoaming;
+        _settings.RoamIntervalSeconds = updated.RoamIntervalSeconds;
+        _settings.RoamSpeed = updated.RoamSpeed;
+
+        ApplyScale(_settings.Scale, save: false);
+        Left = centerX - Width / 2;
+        Top = centerY - Height / 2;
+        Topmost = _settings.Topmost;
+        if (_sourceReady)
+        {
+            NativeMethods.SetClickThrough(this, _settings.ClickThrough);
+        }
+
+        EnsureWindowInWorkArea();
+        SaveWindowPosition();
+        UpdateMenuChecks();
+        ResetIdleBehaviorSchedule();
+        PlayAnimation(PetState.Idle, restart: true);
+        AppLogger.Info("Settings updated.");
+    }
+
     private void ToggleVisibility()
     {
         if (IsVisible)
         {
-            Hide();
+            HidePet();
         }
         else
         {
@@ -478,11 +906,17 @@ public partial class MainWindow : Window
         }
     }
 
+    private void HidePet()
+    {
+        StopRoaming(returnToIdle: true);
+        Hide();
+    }
+
     private void ChangeScale(double delta)
     {
         var centerX = Left + Width / 2;
         var centerY = Top + Height / 2;
-        ApplyScale(_settings.Scale + delta, save: true);
+        ApplyScale(_settings.Scale + delta, save: false);
         Left = centerX - Width / 2;
         Top = centerY - Height / 2;
         EnsureWindowInWorkArea();
@@ -523,6 +957,27 @@ public partial class MainWindow : Window
         UpdateMenuChecks();
     }
 
+    private void SetRandomIdle(bool enabled)
+    {
+        _settings.RandomIdleActions = enabled;
+        _settings.Save();
+        ResetIdleBehaviorSchedule();
+        UpdateMenuChecks();
+    }
+
+    private void SetDesktopRoaming(bool enabled)
+    {
+        _settings.DesktopRoaming = enabled;
+        if (!enabled)
+        {
+            StopRoaming(returnToIdle: true);
+        }
+
+        _settings.Save();
+        ResetIdleBehaviorSchedule();
+        UpdateMenuChecks();
+    }
+
     private void SetLaunchAtStartup(bool enabled)
     {
         try
@@ -533,6 +988,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error("Failed to update launch-at-startup setting.", ex);
             MessageBox.Show(ex.Message, "开机启动设置失败", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
@@ -551,6 +1007,16 @@ public partial class MainWindow : Window
             _windowClickThroughItem.IsChecked = _settings.ClickThrough;
         }
 
+        if (_windowRandomIdleItem is not null)
+        {
+            _windowRandomIdleItem.IsChecked = _settings.RandomIdleActions;
+        }
+
+        if (_windowRoamingItem is not null)
+        {
+            _windowRoamingItem.IsChecked = _settings.DesktopRoaming;
+        }
+
         if (_windowStartupItem is not null)
         {
             _windowStartupItem.IsChecked = _settings.LaunchAtStartup;
@@ -564,6 +1030,16 @@ public partial class MainWindow : Window
         if (_trayClickThroughItem is not null)
         {
             _trayClickThroughItem.Checked = _settings.ClickThrough;
+        }
+
+        if (_trayRandomIdleItem is not null)
+        {
+            _trayRandomIdleItem.Checked = _settings.RandomIdleActions;
+        }
+
+        if (_trayRoamingItem is not null)
+        {
+            _trayRoamingItem.Checked = _settings.DesktopRoaming;
         }
 
         if (_trayStartupItem is not null)
@@ -598,20 +1074,37 @@ public partial class MainWindow : Window
                 _applicationIcon = Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            AppLogger.Error("Failed to load application icon.", ex);
             _applicationIcon = null;
         }
 
         return _applicationIcon ?? Drawing.SystemIcons.Application;
     }
 
+    private void ReleaseNativeResources()
+    {
+        if (_summonHotkeyRegistered)
+        {
+            NativeMethods.UnregisterGlobalHotKey(this, SummonHotkeyId);
+            _summonHotkeyRegistered = false;
+        }
+
+        _windowSource?.RemoveHook(WindowMessageHook);
+        _windowSource = null;
+    }
+
     private void ExitApplication()
     {
         _isExiting = true;
+        StopRoaming(returnToIdle: false);
         _frameTimer.Stop();
         _ambientTimer.Stop();
+        _roamTimer.Stop();
         SaveWindowPosition();
+        ReleaseNativeResources();
+        AppLogger.Info("Exit requested by user.");
 
         if (_trayIcon is not null)
         {

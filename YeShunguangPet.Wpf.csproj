@@ -8,10 +8,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>YeShunguangPet</AssemblyName>
     <RootNamespace>YeShunguangPet</RootNamespace>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
-    <InformationalVersion>1.0.1</InformationalVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <InformationalVersion>1.1.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyTitle>叶瞬光桌面宠物</AssemblyTitle>
     <Authors>Resker666</Authors>
@@ -30,5 +30,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\spritesheet.png" />
+    <Resource Include="Assets\YeShunguangPet.ico" />
+    <Resource Include="docs\idle-preview.png" />
   </ItemGroup>
 </Project>

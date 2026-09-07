@@ -15,6 +15,8 @@ internal static class NativeMethods
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
 
+    public const int WmHotkey = 0x0312;
+
     public static void SetClickThrough(Window window, bool enabled)
     {
         var hwnd = new WindowInteropHelper(window).Handle;
@@ -38,6 +40,53 @@ internal static class NativeMethods
         {
             SetForegroundWindow(hwnd);
         }
+    }
+
+    public static bool RegisterGlobalHotKey(Window window, int id, uint modifiers, uint virtualKey)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        return hwnd != IntPtr.Zero && RegisterHotKey(hwnd, id, modifiers, virtualKey);
+    }
+
+    public static void UnregisterGlobalHotKey(Window window, int id)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd != IntPtr.Zero)
+        {
+            UnregisterHotKey(hwnd, id);
+        }
+    }
+
+    public static bool TryGetWindowWorkArea(Window window, out NativeWorkArea workArea)
+    {
+        workArea = default;
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
+        if (monitor == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var monitorInfo = new MonitorInfo
+        {
+            Size = Marshal.SizeOf<MonitorInfo>()
+        };
+        if (!GetMonitorInfo(monitor, ref monitorInfo))
+        {
+            return false;
+        }
+
+        workArea = new NativeWorkArea(
+            monitorInfo.WorkArea.Left,
+            monitorInfo.WorkArea.Top,
+            monitorInfo.WorkArea.Right,
+            monitorInfo.WorkArea.Bottom);
+        return true;
     }
 
     public static bool EnsureWindowInWorkArea(Window window)
@@ -131,10 +180,21 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint virtualKey);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool UnregisterHotKey(IntPtr hwnd, int id);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromRect(ref NativeRect rect, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -169,3 +229,5 @@ internal static class NativeMethods
         public uint Flags;
     }
 }
+
+internal readonly record struct NativeWorkArea(int Left, int Top, int Right, int Bottom);
