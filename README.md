@@ -1,6 +1,6 @@
 # 叶瞬光桌面宠物
 
-一个不依赖 Codex 的 Windows WPF 桌面助手。程序内置动画精灵图，下载后可以离线运行，不需要 API key，也不会连接网络。
+一个不依赖 Codex 的 Windows WPF 桌面助手。程序从本地皮肤包读取动画，随附叶瞬光，可以离线运行，不需要 API key。
 
 <p align="center">
   <img src="docs/idle-preview.png" width="192" height="208" alt="叶瞬光待机动画预览">
@@ -16,6 +16,7 @@
 - 不需要管理员权限。
 - 不需要安装 .NET、Codex 或其他运行库。
 - 建议先解压再运行，不要直接在压缩包预览窗口中启动。
+- 从 v1.2.0 起，EXE 和旁边的 `Pets` 文件夹必须一起保留；升级时解压完整 ZIP，不能只替换 EXE。
 
 当前程序没有商业代码签名。Windows 可能显示“Windows 已保护你的电脑”或“未知发布者”。请先确认文件来自本仓库的 Release，并核对同一 Release 中的 SHA256 文件；只有在来源和哈希都正确时再决定是否运行。
 
@@ -45,9 +46,23 @@
 - 可选桌面横向走动、走动间隔和速度
 - `Ctrl + Alt + Y` 全局召回快捷键
 - 常规、行为和关于设置页面
+- 皮肤选择、动作预览、导入与刷新，保存后即时切换
+- 外部 `pet.json` 动作参数与 PNG 精灵图，无需重新编译即可增加角色
 - 本地故障日志与日志目录入口
 - 单实例运行，重复启动会唤醒已有窗口
 - 多显示器位置保护和 Per-Monitor V2 DPI 支持
+
+## 用 AI 制作自己的角色
+
+完整教程：[用 AI 制作角色皮肤：步骤与可直接使用的提示词](docs/AI_SKIN_GUIDE.md)。
+
+1. 准备角色的全身参考图、脸部细节和风格要求。
+2. 将 [皮肤格式文档](docs/PET_FORMAT.md) 和 [默认 pet.json](Pets/YeShunguang/pet.json) 一起提供给 AI，使用教程中的提示词。
+3. 先确认角色外观，再生成各动作、组装透明精灵图，并查看播放预览。
+4. 获取同一文件夹中的 `pet.json` 与 `spritesheet.png`。若收到 ZIP，先解压。
+5. 打开“设置 → 皮肤 → 导入皮肤”，选择新角色的 `pet.json`，预览后点击“保存”。
+
+制作完整皮肤需要图片生成和文件处理能力。桌宠的导入功能负责读取制作完成的皮肤包，单张立绘不会自动变成动画。默认叶瞬光的 JSON 可作为技术模板，其他角色的外观应使用自己的参考图。
 
 ## 常见问题
 
@@ -80,7 +95,7 @@
 
 ## 精灵图约定
 
-当前版本使用固定的 8 列 x 11 行帧表，每格为 `192 x 208`：
+皮肤结构和动作参数由 `pet.json` 定义。默认叶瞬光位于 `Pets/YeShunguang/`，沿用 8 列 x 11 行、每格 `192 x 208` 的原始精灵图：
 
 | 行 | 状态 | 使用列 |
 | --- | --- | --- |
@@ -95,6 +110,10 @@
 | 8 | 检查成果 | 0-5 |
 | 9 | 看向方向 000 到 157.5 | 0-7 |
 | 10 | 看向方向 180 到 337.5 | 0-7 |
+
+其他皮肤可以采用不同的行列、单元格尺寸、帧数和播放时长。在“设置 → 皮肤 → 导入皮肤”中选择新皮肤的 `pet.json`，预览后保存即可切换。导入的文件保存在 `%APPDATA%\YeShunguangPet\Pets`，升级程序不会覆盖。
+
+格式、最小示例和动作说明见 [皮肤包格式](docs/PET_FORMAT.md)。仅有单张普通 PNG 不足以导入，还需描述帧位置的清单。
 
 ## 开发与构建
 
@@ -116,7 +135,13 @@
 .\scripts\package-release.ps1
 ```
 
-成品位于 `artifacts`。推送与项目版本匹配的标签（例如 `v1.1.0`）后，GitHub Actions 也会自动构建并创建对应 Release。
+成品位于 `artifacts`。推送与项目版本匹配的标签（例如 `v1.2.0`）后，GitHub Actions 会验证皮肤加载与导入，再自动构建并创建对应 Release。
+
+本地运行皮肤测试：
+
+```powershell
+dotnet run --project tests/PetTests.csproj --configuration Release -- .
+```
 
 发布脚本会先验证原始精灵图 SHA256。只要精灵图发生任何字节变化，构建就会停止。
 
@@ -126,4 +151,4 @@
 
 ## 许可与素材
 
-本项目自行编写的源代码使用 [MIT License](LICENSE)。该许可不适用于 `Assets/spritesheet.png`、`Assets/YeShunguangPet.ico`、叶瞬光角色形象、名称或其他第三方素材；详细边界见 [ASSET_NOTICE.md](ASSET_NOTICE.md)。
+本项目自行编写的源代码使用 [MIT License](LICENSE)。该许可不适用于 `Pets/YeShunguang/spritesheet.png`、`Assets/YeShunguangPet.ico`、叶瞬光角色形象、名称或其他第三方素材；详细边界见 [ASSET_NOTICE.md](ASSET_NOTICE.md)。

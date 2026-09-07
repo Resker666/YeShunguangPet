@@ -4,7 +4,7 @@
 
 以下内容不包含在本仓库的 MIT License 中：
 
-- `Assets/spritesheet.png`
+- `Pets/YeShunguang/spritesheet.png`（v1.1.0 及以前位于 `Assets/spritesheet.png`）
 - 由该精灵图制作的 `Assets/YeShunguangPet.ico`
 - 由该精灵图组装的 `docs/idle-preview.png`
 - “叶瞬光”“绝区零”等角色、作品名称和相关视觉设计

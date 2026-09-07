@@ -33,6 +33,18 @@ if (-not (Test-Path -LiteralPath $Executable)) {
     throw "Published executable was not found: $Executable"
 }
 
+$PublishedPet = Join-Path $PublishDir "Pets\YeShunguang"
+$PublishedManifest = Join-Path $PublishedPet "pet.json"
+$PublishedSprite = Join-Path $PublishedPet "spritesheet.png"
+if (-not (Test-Path -LiteralPath $PublishedManifest) -or -not (Test-Path -LiteralPath $PublishedSprite)) {
+    throw "Published default skin is missing. Do not distribute the EXE without Pets."
+}
+foreach ($Name in @("pet.json", "spritesheet.png")) {
+    $SourceHash = (Get-FileHash -LiteralPath (Join-Path $ProjectRoot "Pets\YeShunguang\$Name")).Hash
+    $PublishedHash = (Get-FileHash -LiteralPath (Join-Path $PublishedPet $Name)).Hash
+    if ($SourceHash -ne $PublishedHash) { throw "Published skin differs from source: $Name" }
+}
+
 $ArtifactsDir = Join-Path $ProjectRoot "artifacts"
 New-Item -ItemType Directory -Force -Path $ArtifactsDir | Out-Null
 
@@ -41,6 +53,7 @@ $ArchivePath = Join-Path $ArtifactsDir $ArchiveName
 $ChecksumPath = Join-Path $ArtifactsDir "$ArchiveName.sha256.txt"
 $PackageFiles = @(
     $Executable,
+    (Join-Path $PublishDir "Pets"),
     (Join-Path $ProjectRoot "README.md"),
     (Join-Path $ProjectRoot "CHANGELOG.md"),
     (Join-Path $ProjectRoot "LICENSE"),

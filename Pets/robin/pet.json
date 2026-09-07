@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "id": "robin",
+  "name": "知更鸟",
+  "description": "来自匹诺康尼、优雅温柔的 Q 版歌者助手",
+  "spriteSheet": "spritesheet.png",
+  "cellWidth": 192,
+  "cellHeight": 208,
+  "columns": 8,
+  "rows": 11,
+  "animations": {
+    "idle": {
+      "row": 0,
+      "startColumn": 0,
+      "durationsMs": [
+        280,
+        110,
+        110,
+        140,
+        140,
+        320
+      ],
+      "loop": true
+    },
+    "runningRight": {
+      "row": 1,
+      "startColumn": 0,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        220
+      ],
+      "loop": true
+    },
+    "runningLeft": {
+      "row": 2,
+      "startColumn": 0,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        220
+      ],
+      "loop": true
+    },
+    "waving": {
+      "row": 3,
+      "startColumn": 0,
+      "durationsMs": [
+        140,
+        140,
+        140,
+        280
+      ],
+      "loop": false
+    },
+    "jumping": {
+      "row": 4,
+      "startColumn": 0,
+      "durationsMs": [
+        140,
+        140,
+        140,
+        140,
+        280
+      ],
+      "loop": false
+    },
+    "failed": {
+      "row": 5,
+      "startColumn": 0,
+      "durationsMs": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        240
+      ],
+      "loop": false
+    },
+    "waiting": {
+      "row": 6,
+      "startColumn": 0,
+      "durationsMs": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        260
+      ],
+      "loop": true
+    },
+    "running": {
+      "row": 7,
+      "startColumn": 0,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        220
+      ],
+      "loop": true
+    },
+    "review": {
+      "row": 8,
+      "startColumn": 0,
+      "durationsMs": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        280
+      ],
+      "loop": true
+    }
+  },
+  "lookDirections": [
+    {
+      "row": 9,
+      "column": 0
+    },
+    {
+      "row": 9,
+      "column": 1
+    },
+    {
+      "row": 9,
+      "column": 2
+    },
+    {
+      "row": 9,
+      "column": 3
+    },
+    {
+      "row": 9,
+      "column": 4
+    },
+    {
+      "row": 9,
+      "column": 5
+    },
+    {
+      "row": 9,
+      "column": 6
+    },
+    {
+      "row": 9,
+      "column": 7
+    },
+    {
+      "row": 10,
+      "column": 0
+    },
+    {
+      "row": 10,
+      "column": 1
+    },
+    {
+      "row": 10,
+      "column": 2
+    },
+    {
+      "row": 10,
+      "column": 3
+    },
+    {
+      "row": 10,
+      "column": 4
+    },
+    {
+      "row": 10,
+      "column": 5
+    },
+    {
+      "row": 10,
+      "column": 6
+    },
+    {
+      "row": 10,
+      "column": 7
+    }
+  ]
+}

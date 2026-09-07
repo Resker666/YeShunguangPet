@@ -39,6 +39,10 @@ jobs:
         shell: pwsh
         run: .\scripts\package-release.ps1
 
+      - name: Test skin packages
+        shell: pwsh
+        run: dotnet run --project tests/PetTests.csproj --configuration Release -- .
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:

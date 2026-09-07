@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -29,14 +30,15 @@ public partial class MainWindow : Window
     private const uint VirtualKeyY = 0x59;
 
     private readonly PetSettings _settings;
+    private readonly PetCatalog _petCatalog = new();
     private readonly Dictionary<(int Row, int Column), BitmapSource> _frameCache = new();
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _ambientTimer;
     private readonly DispatcherTimer _roamTimer;
     private readonly Random _random = new();
 
-    private BitmapSource? _spriteSheet;
-    private PetAnimation _animation = PetAnimations.Get(PetState.Idle);
+    private PetPackage _pet = null!;
+    private PetAnimation _animation = null!;
     private PetState _state = PetState.Idle;
     private int _frameIndex;
     private int _lastLookDirection = -1;
@@ -97,7 +99,11 @@ public partial class MainWindow : Window
     {
         try
         {
-            LoadSpriteSheet();
+            _pet = _petCatalog.LoadPreferred(_settings.SelectedPetId, out var fallback);
+            _settings.SelectedPetId = _pet.Manifest.Id;
+            Title = _pet.Manifest.Name;
+            if (fallback is not null)
+                MessageBox.Show(fallback, "皮肤已恢复", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
@@ -113,6 +119,7 @@ public partial class MainWindow : Window
         Topmost = _settings.Topmost;
         SetInitialPosition();
         EnsureWindowInWorkArea();
+        SaveWindowPosition();
         UpdateMenuChecks();
 
         PlayAnimation(PetState.Idle, restart: true);
@@ -203,6 +210,8 @@ public partial class MainWindow : Window
         _isExiting = true;
         _isRoaming = false;
         _roamTimer.Stop();
+        _frameTimer.Stop();
+        _ambientTimer.Stop();
         ReleaseNativeResources();
     }
 
@@ -220,27 +229,6 @@ public partial class MainWindow : Window
         }
 
         return IntPtr.Zero;
-    }
-
-    private void LoadSpriteSheet()
-    {
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
-        bitmap.UriSource = new Uri("pack://application:,,,/Assets/spritesheet.png", UriKind.Absolute);
-        bitmap.EndInit();
-        bitmap.Freeze();
-
-        var expectedWidth = PetAnimations.Columns * PetAnimations.CellWidth;
-        var expectedHeight = PetAnimations.Rows * PetAnimations.CellHeight;
-        if (bitmap.PixelWidth != expectedWidth || bitmap.PixelHeight != expectedHeight)
-        {
-            throw new InvalidOperationException(
-                $"精灵图尺寸应为 {expectedWidth} x {expectedHeight}，当前是 {bitmap.PixelWidth} x {bitmap.PixelHeight}。");
-        }
-
-        _spriteSheet = bitmap;
     }
 
     private void SetInitialPosition()
@@ -266,18 +254,19 @@ public partial class MainWindow : Window
 
     private void PlayAnimation(PetState state, bool restart = false)
     {
+        if (!_pet.Supports(state)) state = PetState.Idle;
         if (!restart && !_isLookMode && _state == state)
         {
             return;
         }
 
         _state = state;
-        _animation = PetAnimations.Get(state);
+        _animation = _pet.GetAnimation(state);
         _frameIndex = 0;
         _isLookMode = false;
         _lastLookDirection = -1;
 
-        ShowFrame(_animation.Row, _frameIndex);
+        ShowFrame(_animation.Row, _animation.StartColumn + _frameIndex);
         _frameTimer.Interval = CurrentFrameDuration();
         _frameTimer.Start();
 
@@ -308,7 +297,7 @@ public partial class MainWindow : Window
         }
 
         _frameIndex = (_frameIndex + 1) % _animation.FrameCount;
-        ShowFrame(_animation.Row, _frameIndex);
+        ShowFrame(_animation.Row, _animation.StartColumn + _frameIndex);
         _frameTimer.Interval = CurrentFrameDuration();
     }
 
@@ -330,7 +319,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_settings.LookAtMouse && TryShowLookAtCursor())
+        if (_settings.LookAtMouse && _pet.CanLook && TryShowLookAtCursor())
         {
             return;
         }
@@ -342,16 +331,16 @@ public partial class MainWindow : Window
         }
 
         var now = DateTime.UtcNow;
-        if (_settings.DesktopRoaming && now >= _nextRoamUtc)
+        if (_settings.DesktopRoaming && _pet.CanRoam && now >= _nextRoamUtc)
         {
             StartRoaming();
             return;
         }
 
-        if (_settings.RandomIdleActions && now >= _nextIdleActionUtc)
+        if (_settings.RandomIdleActions && _pet.RandomActions.Length > 0 && now >= _nextIdleActionUtc)
         {
             _nextIdleActionUtc = DateTime.MaxValue;
-            var state = _random.Next(2) == 0 ? PetState.Waving : PetState.Jumping;
+            var state = _pet.RandomActions[_random.Next(_pet.RandomActions.Length)];
             PlayAnimation(state, restart: true);
         }
     }
@@ -381,7 +370,7 @@ public partial class MainWindow : Window
             angle += 360.0;
         }
 
-        return ((int)Math.Round(angle / 22.5, MidpointRounding.AwayFromZero)) % PetAnimations.LookDirectionCount;
+        return ((int)Math.Round(angle / 22.5, MidpointRounding.AwayFromZero)) % PetPackage.LookDirectionCount;
     }
 
     private void ShowLookDirection(int directionIndex)
@@ -395,14 +384,8 @@ public partial class MainWindow : Window
         _lastLookDirection = directionIndex;
         _frameTimer.Stop();
 
-        if (directionIndex <= 7)
-        {
-            ShowFrame(9, directionIndex);
-        }
-        else
-        {
-            ShowFrame(10, directionIndex - 8);
-        }
+        var frame = _pet.Manifest.LookDirections[directionIndex];
+        ShowFrame(frame.Row, frame.Column);
     }
 
     private void ShowFrame(int row, int column)
@@ -412,24 +395,13 @@ public partial class MainWindow : Window
 
     private BitmapSource GetFrame(int row, int column)
     {
-        if (_spriteSheet is null)
-        {
-            throw new InvalidOperationException("精灵图还没有加载。");
-        }
-
         var key = (row, column);
         if (_frameCache.TryGetValue(key, out var cached))
         {
             return cached;
         }
 
-        var rect = new Int32Rect(
-            column * PetAnimations.CellWidth,
-            row * PetAnimations.CellHeight,
-            PetAnimations.CellWidth,
-            PetAnimations.CellHeight);
-        var frame = new CroppedBitmap(_spriteSheet, rect);
-        frame.Freeze();
+        var frame = _pet.GetFrame(row, column);
         _frameCache[key] = frame;
         return frame;
     }
@@ -437,10 +409,10 @@ public partial class MainWindow : Window
     private void ResetIdleBehaviorSchedule()
     {
         var now = DateTime.UtcNow;
-        _nextIdleActionUtc = _settings.RandomIdleActions
+        _nextIdleActionUtc = _settings.RandomIdleActions && _pet.RandomActions.Length > 0
             ? now + RandomizedDelay(_settings.IdleActionIntervalSeconds)
             : DateTime.MaxValue;
-        _nextRoamUtc = _settings.DesktopRoaming
+        _nextRoamUtc = _settings.DesktopRoaming && _pet.CanRoam
             ? now + RandomizedDelay(_settings.RoamIntervalSeconds)
             : DateTime.MaxValue;
     }
@@ -449,7 +421,7 @@ public partial class MainWindow : Window
     {
         var now = DateTime.UtcNow;
 
-        if (!_settings.RandomIdleActions)
+        if (!_settings.RandomIdleActions || _pet.RandomActions.Length == 0)
         {
             _nextIdleActionUtc = DateTime.MaxValue;
         }
@@ -458,7 +430,7 @@ public partial class MainWindow : Window
             _nextIdleActionUtc = now + RandomizedDelay(_settings.IdleActionIntervalSeconds);
         }
 
-        if (!_settings.DesktopRoaming)
+        if (!_settings.DesktopRoaming || !_pet.CanRoam)
         {
             _nextRoamUtc = DateTime.MaxValue;
         }
@@ -476,6 +448,7 @@ public partial class MainWindow : Window
 
     private void StartRoaming()
     {
+        if (!_pet.CanRoam) return;
         var workArea = GetCurrentWorkAreaInDips();
         var minimumLeft = workArea.Left;
         var maximumLeft = Math.Max(minimumLeft, workArea.Right - Width);
@@ -637,13 +610,13 @@ public partial class MainWindow : Window
         var menu = new ContextMenu();
         menu.Items.Add(CreateMenuItem("设置...", (_, _) => Dispatcher.BeginInvoke(OpenSettings)));
         menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("待机", (_, _) => TriggerUserAnimation(PetState.Idle)));
-        menu.Items.Add(CreateMenuItem("打招呼", (_, _) => TriggerUserAnimation(PetState.Waving)));
-        menu.Items.Add(CreateMenuItem("跳一下", (_, _) => TriggerUserAnimation(PetState.Jumping)));
-        menu.Items.Add(CreateMenuItem("工作中", (_, _) => TriggerUserAnimation(PetState.Running)));
-        menu.Items.Add(CreateMenuItem("等待确认", (_, _) => TriggerUserAnimation(PetState.Waiting)));
-        menu.Items.Add(CreateMenuItem("检查成果", (_, _) => TriggerUserAnimation(PetState.Review)));
-        menu.Items.Add(CreateMenuItem("失败一下", (_, _) => TriggerUserAnimation(PetState.Failed)));
+        menu.Items.Add(CreateAnimationMenuItem("待机", PetState.Idle));
+        menu.Items.Add(CreateAnimationMenuItem("打招呼", PetState.Waving));
+        menu.Items.Add(CreateAnimationMenuItem("跳一下", PetState.Jumping));
+        menu.Items.Add(CreateAnimationMenuItem("工作中", PetState.Running));
+        menu.Items.Add(CreateAnimationMenuItem("等待确认", PetState.Waiting));
+        menu.Items.Add(CreateAnimationMenuItem("检查成果", PetState.Review));
+        menu.Items.Add(CreateAnimationMenuItem("失败一下", PetState.Failed));
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateMenuItem("召回主屏幕", (_, _) => RecallToPrimaryScreen(), "Ctrl+Alt+Y"));
         menu.Items.Add(CreateMenuItem("放大", (_, _) => ChangeScale(ScaleStep)));
@@ -714,6 +687,13 @@ public partial class MainWindow : Window
         return item;
     }
 
+    private MenuItem CreateAnimationMenuItem(string name, PetState state)
+    {
+        var item = CreateMenuItem(name, (_, _) => TriggerUserAnimation(state));
+        item.Tag = state;
+        return item;
+    }
+
     private static MenuItem CreateCheckMenuItem(string header, bool isChecked, RoutedEventHandler click)
     {
         var item = new MenuItem
@@ -735,8 +715,8 @@ public partial class MainWindow : Window
         menu.Items.Add("显示/隐藏", null, (_, _) => Dispatcher.Invoke(ToggleVisibility));
         menu.Items.Add("召回主屏幕 (Ctrl+Alt+Y)", null, (_, _) => Dispatcher.Invoke(RecallToPrimaryScreen));
         menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("待机", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Idle)));
-        menu.Items.Add("打招呼", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Waving)));
+        menu.Items.Add("待机", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Idle))).Tag = PetState.Idle;
+        menu.Items.Add("打招呼", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Waving))).Tag = PetState.Waving;
         menu.Items.Add(new WinForms.ToolStripSeparator());
 
         _trayTopmostItem = new WinForms.ToolStripMenuItem("总在最前")
@@ -784,7 +764,7 @@ public partial class MainWindow : Window
 
         _trayIcon = new WinForms.NotifyIcon
         {
-            Text = "叶瞬光",
+            Text = _pet.Manifest.Name,
             Icon = LoadApplicationIcon(),
             ContextMenuStrip = menu,
             Visible = true
@@ -803,7 +783,7 @@ public partial class MainWindow : Window
         ShowAndActivate();
         StopRoaming(returnToIdle: true);
 
-        var dialog = new SettingsWindow(_settings, _summonHotkeyRegistered)
+        var dialog = new SettingsWindow(_settings, _summonHotkeyRegistered, _petCatalog, _pet)
         {
             Owner = this
         };
@@ -824,7 +804,7 @@ public partial class MainWindow : Window
 
         if (result is not null)
         {
-            ApplySettings(result);
+            ApplySettings(result, dialog.SelectedPackage!);
         }
         else if (_state == PetState.Idle)
         {
@@ -847,7 +827,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplySettings(PetSettings updated)
+    private void ApplySettings(PetSettings updated, PetPackage selectedPackage)
     {
         StopRoaming(returnToIdle: false);
 
@@ -866,6 +846,7 @@ public partial class MainWindow : Window
 
         var centerX = Left + Width / 2;
         var centerY = Top + Height / 2;
+        AdoptPackage(selectedPackage);
         _settings.Scale = updated.Scale;
         _settings.Topmost = updated.Topmost;
         _settings.ClickThrough = updated.ClickThrough;
@@ -906,6 +887,16 @@ public partial class MainWindow : Window
         }
     }
 
+    private void AdoptPackage(PetPackage package)
+    {
+        _frameTimer.Stop();
+        _pet = package;
+        _frameCache.Clear();
+        _settings.SelectedPetId = package.Manifest.Id;
+        Title = package.Manifest.Name;
+        if (_trayIcon is not null) _trayIcon.Text = package.Manifest.Name;
+    }
+
     private void HidePet()
     {
         StopRoaming(returnToIdle: true);
@@ -926,8 +917,8 @@ public partial class MainWindow : Window
     private void ApplyScale(double scale, bool save)
     {
         _settings.Scale = Math.Round(Math.Clamp(scale, MinScale, MaxScale), 2);
-        Width = PetAnimations.CellWidth * _settings.Scale;
-        Height = PetAnimations.CellHeight * _settings.Scale;
+        Width = _pet.Manifest.CellWidth * _settings.Scale;
+        Height = _pet.Manifest.CellHeight * _settings.Scale;
         SpriteImage.Width = Width;
         SpriteImage.Height = Height;
 
@@ -997,6 +988,15 @@ public partial class MainWindow : Window
 
     private void UpdateMenuChecks()
     {
+        foreach (var item in ContextMenu.Items.OfType<MenuItem>())
+            if (item.Tag is PetState state) item.IsEnabled = _pet.Supports(state);
+        if (_trayIcon?.ContextMenuStrip is { } trayMenu)
+            foreach (WinForms.ToolStripItem item in trayMenu.Items)
+                if (item.Tag is PetState state) item.Enabled = _pet.Supports(state);
+        if (_windowRandomIdleItem is not null) _windowRandomIdleItem.IsEnabled = _pet.RandomActions.Length > 0;
+        if (_trayRandomIdleItem is not null) _trayRandomIdleItem.Enabled = _pet.RandomActions.Length > 0;
+        if (_windowRoamingItem is not null) _windowRoamingItem.IsEnabled = _pet.CanRoam;
+        if (_trayRoamingItem is not null) _trayRoamingItem.Enabled = _pet.CanRoam;
         if (_windowTopmostItem is not null)
         {
             _windowTopmostItem.IsChecked = _settings.Topmost;

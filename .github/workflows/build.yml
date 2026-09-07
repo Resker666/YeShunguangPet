@@ -31,3 +31,7 @@ jobs:
       - name: Build
         shell: pwsh
         run: dotnet build .\YeShunguangPet.Wpf.csproj --configuration Release
+
+      - name: Test skin packages
+        shell: pwsh
+        run: dotnet run --project tests/PetTests.csproj --configuration Release -- .

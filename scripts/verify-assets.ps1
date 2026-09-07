@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$SpritePath = Join-Path $ProjectRoot "Assets\spritesheet.png"
+$SpritePath = Join-Path $ProjectRoot "Pets\YeShunguang\spritesheet.png"
 $ExpectedSpriteHash = "42FBB6129741A7468526AD0CAD27DF82EE3939BE140C768D3F431CC0C9A45C2D"
 
 if (-not (Test-Path -LiteralPath $SpritePath)) {

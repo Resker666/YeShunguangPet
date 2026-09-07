@@ -12,6 +12,7 @@ public sealed class PetSettings
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public double? Left { get; set; }
+    public string SelectedPetId { get; set; } = PetPackage.DefaultId;
     public double? Top { get; set; }
     public double Scale { get; set; } = 1.0;
     public bool Topmost { get; set; } = true;
@@ -122,6 +123,7 @@ public sealed class PetSettings
         return new PetSettings
         {
             Left = Left,
+            SelectedPetId = SelectedPetId,
             Top = Top,
             Scale = Scale,
             Topmost = Topmost,
@@ -138,6 +140,7 @@ public sealed class PetSettings
 
     private void Normalize()
     {
+        if (string.IsNullOrWhiteSpace(SelectedPetId)) SelectedPetId = PetPackage.DefaultId;
         if (!double.IsFinite(Scale))
         {
             Scale = 1.0;

@@ -8,10 +8,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>YeShunguangPet</AssemblyName>
     <RootNamespace>YeShunguangPet</RootNamespace>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
-    <InformationalVersion>1.1.0</InformationalVersion>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
+    <InformationalVersion>1.2.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyTitle>叶瞬光桌面宠物</AssemblyTitle>
     <Authors>Resker666</Authors>
@@ -29,8 +29,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\spritesheet.png" />
-    <Resource Include="Assets\YeShunguangPet.ico" />
-    <Resource Include="docs\idle-preview.png" />
+    <Content Include="Pets\**\*" CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <Compile Remove="tests\**\*.cs" />
+    <EmbeddedResource Remove="tests\**\*" />
+    <None Remove="tests\**\*" />
   </ItemGroup>
 </Project>
