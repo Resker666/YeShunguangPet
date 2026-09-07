@@ -50,7 +50,8 @@ public partial class MainWindow : Window
     private bool _sourceReady;
     private bool _summonHotkeyRegistered;
     private double _lastDragLeft;
-    private double _roamTargetLeft;
+    private double _roamRemainingDistance;
+    private bool _roamPaused;
     private int _roamDirection;
     private DateTime _lastRoamTickUtc;
     private DateTime _nextIdleActionUtc = DateTime.MaxValue;
@@ -93,6 +94,8 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(33)
         };
         _roamTimer.Tick += RoamTimer_Tick;
+        InitializeClickInteraction();
+        InitializeDocking();
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -123,6 +126,7 @@ public partial class MainWindow : Window
         UpdateMenuChecks();
 
         PlayAnimation(PetState.Idle, restart: true);
+        InitializeCompanion();
         _ambientTimer.Start();
         AppLogger.Info("Main window loaded.");
     }
@@ -163,6 +167,9 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _dockTimer.Stop();
+        CancelPointerInteraction();
+        CloseCompanion();
         ReleaseNativeResources();
         _trayIcon?.Dispose();
         _applicationIcon?.Dispose();
@@ -171,6 +178,7 @@ public partial class MainWindow : Window
 
     public void ShowAndActivate()
     {
+        ExpandDock(immediately: true);
         if (!IsVisible)
         {
             Show();
@@ -192,6 +200,8 @@ public partial class MainWindow : Window
 
     public void RecallToPrimaryScreen()
     {
+        CancelPointerInteraction();
+        LeaveDock();
         StopRoaming(returnToIdle: false);
 
         if (_settings.ClickThrough)
@@ -212,6 +222,9 @@ public partial class MainWindow : Window
         _roamTimer.Stop();
         _frameTimer.Stop();
         _ambientTimer.Stop();
+        _dockTimer.Stop();
+        CancelPointerInteraction();
+        CloseCompanion();
         ReleaseNativeResources();
     }
 
@@ -222,6 +235,8 @@ public partial class MainWindow : Window
         IntPtr lParam,
         ref bool handled)
     {
+        if (message is 0x007E or 0x001A or 0x02E0)
+            Dispatcher.BeginInvoke(OnDockDisplayChanged);
         if (message == NativeMethods.WmHotkey && wParam.ToInt32() == SummonHotkeyId)
         {
             RecallToPrimaryScreen();
@@ -270,7 +285,7 @@ public partial class MainWindow : Window
         _frameTimer.Interval = CurrentFrameDuration();
         _frameTimer.Start();
 
-        if (state == PetState.Idle)
+        if (state == PetState.Idle && !_isRoaming)
         {
             EnsureIdleBehaviorSchedule();
         }
@@ -285,7 +300,7 @@ public partial class MainWindow : Window
 
     private void FrameTimer_Tick(object? sender, EventArgs e)
     {
-        if (_isLookMode)
+        if (_isLookMode || !CanPlayDockAnimation)
         {
             return;
         }
@@ -311,11 +326,33 @@ public partial class MainWindow : Window
     {
         if (!IsVisible ||
             _isDragging ||
+            _pointerDown ||
+            _clickTimer.IsEnabled ||
             _isMenuOpen ||
             _isRoaming ||
             _settingsWindow is not null ||
-            _state != PetState.Idle)
+            IsEdgeDocked ||
+            _state != PetState.Idle ||
+            SuppressAutomaticBehavior)
         {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (_settings.DesktopRoaming && _pet.CanRoam && now >= _nextRoamUtc)
+        {
+            if (!_settings.PauseNearMouse || !IsCursorNearPet())
+            {
+                StartRoaming();
+                return;
+            }
+        }
+
+        if (_settings.RandomIdleActions && _pet.RandomActions.Length > 0 && now >= _nextIdleActionUtc)
+        {
+            _nextIdleActionUtc = DateTime.MaxValue;
+            var state = _pet.RandomActions[_random.Next(_pet.RandomActions.Length)];
+            PlayAnimation(state, restart: true);
             return;
         }
 
@@ -327,21 +364,6 @@ public partial class MainWindow : Window
         if (_isLookMode)
         {
             PlayAnimation(PetState.Idle, restart: true);
-            return;
-        }
-
-        var now = DateTime.UtcNow;
-        if (_settings.DesktopRoaming && _pet.CanRoam && now >= _nextRoamUtc)
-        {
-            StartRoaming();
-            return;
-        }
-
-        if (_settings.RandomIdleActions && _pet.RandomActions.Length > 0 && now >= _nextIdleActionUtc)
-        {
-            _nextIdleActionUtc = DateTime.MaxValue;
-            var state = _pet.RandomActions[_random.Next(_pet.RandomActions.Length)];
-            PlayAnimation(state, restart: true);
         }
     }
 
@@ -425,7 +447,7 @@ public partial class MainWindow : Window
         {
             _nextIdleActionUtc = DateTime.MaxValue;
         }
-        else if (_nextIdleActionUtc == DateTime.MaxValue || _nextIdleActionUtc <= now)
+        else if (_nextIdleActionUtc == DateTime.MaxValue)
         {
             _nextIdleActionUtc = now + RandomizedDelay(_settings.IdleActionIntervalSeconds);
         }
@@ -434,7 +456,7 @@ public partial class MainWindow : Window
         {
             _nextRoamUtc = DateTime.MaxValue;
         }
-        else if (_nextRoamUtc == DateTime.MaxValue || _nextRoamUtc <= now)
+        else if (_nextRoamUtc == DateTime.MaxValue)
         {
             _nextRoamUtc = now + RandomizedDelay(_settings.RoamIntervalSeconds);
         }
@@ -448,7 +470,7 @@ public partial class MainWindow : Window
 
     private void StartRoaming()
     {
-        if (!_pet.CanRoam) return;
+        if (!_pet.CanRoam || IsEdgeDocked) return;
         var workArea = GetCurrentWorkAreaInDips();
         var minimumLeft = workArea.Left;
         var maximumLeft = Math.Max(minimumLeft, workArea.Right - Width);
@@ -472,12 +494,8 @@ public partial class MainWindow : Window
             _roamDirection = rightSpace >= leftSpace ? 1 : -1;
         }
 
-        var availableDistance = _roamDirection > 0 ? rightSpace : leftSpace;
-        var minimumDistance = Math.Min(MinRoamDistance, availableDistance);
-        var maximumDistance = Math.Min(MaxRoamDistance, availableDistance);
-        var distance = minimumDistance + _random.NextDouble() * Math.Max(0, maximumDistance - minimumDistance);
-
-        _roamTargetLeft = Left + _roamDirection * distance;
+        _roamRemainingDistance = MinRoamDistance + _random.NextDouble() * (MaxRoamDistance - MinRoamDistance);
+        _roamPaused = false;
         _lastRoamTickUtc = DateTime.UtcNow;
         _isRoaming = true;
         _nextRoamUtc = DateTime.MaxValue;
@@ -487,23 +505,34 @@ public partial class MainWindow : Window
 
     private void RoamTimer_Tick(object? sender, EventArgs e)
     {
-        if (!_isRoaming || !_settings.DesktopRoaming || !IsVisible)
+        if (!_isRoaming || !_settings.DesktopRoaming || !IsVisible || SuppressAutomaticBehavior)
         {
             StopRoaming(returnToIdle: true);
             return;
         }
 
         var now = DateTime.UtcNow;
-        var elapsedSeconds = Math.Min(0.1, (now - _lastRoamTickUtc).TotalSeconds);
+        var elapsedSeconds = Math.Clamp((now - _lastRoamTickUtc).TotalSeconds, 0, 0.1);
         _lastRoamTickUtc = now;
-
-        var nextLeft = Left + _roamDirection * _settings.RoamSpeed * elapsedSeconds;
-        var reachedTarget = _roamDirection > 0
-            ? nextLeft >= _roamTargetLeft
-            : nextLeft <= _roamTargetLeft;
-
-        Left = reachedTarget ? _roamTargetLeft : nextLeft;
-        if (reachedTarget)
+        if (_settings.PauseNearMouse && IsCursorNearPet(_roamPaused ? 20 : 0))
+        {
+            if (!_roamPaused)
+            {
+                _roamPaused = true;
+                PlayAnimation(PetState.Idle, restart: true);
+            }
+            return;
+        }
+        var area = GetCurrentWorkAreaInDips();
+        var step = DesktopBehavior.Move(Left, _roamDirection, _roamRemainingDistance,
+            _settings.RoamSpeed * elapsedSeconds, area.Left, area.Right - Width);
+        if (_roamPaused || step.Direction != _roamDirection)
+            PlayAnimation(step.Direction > 0 ? PetState.RunningRight : PetState.RunningLeft, restart: true);
+        _roamPaused = false;
+        _roamDirection = step.Direction;
+        _roamRemainingDistance = step.Remaining;
+        Left = step.Left;
+        if (_roamRemainingDistance <= 0)
         {
             StopRoaming(returnToIdle: true);
         }
@@ -517,6 +546,7 @@ public partial class MainWindow : Window
         }
 
         _isRoaming = false;
+        _roamPaused = false;
         _roamTimer.Stop();
         EnsureWindowInWorkArea();
         SaveWindowPosition();
@@ -550,33 +580,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (_settings.ClickThrough || e.ChangedButton != MouseButton.Left)
-        {
-            return;
-        }
-
-        StopRoaming(returnToIdle: false);
-        _isDragging = true;
-        _lastDragLeft = Left;
-        PlayAnimation(PetState.RunningRight, restart: true);
-        e.Handled = true;
-
-        try
-        {
-            DragMove();
-        }
-        catch (InvalidOperationException)
-        {
-            // The mouse can be released before WPF starts the native drag loop.
-        }
-        finally
-        {
-            FinishDrag();
-        }
-    }
-
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
         if (!_isDragging)
@@ -600,15 +603,18 @@ public partial class MainWindow : Window
         }
 
         _isDragging = false;
+        if (DockAfterDrag()) return;
         EnsureWindowInWorkArea();
         SaveWindowPosition();
         PlayAnimation(PetState.Idle, restart: true);
+        ApplyEffectiveWindowOptions();
     }
 
     private void BuildWindowContextMenu()
     {
         var menu = new ContextMenu();
         menu.Items.Add(CreateMenuItem("设置...", (_, _) => Dispatcher.BeginInvoke(OpenSettings)));
+        menu.Items.Add(CreateMenuItem("学习陪伴...", (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow)));
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateAnimationMenuItem("待机", PetState.Idle));
         menu.Items.Add(CreateAnimationMenuItem("打招呼", PetState.Waving));
@@ -712,6 +718,10 @@ public partial class MainWindow : Window
         menu.Opening += (_, _) => Dispatcher.Invoke(BeginMenuInteraction);
         menu.Closed += (_, _) => Dispatcher.Invoke(EndMenuInteraction);
         menu.Items.Add("设置...", null, (_, _) => Dispatcher.BeginInvoke(OpenSettings));
+        menu.Items.Add("学习陪伴...", null, (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow));
+        _trayQuietItem = new WinForms.ToolStripMenuItem("勿扰模式") { CheckOnClick = true, Checked = _settings.DoNotDisturb };
+        _trayQuietItem.Click += (_, _) => Dispatcher.Invoke(() => SetDoNotDisturb(_trayQuietItem.Checked));
+        menu.Items.Add(_trayQuietItem);
         menu.Items.Add("显示/隐藏", null, (_, _) => Dispatcher.Invoke(ToggleVisibility));
         menu.Items.Add("召回主屏幕 (Ctrl+Alt+Y)", null, (_, _) => Dispatcher.Invoke(RecallToPrimaryScreen));
         menu.Items.Add(new WinForms.ToolStripSeparator());
@@ -770,10 +780,12 @@ public partial class MainWindow : Window
             Visible = true
         };
         _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ToggleVisibility);
+        _trayIcon.BalloonTipClicked += (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow);
     }
 
     private void OpenSettings()
     {
+        CancelPointerInteraction();
         if (_settingsWindow is not null)
         {
             _settingsWindow.Activate();
@@ -814,6 +826,8 @@ public partial class MainWindow : Window
 
     private void BeginMenuInteraction()
     {
+        CancelPointerInteraction();
+        ExpandDock(immediately: true);
         _isMenuOpen = true;
         StopRoaming(returnToIdle: true);
     }
@@ -830,6 +844,7 @@ public partial class MainWindow : Window
     private void ApplySettings(PetSettings updated, PetPackage selectedPackage)
     {
         StopRoaming(returnToIdle: false);
+        var dockEdge = LeaveDock();
 
         if (updated.LaunchAtStartup != _settings.LaunchAtStartup)
         {
@@ -850,6 +865,7 @@ public partial class MainWindow : Window
         _settings.Scale = updated.Scale;
         _settings.Topmost = updated.Topmost;
         _settings.ClickThrough = updated.ClickThrough;
+        _settings.EdgeAutoHide = updated.EdgeAutoHide;
         _settings.LaunchAtStartup = PetSettings.IsLaunchAtStartupEnabled();
         _settings.LookAtMouse = updated.LookAtMouse;
         _settings.RandomIdleActions = updated.RandomIdleActions;
@@ -857,21 +873,32 @@ public partial class MainWindow : Window
         _settings.DesktopRoaming = updated.DesktopRoaming;
         _settings.RoamIntervalSeconds = updated.RoamIntervalSeconds;
         _settings.RoamSpeed = updated.RoamSpeed;
+        _settings.ClickInteraction = updated.ClickInteraction;
+        _settings.PauseNearMouse = updated.PauseNearMouse;
+        _settings.MousePauseRadius = updated.MousePauseRadius;
+        _settings.FocusMinutes = updated.FocusMinutes;
+        _settings.BreakMinutes = updated.BreakMinutes;
+        _settings.BreakRemindersEnabled = updated.BreakRemindersEnabled;
+        _settings.BreakReminderMinutes = updated.BreakReminderMinutes;
+        _settings.NotificationsEnabled = updated.NotificationsEnabled;
+        _settings.PauseDuringFocus = updated.PauseDuringFocus;
+        _settings.DoNotDisturb = updated.DoNotDisturb;
+        _settings.QuietHoursEnabled = updated.QuietHoursEnabled;
+        _settings.QuietStartMinute = updated.QuietStartMinute;
+        _settings.QuietEndMinute = updated.QuietEndMinute;
 
         ApplyScale(_settings.Scale, save: false);
         Left = centerX - Width / 2;
         Top = centerY - Height / 2;
-        Topmost = _settings.Topmost;
-        if (_sourceReady)
-        {
-            NativeMethods.SetClickThrough(this, _settings.ClickThrough);
-        }
+        ApplyEffectiveWindowOptions();
 
         EnsureWindowInWorkArea();
         SaveWindowPosition();
         UpdateMenuChecks();
         ResetIdleBehaviorSchedule();
+        ConfigureCompanion();
         PlayAnimation(PetState.Idle, restart: true);
+        RestoreDock(dockEdge);
         AppLogger.Info("Settings updated.");
     }
 
@@ -895,16 +922,20 @@ public partial class MainWindow : Window
         _settings.SelectedPetId = package.Manifest.Id;
         Title = package.Manifest.Name;
         if (_trayIcon is not null) _trayIcon.Text = package.Manifest.Name;
+        _focusWindow?.UpdatePet(package);
     }
 
     private void HidePet()
     {
+        CancelPointerInteraction();
+        LeaveDock();
         StopRoaming(returnToIdle: true);
         Hide();
     }
 
     private void ChangeScale(double delta)
     {
+        var dockEdge = LeaveDock();
         var centerX = Left + Width / 2;
         var centerY = Top + Height / 2;
         ApplyScale(_settings.Scale + delta, save: false);
@@ -912,6 +943,7 @@ public partial class MainWindow : Window
         Top = centerY - Height / 2;
         EnsureWindowInWorkArea();
         SaveWindowPosition();
+        RestoreDock(dockEdge);
     }
 
     private void ApplyScale(double scale, bool save)
@@ -931,7 +963,7 @@ public partial class MainWindow : Window
     private void SetTopmost(bool enabled)
     {
         _settings.Topmost = enabled;
-        Topmost = enabled;
+        ApplyEffectiveWindowOptions();
         _settings.Save();
         UpdateMenuChecks();
     }
@@ -939,10 +971,7 @@ public partial class MainWindow : Window
     private void SetClickThrough(bool enabled)
     {
         _settings.ClickThrough = enabled;
-        if (_sourceReady)
-        {
-            NativeMethods.SetClickThrough(this, enabled);
-        }
+        ApplyEffectiveWindowOptions();
 
         _settings.Save();
         UpdateMenuChecks();
@@ -988,6 +1017,7 @@ public partial class MainWindow : Window
 
     private void UpdateMenuChecks()
     {
+        if (_trayQuietItem is not null) _trayQuietItem.Checked = _settings.DoNotDisturb;
         foreach (var item in ContextMenu.Items.OfType<MenuItem>())
             if (item.Tag is PetState state) item.IsEnabled = _pet.Supports(state);
         if (_trayIcon?.ContextMenuStrip is { } trayMenu)
@@ -1050,8 +1080,9 @@ public partial class MainWindow : Window
 
     private void SaveWindowPosition()
     {
-        _settings.Left = Left;
-        _settings.Top = Top;
+        var position = PositionToPersist;
+        _settings.Left = position.X;
+        _settings.Top = position.Y;
         _settings.Save();
     }
 
@@ -1097,6 +1128,9 @@ public partial class MainWindow : Window
 
     private void ExitApplication()
     {
+        _dockTimer.Stop();
+        CancelPointerInteraction();
+        CloseCompanion();
         _isExiting = true;
         StopRoaming(returnToIdle: false);
         _frameTimer.Stop();

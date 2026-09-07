@@ -17,6 +17,7 @@ public sealed class PetSettings
     public double Scale { get; set; } = 1.0;
     public bool Topmost { get; set; } = true;
     public bool ClickThrough { get; set; }
+    public bool EdgeAutoHide { get; set; }
     public bool LaunchAtStartup { get; set; }
     public bool LookAtMouse { get; set; } = true;
     public bool RandomIdleActions { get; set; } = true;
@@ -24,6 +25,19 @@ public sealed class PetSettings
     public bool DesktopRoaming { get; set; }
     public int RoamIntervalSeconds { get; set; } = 75;
     public double RoamSpeed { get; set; } = 70;
+    public bool ClickInteraction { get; set; } = true;
+    public bool PauseNearMouse { get; set; } = true;
+    public int MousePauseRadius { get; set; } = 80;
+    public int FocusMinutes { get; set; } = 25;
+    public int BreakMinutes { get; set; } = 5;
+    public bool BreakRemindersEnabled { get; set; }
+    public int BreakReminderMinutes { get; set; } = 60;
+    public bool NotificationsEnabled { get; set; } = true;
+    public bool PauseDuringFocus { get; set; } = true;
+    public bool DoNotDisturb { get; set; }
+    public bool QuietHoursEnabled { get; set; }
+    public int QuietStartMinute { get; set; } = 22 * 60;
+    public int QuietEndMinute { get; set; } = 8 * 60;
 
     public static string SettingsDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
@@ -128,13 +142,27 @@ public sealed class PetSettings
             Scale = Scale,
             Topmost = Topmost,
             ClickThrough = ClickThrough,
+            EdgeAutoHide = EdgeAutoHide,
             LaunchAtStartup = LaunchAtStartup,
             LookAtMouse = LookAtMouse,
             RandomIdleActions = RandomIdleActions,
             IdleActionIntervalSeconds = IdleActionIntervalSeconds,
             DesktopRoaming = DesktopRoaming,
             RoamIntervalSeconds = RoamIntervalSeconds,
-            RoamSpeed = RoamSpeed
+            RoamSpeed = RoamSpeed,
+            ClickInteraction = ClickInteraction,
+            PauseNearMouse = PauseNearMouse,
+            MousePauseRadius = MousePauseRadius,
+            FocusMinutes = FocusMinutes,
+            BreakMinutes = BreakMinutes,
+            BreakRemindersEnabled = BreakRemindersEnabled,
+            BreakReminderMinutes = BreakReminderMinutes,
+            NotificationsEnabled = NotificationsEnabled,
+            PauseDuringFocus = PauseDuringFocus,
+            DoNotDisturb = DoNotDisturb,
+            QuietHoursEnabled = QuietHoursEnabled,
+            QuietStartMinute = QuietStartMinute,
+            QuietEndMinute = QuietEndMinute
         };
     }
 
@@ -156,6 +184,12 @@ public sealed class PetSettings
         }
 
         RoamSpeed = Math.Clamp(RoamSpeed, 20, 160);
+        MousePauseRadius = Math.Clamp(MousePauseRadius, 20, 200);
+        FocusMinutes = Math.Clamp(FocusMinutes, 1, 120);
+        BreakMinutes = Math.Clamp(BreakMinutes, 1, 60);
+        BreakReminderMinutes = Math.Clamp(BreakReminderMinutes, 15, 180);
+        QuietStartMinute = Math.Clamp(QuietStartMinute, 0, 1439);
+        QuietEndMinute = Math.Clamp(QuietEndMinute, 0, 1439);
 
         if (Left.HasValue && !double.IsFinite(Left.Value))
         {

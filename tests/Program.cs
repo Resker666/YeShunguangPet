@@ -82,6 +82,8 @@ internal static class Program
 
             VerifySettingsWindow(catalog, original, imported, expectedPetIds, args.Length > 1 ? args[1] : null);
             VerifyRuntimeSwitch(custom, original);
+            CompanionTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
+            EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
             void Bad(Action<JsonObject> edit, string name)

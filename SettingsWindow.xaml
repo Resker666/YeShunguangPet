@@ -109,6 +109,7 @@
 
                         <CheckBox x:Name="TopmostCheckBox" Content="总在最前" />
                         <CheckBox x:Name="ClickThroughCheckBox" Content="点击穿透" />
+                        <CheckBox x:Name="EdgeAutoHideCheckBox" Content="贴边自动隐藏（四边）" />
                         <CheckBox x:Name="LaunchAtStartupCheckBox" Content="开机启动" />
                         <CheckBox x:Name="LookAtMouseCheckBox" Content="注视鼠标" />
 
@@ -187,6 +188,61 @@
                                 TickFrequency="10"
                                 IsSnapToTickEnabled="True"
                                 IsEnabled="{Binding IsChecked, ElementName=DesktopRoamingCheckBox}" />
+
+                        <Separator Margin="0,8" />
+                        <CheckBox x:Name="ClickInteractionCheckBox" Content="点击互动" />
+                        <CheckBox x:Name="PauseNearMouseCheckBox" Content="鼠标靠近时停步" />
+                        <DockPanel LastChildFill="False">
+                            <TextBlock Text="停步距离" />
+                            <TextBlock x:Name="MouseRadiusText" DockPanel.Dock="Right" Foreground="#666666" />
+                        </DockPanel>
+                        <Slider x:Name="MouseRadiusSlider" Minimum="20" Maximum="200" TickFrequency="10"
+                                IsSnapToTickEnabled="True" IsEnabled="{Binding IsChecked, ElementName=PauseNearMouseCheckBox}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem x:Name="CompanionTab" Header="陪伴">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock Text="专注时长" FontWeight="SemiBold" />
+                            <TextBlock x:Name="FocusMinutesText" DockPanel.Dock="Right" Foreground="#666666" />
+                        </DockPanel>
+                        <Slider x:Name="FocusMinutesSlider" Minimum="1" Maximum="120" TickFrequency="1" IsSnapToTickEnabled="True" />
+                        <DockPanel LastChildFill="False">
+                            <TextBlock Text="休息时长" />
+                            <TextBlock x:Name="BreakMinutesText" DockPanel.Dock="Right" Foreground="#666666" />
+                        </DockPanel>
+                        <Slider x:Name="BreakMinutesSlider" Minimum="1" Maximum="60" TickFrequency="1" IsSnapToTickEnabled="True" />
+                        <CheckBox x:Name="PauseDuringFocusCheckBox" Content="专注时暂停自动动作" />
+                        <Separator Margin="0,8" />
+                        <CheckBox x:Name="BreakRemindersCheckBox" Content="定时休息提醒" />
+                        <DockPanel LastChildFill="False">
+                            <TextBlock Text="提醒间隔" />
+                            <TextBlock x:Name="BreakReminderText" DockPanel.Dock="Right" Foreground="#666666" />
+                        </DockPanel>
+                        <Slider x:Name="BreakReminderSlider" Minimum="15" Maximum="180" TickFrequency="5"
+                                IsSnapToTickEnabled="True" IsEnabled="{Binding IsChecked, ElementName=BreakRemindersCheckBox}" />
+                        <CheckBox x:Name="NotificationsCheckBox" Content="桌面通知与完成动作" />
+                        <Separator Margin="0,8" />
+                        <CheckBox x:Name="DoNotDisturbCheckBox" Content="勿扰模式" />
+                        <CheckBox x:Name="QuietHoursCheckBox" Content="定时勿扰" />
+                        <Grid IsEnabled="{Binding IsChecked, ElementName=QuietHoursCheckBox}" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="开始" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBox x:Name="QuietStartInput" Grid.Column="1" MaxLength="5" MinHeight="28" Padding="6,3"
+                                     AutomationProperties.Name="勿扰开始时间" />
+                            <TextBlock Grid.Column="2" Text="结束" VerticalAlignment="Center" Margin="16,0,8,0" />
+                            <TextBox x:Name="QuietEndInput" Grid.Column="3" MaxLength="5" MinHeight="28" Padding="6,3"
+                                     AutomationProperties.Name="勿扰结束时间" />
+                        </Grid>
+                        <TextBlock x:Name="CompanionErrorText" Foreground="#A51F36" TextWrapping="Wrap" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

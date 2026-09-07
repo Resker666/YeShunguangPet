@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -29,6 +30,7 @@ public partial class SettingsWindow : Window
         ScaleSlider.Value = _workingSettings.Scale * 100;
         TopmostCheckBox.IsChecked = _workingSettings.Topmost;
         ClickThroughCheckBox.IsChecked = _workingSettings.ClickThrough;
+        EdgeAutoHideCheckBox.IsChecked = _workingSettings.EdgeAutoHide;
         LaunchAtStartupCheckBox.IsChecked = _workingSettings.LaunchAtStartup;
         LookAtMouseCheckBox.IsChecked = _workingSettings.LookAtMouse;
         RandomIdleCheckBox.IsChecked = _workingSettings.RandomIdleActions;
@@ -36,11 +38,28 @@ public partial class SettingsWindow : Window
         DesktopRoamingCheckBox.IsChecked = _workingSettings.DesktopRoaming;
         RoamIntervalSlider.Value = _workingSettings.RoamIntervalSeconds;
         RoamSpeedSlider.Value = _workingSettings.RoamSpeed;
+        ClickInteractionCheckBox.IsChecked = _workingSettings.ClickInteraction;
+        PauseNearMouseCheckBox.IsChecked = _workingSettings.PauseNearMouse;
+        MouseRadiusSlider.Value = _workingSettings.MousePauseRadius;
+        FocusMinutesSlider.Value = _workingSettings.FocusMinutes;
+        BreakMinutesSlider.Value = _workingSettings.BreakMinutes;
+        BreakRemindersCheckBox.IsChecked = _workingSettings.BreakRemindersEnabled;
+        BreakReminderSlider.Value = _workingSettings.BreakReminderMinutes;
+        NotificationsCheckBox.IsChecked = _workingSettings.NotificationsEnabled;
+        PauseDuringFocusCheckBox.IsChecked = _workingSettings.PauseDuringFocus;
+        DoNotDisturbCheckBox.IsChecked = _workingSettings.DoNotDisturb;
+        QuietHoursCheckBox.IsChecked = _workingSettings.QuietHoursEnabled;
+        QuietStartInput.Text = TimeSpan.FromMinutes(_workingSettings.QuietStartMinute).ToString(@"hh\:mm");
+        QuietEndInput.Text = TimeSpan.FromMinutes(_workingSettings.QuietEndMinute).ToString(@"hh\:mm");
 
         ScaleSlider.ValueChanged += (_, _) => UpdateValueLabels();
         IdleIntervalSlider.ValueChanged += (_, _) => UpdateValueLabels();
         RoamIntervalSlider.ValueChanged += (_, _) => UpdateValueLabels();
         RoamSpeedSlider.ValueChanged += (_, _) => UpdateValueLabels();
+        MouseRadiusSlider.ValueChanged += (_, _) => UpdateValueLabels();
+        FocusMinutesSlider.ValueChanged += (_, _) => UpdateValueLabels();
+        BreakMinutesSlider.ValueChanged += (_, _) => UpdateValueLabels();
+        BreakReminderSlider.ValueChanged += (_, _) => UpdateValueLabels();
 
         HotkeyStatusText.Text = summonHotkeyRegistered ? "Ctrl + Alt + Y" : "快捷键注册失败";
         VersionText.Text = $"版本 {GetApplicationVersion()}";
@@ -65,10 +84,15 @@ public partial class SettingsWindow : Window
         IdleIntervalValueText.Text = $"{IdleIntervalSlider.Value:0} 秒";
         RoamIntervalValueText.Text = $"{RoamIntervalSlider.Value:0} 秒";
         RoamSpeedValueText.Text = $"{RoamSpeedSlider.Value:0} 像素/秒";
+        MouseRadiusText.Text = $"{MouseRadiusSlider.Value:0} 像素";
+        FocusMinutesText.Text = $"{FocusMinutesSlider.Value:0} 分钟";
+        BreakMinutesText.Text = $"{BreakMinutesSlider.Value:0} 分钟";
+        BreakReminderText.Text = $"{BreakReminderSlider.Value:0} 分钟";
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (!CollectCompanionSettings()) return;
         if (PetSelector.SelectedItem is not PetEntry entry) return;
         try
         {
@@ -84,6 +108,7 @@ public partial class SettingsWindow : Window
         _workingSettings.Scale = ScaleSlider.Value / 100;
         _workingSettings.Topmost = TopmostCheckBox.IsChecked == true;
         _workingSettings.ClickThrough = ClickThroughCheckBox.IsChecked == true;
+        _workingSettings.EdgeAutoHide = EdgeAutoHideCheckBox.IsChecked == true;
         _workingSettings.LaunchAtStartup = LaunchAtStartupCheckBox.IsChecked == true;
         _workingSettings.LookAtMouse = LookAtMouseCheckBox.IsChecked == true;
         _workingSettings.RandomIdleActions = RandomIdleCheckBox.IsChecked == true;
@@ -94,6 +119,38 @@ public partial class SettingsWindow : Window
 
         Result = _workingSettings;
         DialogResult = true;
+    }
+
+    private bool CollectCompanionSettings()
+    {
+        CompanionErrorText.Text = string.Empty;
+        if (QuietHoursCheckBox.IsChecked == true)
+        {
+            if (!TimeOnly.TryParseExact(QuietStartInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var start) ||
+                !TimeOnly.TryParseExact(QuietEndInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var end))
+            {
+                CompanionErrorText.Text = "请输入有效时间，例如 22:00 和 08:00。";
+                SettingsTabs.SelectedItem = CompanionTab;
+                Dispatcher.BeginInvoke(() => CompanionErrorText.BringIntoView());
+                return false;
+            }
+            _workingSettings.QuietStartMinute = start.Hour * 60 + start.Minute;
+            _workingSettings.QuietEndMinute = end.Hour * 60 + end.Minute;
+        }
+        _workingSettings.ClickInteraction = ClickInteractionCheckBox.IsChecked == true;
+        _workingSettings.PauseNearMouse = PauseNearMouseCheckBox.IsChecked == true;
+        _workingSettings.MousePauseRadius = (int)Math.Round(MouseRadiusSlider.Value);
+        _workingSettings.FocusMinutes = (int)Math.Round(FocusMinutesSlider.Value);
+        _workingSettings.BreakMinutes = (int)Math.Round(BreakMinutesSlider.Value);
+        _workingSettings.BreakRemindersEnabled = BreakRemindersCheckBox.IsChecked == true;
+        _workingSettings.BreakReminderMinutes = (int)Math.Round(BreakReminderSlider.Value);
+        _workingSettings.NotificationsEnabled = NotificationsCheckBox.IsChecked == true;
+        _workingSettings.PauseDuringFocus = PauseDuringFocusCheckBox.IsChecked == true;
+        _workingSettings.DoNotDisturb = DoNotDisturbCheckBox.IsChecked == true;
+        _workingSettings.QuietHoursEnabled = QuietHoursCheckBox.IsChecked == true;
+        return true;
     }
 
     private void Recall_Click(object sender, RoutedEventArgs e)

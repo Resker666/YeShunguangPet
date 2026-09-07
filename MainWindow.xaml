@@ -15,13 +15,24 @@
         SourceInitialized="Window_SourceInitialized"
         Closing="Window_Closing"
         LocationChanged="Window_LocationChanged"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown">
-    <Grid Background="Transparent">
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp"
+        MouseMove="Window_MouseMove"
+        LostMouseCapture="Window_LostMouseCapture">
+    <Grid x:Name="PetSurface" Background="Transparent" ClipToBounds="True">
         <Image x:Name="SpriteImage"
                Width="192"
                Height="208"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Top"
                Stretch="Fill"
                RenderOptions.BitmapScalingMode="HighQuality"
                SnapsToDevicePixels="True" />
+        <Border x:Name="DockHandle" Width="12" Height="56" Visibility="Collapsed"
+                Background="#A51F36" BorderBrush="#FFFFFF" BorderThickness="1" CornerRadius="3"
+                Cursor="Hand" AutomationProperties.Name="展开桌宠">
+            <TextBlock x:Name="DockArrow" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="White"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
     </Grid>
 </Window>
