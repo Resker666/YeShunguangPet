@@ -34,6 +34,7 @@ public sealed class PetSettings
     public int BreakReminderMinutes { get; set; } = 60;
     public bool NotificationsEnabled { get; set; } = true;
     public bool PauseDuringFocus { get; set; } = true;
+    public bool SessionAnimationEnabled { get; set; } = true;
     public bool DoNotDisturb { get; set; }
     public bool QuietHoursEnabled { get; set; }
     public int QuietStartMinute { get; set; } = 22 * 60;
@@ -159,6 +160,7 @@ public sealed class PetSettings
             BreakReminderMinutes = BreakReminderMinutes,
             NotificationsEnabled = NotificationsEnabled,
             PauseDuringFocus = PauseDuringFocus,
+            SessionAnimationEnabled = SessionAnimationEnabled,
             DoNotDisturb = DoNotDisturb,
             QuietHoursEnabled = QuietHoursEnabled,
             QuietStartMinute = QuietStartMinute,

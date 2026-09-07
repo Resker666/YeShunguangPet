@@ -82,6 +82,8 @@ internal static class Program
 
             VerifySettingsWindow(catalog, original, imported, expectedPetIds, args.Length > 1 ? args[1] : null);
             VerifyRuntimeSwitch(custom, original);
+            SkinManagementTests.Run((success, name) => Check(success, name), catalog, imported, _root);
+            SessionVisualTests.Run((success, name) => Check(success, name), original, custom);
             CompanionTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
 
@@ -180,7 +182,7 @@ internal static class Program
         var window = new SettingsWindow(settings, true, catalog, original);
         try
         {
-            var selector = (ComboBox)window.FindName("PetSelector");
+            var selector = (ListBox)window.FindName("PetSelector");
             var displayedIds = selector.Items.Cast<PetEntry>().Select(p => p.Id).OrderBy(id => id, StringComparer.Ordinal);
             Check(displayedIds.SequenceEqual(expectedPetIds.OrderBy(id => id, StringComparer.Ordinal)),
                 "skin selector shows bundled and imported skins",
@@ -190,15 +192,20 @@ internal static class Program
             Check(!((CheckBox)window.FindName("LookAtMouseCheckBox")).IsEnabled &&
                 !((CheckBox)window.FindName("DesktopRoamingCheckBox")).IsEnabled, "unavailable capabilities disabled");
             Check(settings.SelectedPetId == PetPackage.DefaultId, "preview does not change live selection");
+            Check(((Button)window.FindName("ExportPetButton")).IsEnabled &&
+                ((Button)window.FindName("UpdatePetButton")).IsEnabled &&
+                ((Button)window.FindName("DeletePetButton")).IsEnabled, "imported skin management controls enabled");
             var manifestText = File.ReadAllText(imported.ManifestPath);
             File.WriteAllText(imported.ManifestPath, "broken");
             typeof(SettingsWindow).GetMethod("Save_Click", PrivateInstance)!.Invoke(window, new object?[] { null, new RoutedEventArgs() });
             Check(window.Result is null && !string.IsNullOrEmpty(((TextBlock)window.FindName("SkinStatus")).Text),
                 "changed invalid file blocks save while preserving live settings");
             File.WriteAllText(imported.ManifestPath, manifestText);
+            selector.SelectedValue = PetPackage.DefaultId;
+            Check(!((Button)window.FindName("UpdatePetButton")).IsEnabled &&
+                !((Button)window.FindName("DeletePetButton")).IsEnabled, "bundled skin management controls protected");
             if (renderRoot is not null)
             {
-                selector.SelectedValue = PetPackage.DefaultId;
                 Render(window, renderRoot, "skins-default.png");
                 selector.SelectedValue = imported.Id;
                 Render(window, renderRoot, "skins-custom.png");
@@ -251,10 +258,10 @@ internal static class Program
     {
         Directory.CreateDirectory(directory);
         var root = (FrameworkElement)window.Content;
-        root.Measure(new Size(484, 521));
-        root.Arrange(new Rect(0, 0, 484, 521));
+        root.Measure(new Size(664, 561));
+        root.Arrange(new Rect(0, 0, 664, 561));
         root.UpdateLayout();
-        var bitmap = new RenderTargetBitmap(484, 521, 96, 96, PixelFormats.Pbgra32);
+        var bitmap = new RenderTargetBitmap(664, 561, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(root);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));

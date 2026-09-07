@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace YeShunguangPet;
@@ -10,6 +12,12 @@ public partial class FocusWindow : Window
     private readonly PetSettings _settings;
     private readonly Func<bool> _isQuiet;
     private readonly DispatcherTimer _displayTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly DispatcherTimer _avatarTimer = new();
+    private readonly SessionVisuals _visuals = new();
+    private readonly Dictionary<(int, int), BitmapSource> _frames = new();
+    private PetPackage _pet = null!;
+    private PetAnimation? _avatarAnimation;
+    private int _avatarFrame;
 
     public FocusWindow(CompanionSession session, PetSettings settings, PetPackage pet, Func<bool> isQuiet)
     {
@@ -18,21 +26,73 @@ public partial class FocusWindow : Window
         _settings = settings;
         _isQuiet = isQuiet;
         UpdatePet(pet);
-        _session.Changed += RefreshDisplay;
+        _session.Changed += OnSessionChanged;
+        _session.Completed += OnCompleted;
         _displayTimer.Tick += (_, _) => RefreshDisplay();
-        Loaded += (_, _) => _displayTimer.Start();
+        _avatarTimer.Tick += AvatarTimer_Tick;
+        Loaded += (_, _) => { _displayTimer.Start(); RefreshAvatar(); };
+        StateChanged += (_, _) => RefreshAvatar();
         Closed += (_, _) =>
         {
             _displayTimer.Stop();
-            _session.Changed -= RefreshDisplay;
+            _avatarTimer.Stop();
+            _session.Changed -= OnSessionChanged;
+            _session.Completed -= OnCompleted;
         };
         RefreshDisplay();
     }
 
     public void UpdatePet(PetPackage pet)
     {
+        _pet = pet;
+        _frames.Clear();
+        _avatarAnimation = null;
         PetName.Text = pet.Manifest.Name;
-        PetImage.Source = pet.Preview;
+        RefreshAvatar();
+    }
+
+    private void OnSessionChanged()
+    {
+        _visuals.ClearCompletion();
+        RefreshDisplay();
+    }
+
+    private void OnCompleted(SessionPhase phase)
+    {
+        _visuals.RequestCompletion();
+        RefreshAvatar();
+    }
+
+    private void RefreshAvatar()
+    {
+        var target = _visuals.Resolve(_session, _settings, _pet, _isQuiet(), WindowState != WindowState.Minimized);
+        if (!target.HasValue) { _avatarTimer.Stop(); return; }
+        if (_avatarAnimation?.State != target)
+        {
+            _avatarAnimation = _pet.GetAnimation(target.Value);
+            _avatarFrame = 0;
+            RenderAvatar();
+        }
+        if (IsLoaded) _avatarTimer.Start();
+    }
+
+    private void AvatarTimer_Tick(object? sender, EventArgs e)
+    {
+        var previous = _avatarAnimation;
+        RefreshAvatar();
+        if (WindowState == WindowState.Minimized || _avatarAnimation is null || previous != _avatarAnimation) return;
+        // Completion gestures repeat for a bounded three-second acknowledgement.
+        _avatarFrame = (_avatarFrame + 1) % _avatarAnimation.FrameCount;
+        RenderAvatar();
+    }
+
+    private void RenderAvatar()
+    {
+        if (_avatarAnimation is null) return;
+        var key = (_avatarAnimation.Row, _avatarAnimation.StartColumn + _avatarFrame);
+        if (!_frames.TryGetValue(key, out var frame)) _frames[key] = frame = _pet.GetFrame(key.Item1, key.Item2);
+        PetImage.Source = frame;
+        _avatarTimer.Interval = TimeSpan.FromMilliseconds(_avatarAnimation.DurationsMs[_avatarFrame]);
     }
 
     private void Toggle_Click(object sender, RoutedEventArgs e)
@@ -72,5 +132,6 @@ public partial class FocusWindow : Window
         SessionsText.Text = $"本次已完成 {_session.CompletedFocusSessions} 次专注";
         DurationText.Text = $"专注 {_settings.FocusMinutes} 分钟 · 休息 {_settings.BreakMinutes} 分钟";
         QuietStatus.Text = _isQuiet() ? "勿扰中" : string.Empty;
+        RefreshAvatar();
     }
 }

@@ -12,7 +12,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <DockPanel LastChildFill="False">
-            <Image x:Name="PetImage" Width="44" Height="48" Stretch="Uniform" />
+            <Image x:Name="PetImage" Width="56" Height="60" Stretch="Uniform" />
             <TextBlock x:Name="PetName" Margin="10,0" MaxWidth="160" TextTrimming="CharacterEllipsis"
                        FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
             <TextBlock x:Name="QuietStatus" DockPanel.Dock="Right" Foreground="#666666" VerticalAlignment="Center" />

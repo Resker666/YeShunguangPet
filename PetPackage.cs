@@ -40,7 +40,8 @@ public sealed class PetPackage
 {
     public const string DefaultId = "ye-shunguang";
     public const int LookDirectionCount = 16;
-    private const int MaxSpriteBytes = 64 * 1024 * 1024;
+    internal const int MaxSpriteBytes = 64 * 1024 * 1024;
+    internal const int MaxManifestBytes = 128 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -96,7 +97,16 @@ public sealed class PetPackage
         if (!string.Equals(Path.GetFileName(manifestPath), "pet.json", StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("请选择皮肤目录中的 pet.json。");
         RejectLink(directory);
-        var json = ReadLimitedFile(manifestPath, 128 * 1024);
+        var json = ReadLimitedFile(manifestPath, MaxManifestBytes);
+        var manifest = ReadManifest(json);
+        var png = ReadLimitedFile(Path.Combine(directory, manifest.SpriteSheet), MaxSpriteBytes);
+        return (Decode(manifest, png), json, png);
+    }
+
+    internal static PetManifest ReadManifest(byte[] json)
+    {
+        if (json.Length == 0 || json.Length > MaxManifestBytes)
+            throw new InvalidDataException("pet.json 超出大小限制。");
         if (json.AsSpan().StartsWith(new byte[] { 239, 187, 191 })) json = json[3..];
         PetManifest manifest;
         try
@@ -121,7 +131,12 @@ public sealed class PetPackage
         }
 
         Validate(manifest);
-        var png = ReadLimitedFile(Path.Combine(directory, manifest.SpriteSheet), MaxSpriteBytes);
+        return manifest;
+    }
+
+    internal static PetPackage Decode(PetManifest manifest, byte[] png)
+    {
+        if (png.Length > MaxSpriteBytes) throw new InvalidDataException("PNG 超出大小限制。");
         // Check dimensions before WIC allocates the decoded image.
         if (png.Length < 33 || !png.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }) ||
             BinaryPrimitives.ReadUInt32BigEndian(png.AsSpan(8, 4)) != 13 ||
@@ -140,7 +155,7 @@ public sealed class PetPackage
             if (bitmap.PixelWidth != width || bitmap.PixelHeight != height)
                 throw new InvalidDataException("PNG 解码尺寸不一致。");
             bitmap.Freeze();
-            return (new PetPackage(manifest, bitmap), json, png);
+            return new PetPackage(manifest, bitmap);
         }
         catch (Exception ex) when (ex is not InvalidDataException && ex is not OutOfMemoryException)
         {

@@ -179,17 +179,19 @@ internal static class CompanionTests
             ((TextBox)window.FindName("QuietStartInput")).Text = "23:30";
             ((TextBox)window.FindName("QuietEndInput")).Text = "07:15";
             ((Slider)window.FindName("FocusMinutesSlider")).Value = 45;
+            ((CheckBox)window.FindName("SessionAnimationCheckBox")).IsChecked = false;
             check((bool)collect.Invoke(window, null)!, "settings accept valid overnight times");
             var draft = (PetSettings)typeof(SettingsWindow).GetField("_workingSettings", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(window)!;
             check(draft.QuietStartMinute == 1410 && draft.QuietEndMinute == 435 && draft.FocusMinutes == 45 &&
                 settings.FocusMinutes == 25, "settings edit draft without changing live timer preferences");
+            check(!draft.SessionAnimationEnabled && settings.SessionAnimationEnabled, "linkage checkbox only edits settings draft");
             if (renderRoot is not null)
             {
                 var tabs = (TabControl)window.FindName("SettingsTabs");
                 tabs.SelectedItem = window.FindName("CompanionTab");
-                Render(window, renderRoot, "companion-settings.png", 484, 521);
+                Render(window, renderRoot, "companion-settings.png", 664, 561);
                 tabs.SelectedIndex = 2;
-                Render(window, renderRoot, "interaction-settings.png", 484, 521);
+                Render(window, renderRoot, "interaction-settings.png", 664, 561);
             }
         }
         finally { window.Close(); }

@@ -16,6 +16,7 @@ public partial class SettingsWindow : Window
     private const string RepositoryUrl = "https://github.com/Resker666/YeShunguangPet";
     private readonly PetSettings _workingSettings;
     private readonly PetCatalog _catalog;
+    private readonly string _activePetId;
     private readonly DispatcherTimer _previewTimer = new();
     private PetPackage? _previewPet;
     private PetAnimation? _previewAnimation;
@@ -27,6 +28,7 @@ public partial class SettingsWindow : Window
 
         _workingSettings = settings.Clone();
         _catalog = catalog;
+        _activePetId = currentPet.Manifest.Id;
         ScaleSlider.Value = _workingSettings.Scale * 100;
         TopmostCheckBox.IsChecked = _workingSettings.Topmost;
         ClickThroughCheckBox.IsChecked = _workingSettings.ClickThrough;
@@ -47,6 +49,7 @@ public partial class SettingsWindow : Window
         BreakReminderSlider.Value = _workingSettings.BreakReminderMinutes;
         NotificationsCheckBox.IsChecked = _workingSettings.NotificationsEnabled;
         PauseDuringFocusCheckBox.IsChecked = _workingSettings.PauseDuringFocus;
+        SessionAnimationCheckBox.IsChecked = _workingSettings.SessionAnimationEnabled;
         DoNotDisturbCheckBox.IsChecked = _workingSettings.DoNotDisturb;
         QuietHoursCheckBox.IsChecked = _workingSettings.QuietHoursEnabled;
         QuietStartInput.Text = TimeSpan.FromMinutes(_workingSettings.QuietStartMinute).ToString(@"hh\:mm");
@@ -148,6 +151,7 @@ public partial class SettingsWindow : Window
         _workingSettings.BreakReminderMinutes = (int)Math.Round(BreakReminderSlider.Value);
         _workingSettings.NotificationsEnabled = NotificationsCheckBox.IsChecked == true;
         _workingSettings.PauseDuringFocus = PauseDuringFocusCheckBox.IsChecked == true;
+        _workingSettings.SessionAnimationEnabled = SessionAnimationCheckBox.IsChecked == true;
         _workingSettings.DoNotDisturb = DoNotDisturbCheckBox.IsChecked == true;
         _workingSettings.QuietHoursEnabled = QuietHoursCheckBox.IsChecked == true;
         return true;
@@ -220,6 +224,9 @@ public partial class SettingsWindow : Window
         SkinDescription.Text = string.Empty;
         SkinDetails.Text = string.Empty;
         SaveButton.IsEnabled = false;
+        ExportPetButton.IsEnabled = false;
+        UpdatePetButton.IsEnabled = false;
+        DeletePetButton.IsEnabled = false;
         if (PetSelector.SelectedItem is not PetEntry entry) return;
         try
         {
@@ -237,6 +244,11 @@ public partial class SettingsWindow : Window
                 .Select(s => new PreviewAction(s, ActionName(s))).ToArray();
             PreviewActionSelector.SelectedIndex = 0;
             SaveButton.IsEnabled = true;
+            ExportPetButton.IsEnabled = true;
+            UpdatePetButton.IsEnabled = !entry.Bundled;
+            DeletePetButton.IsEnabled = !entry.Bundled && entry.Id != _activePetId;
+            DeletePetButton.ToolTip = entry.Bundled ? "随附皮肤不可删除" : entry.Id == _activePetId
+                ? "请先切换并保存其他皮肤，再删除当前皮肤" : "删除选中的导入皮肤";
             SkinStatus.Text = string.Empty;
         }
         catch (Exception ex)
@@ -250,7 +262,7 @@ public partial class SettingsWindow : Window
         var picker = new OpenFileDialog
         {
             Title = "导入皮肤",
-            Filter = "皮肤清单 (pet.json)|pet.json",
+            Filter = "皮肤包 (*.zip;pet.json)|*.zip;pet.json|ZIP 皮肤包 (*.zip)|*.zip|皮肤清单 (pet.json)|pet.json",
             CheckFileExists = true
         };
         if (picker.ShowDialog(this) != true) return;
@@ -268,6 +280,51 @@ public partial class SettingsWindow : Window
 
     private void RefreshPets_Click(object sender, RoutedEventArgs e)
         => RefreshPets((PetSelector.SelectedItem as PetEntry)?.Id);
+
+    private void ExportPet_Click(object sender, RoutedEventArgs e)
+    {
+        if (PetSelector.SelectedItem is not PetEntry entry) return;
+        var picker = new SaveFileDialog { Title = "导出皮肤", Filter = "ZIP 皮肤包 (*.zip)|*.zip",
+            FileName = entry.Id + ".zip", DefaultExt = ".zip", AddExtension = true, OverwritePrompt = true };
+        if (picker.ShowDialog(this) != true) return;
+        try
+        {
+            PetArchive.Export(entry.ManifestPath, picker.FileName, overwrite: true);
+            SkinStatus.Text = $"已导出：{picker.FileName}";
+        }
+        catch (Exception ex) { SkinStatus.Text = ex.Message; }
+    }
+
+    private void UpdatePet_Click(object sender, RoutedEventArgs e)
+    {
+        if (PetSelector.SelectedItem is not PetEntry { Bundled: false } entry) return;
+        var picker = new OpenFileDialog { Title = "更新皮肤（相同 id）",
+            Filter = "皮肤包 (*.zip;pet.json)|*.zip;pet.json", CheckFileExists = true };
+        if (picker.ShowDialog(this) != true) return;
+        if (MessageBox.Show(this, $"更新“{entry.Name}”？\n旧文件会保留为备份。此操作立即生效，不受设置页的取消按钮影响。",
+                "更新皮肤", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        try
+        {
+            var updated = _catalog.Update(entry, picker.FileName);
+            RefreshPets(updated.Id);
+            SkinStatus.Text = $"已更新：{updated.Name}。保存后应用到桌面。";
+        }
+        catch (Exception ex) { SkinStatus.Text = ex.Message; }
+    }
+
+    private void DeletePet_Click(object sender, RoutedEventArgs e)
+    {
+        if (PetSelector.SelectedItem is not PetEntry { Bundled: false } entry) return;
+        if (MessageBox.Show(this, $"从列表删除“{entry.Name}”？\n原文件会移到皮肤目录内的 .deleted- 备份文件夹。此操作立即生效。",
+                "删除皮肤", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+        try
+        {
+            _catalog.Delete(entry, _activePetId);
+            RefreshPets(_activePetId);
+            SkinStatus.Text = $"已删除：{entry.Name}。原文件已保留。";
+        }
+        catch (Exception ex) { SkinStatus.Text = ex.Message; }
+    }
 
     private void OpenPets_Click(object sender, RoutedEventArgs e)
     {

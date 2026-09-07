@@ -274,6 +274,7 @@ public partial class MainWindow : Window
         {
             return;
         }
+        _sessionOwnsAnimation = false;
 
         _state = state;
         _animation = _pet.GetAnimation(state);
@@ -307,7 +308,12 @@ public partial class MainWindow : Window
 
         if (!_animation.Loop && _frameIndex >= _animation.FrameCount - 1)
         {
-            PlayAnimation(PetState.Idle, restart: true);
+            if (_sessionOwnsAnimation && _sessionVisuals.IsCompletionActive)
+            {
+                PlayAnimation(_state, restart: true);
+                _sessionOwnsAnimation = true;
+            }
+            else PlayRestingAnimation();
             return;
         }
 
@@ -553,7 +559,7 @@ public partial class MainWindow : Window
 
         if (returnToIdle && !_isDragging)
         {
-            PlayAnimation(PetState.Idle, restart: true);
+            PlayRestingAnimation();
         }
     }
 
@@ -606,7 +612,7 @@ public partial class MainWindow : Window
         if (DockAfterDrag()) return;
         EnsureWindowInWorkArea();
         SaveWindowPosition();
-        PlayAnimation(PetState.Idle, restart: true);
+        PlayRestingAnimation();
         ApplyEffectiveWindowOptions();
     }
 
@@ -882,6 +888,7 @@ public partial class MainWindow : Window
         _settings.BreakReminderMinutes = updated.BreakReminderMinutes;
         _settings.NotificationsEnabled = updated.NotificationsEnabled;
         _settings.PauseDuringFocus = updated.PauseDuringFocus;
+        _settings.SessionAnimationEnabled = updated.SessionAnimationEnabled;
         _settings.DoNotDisturb = updated.DoNotDisturb;
         _settings.QuietHoursEnabled = updated.QuietHoursEnabled;
         _settings.QuietStartMinute = updated.QuietStartMinute;
@@ -897,7 +904,7 @@ public partial class MainWindow : Window
         UpdateMenuChecks();
         ResetIdleBehaviorSchedule();
         ConfigureCompanion();
-        PlayAnimation(PetState.Idle, restart: true);
+        PlayRestingAnimation();
         RestoreDock(dockEdge);
         AppLogger.Info("Settings updated.");
     }

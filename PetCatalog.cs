@@ -2,10 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace YeShunguangPet;
 
-public sealed record PetEntry(string Id, string Name, string ManifestPath, bool Bundled);
+public sealed record PetEntry(string Id, string Name, string ManifestPath, bool Bundled)
+{
+    public BitmapSource? Thumbnail { get; init; }
+    public string SourceLabel => Bundled ? "随附" : "已导入";
+}
 public sealed record PetCatalogResult(IReadOnlyList<PetEntry> Pets, IReadOnlyList<string> Errors);
 
 public sealed class PetCatalog
@@ -15,14 +22,15 @@ public sealed class PetCatalog
 
     public PetCatalog(string? bundledDirectory = null, string? userDirectory = null)
     {
-        BundledDirectory = bundledDirectory ?? Path.Combine(AppContext.BaseDirectory, "Pets");
-        UserDirectory = userDirectory ?? Path.Combine(PetSettings.SettingsDirectory, "Pets");
+        BundledDirectory = Path.GetFullPath(bundledDirectory ?? Path.Combine(AppContext.BaseDirectory, "Pets"));
+        UserDirectory = Path.GetFullPath(userDirectory ?? Path.Combine(PetSettings.SettingsDirectory, "Pets"));
     }
 
     public PetCatalogResult Scan()
     {
         var pets = new List<PetEntry>();
         var errors = new List<string>();
+        var fingerprints = new Dictionary<string, (string Json, string Png)>();
         foreach (var (root, bundled) in new[] { (BundledDirectory, true), (UserDirectory, false) })
         {
             if (!Directory.Exists(root)) continue;
@@ -35,9 +43,20 @@ public sealed class PetCatalog
                     try
                     {
                         var path = Path.Combine(directory, "pet.json");
-                        var manifest = PetPackage.Load(path).Manifest;
-                        if (pets.Any(p => p.Id == manifest.Id)) throw new InvalidDataException($"重复 id：{manifest.Id}");
-                        pets.Add(new PetEntry(manifest.Id, manifest.Name, path, bundled));
+                        var snapshot = PetPackage.ReadPackage(path);
+                        var package = snapshot.Package;
+                        var manifest = package.Manifest;
+                        var fingerprint = (Convert.ToHexString(SHA256.HashData(snapshot.Json)),
+                            Convert.ToHexString(SHA256.HashData(snapshot.Png)));
+                        if (fingerprints.TryGetValue(manifest.Id, out var existingFingerprint))
+                        {
+                            // Older imports can become bundled skins after an upgrade; keep both files untouched.
+                            if (existingFingerprint == fingerprint) continue;
+                            var selected = pets.First(p => p.Id == manifest.Id);
+                            throw new InvalidDataException($"重复 id：{manifest.Id}，但内容不同。已使用 {selected.ManifestPath}；请检查 {path}，或为冲突皮肤修改 id。");
+                        }
+                        pets.Add(new PetEntry(manifest.Id, manifest.Name, path, bundled) { Thumbnail = CreateThumbnail(package) });
+                        fingerprints.Add(manifest.Id, fingerprint);
                     }
                     catch (Exception ex) when (ex is not OutOfMemoryException)
                     {
@@ -67,10 +86,10 @@ public sealed class PetCatalog
     public PetEntry Import(string manifestPath)
     {
         // Copy only the validated snapshot, then publish the directory atomically.
-        var snapshot = PetPackage.ReadPackage(manifestPath);
+        var snapshot = PetArchive.Read(manifestPath);
         var id = snapshot.Package.Manifest.Id;
         if (id == PetPackage.DefaultId || Scan().Pets.Any(p => p.Id == id))
-            throw new InvalidDataException($"皮肤 id {id} 已存在，请修改新皮肤的 id 后再导入。");
+            throw new InvalidDataException($"皮肤 id {id} 已存在。请选择已有的导入皮肤并使用“更新皮肤”，或修改新皮肤的 id。");
         Directory.CreateDirectory(UserDirectory);
         PetPackage.RejectLink(UserDirectory);
         var destination = Path.Combine(UserDirectory, id);
@@ -90,5 +109,71 @@ public sealed class PetCatalog
             if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
         }
         return new PetEntry(id, snapshot.Package.Manifest.Name, Path.Combine(destination, "pet.json"), false);
+    }
+
+    public PetEntry Update(PetEntry entry, string source)
+    {
+        var destination = GetManagedDirectory(entry);
+        var snapshot = PetArchive.Read(source);
+        if (snapshot.Package.Manifest.Id != entry.Id) throw new InvalidDataException("更新包的 id 必须与选中的皮肤相同。");
+        var staging = Path.Combine(UserDirectory, ".import-" + Guid.NewGuid().ToString("N"));
+        var backup = Path.Combine(UserDirectory, ".backup-" + entry.Id + "-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(staging);
+        try
+        {
+            File.WriteAllBytes(Path.Combine(staging, "pet.json"), snapshot.Json);
+            File.WriteAllBytes(Path.Combine(staging, snapshot.Package.Manifest.SpriteSheet), snapshot.Png);
+            PetPackage.Load(Path.Combine(staging, "pet.json"));
+            Directory.Move(destination, backup);
+            try { Directory.Move(staging, destination); }
+            catch
+            {
+                Directory.Move(backup, destination);
+                throw;
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
+        }
+        return new PetEntry(entry.Id, snapshot.Package.Manifest.Name, entry.ManifestPath, false);
+    }
+
+    public void Delete(PetEntry entry, string activePetId)
+    {
+        if (entry.Id == activePetId) throw new InvalidDataException("不能删除当前正在使用的皮肤，请先切换并保存其他皮肤。");
+        var directory = GetManagedDirectory(entry);
+        // Retain files for recovery, but omit them from the selectable catalog.
+        Directory.Move(directory, Path.Combine(UserDirectory, ".deleted-" + entry.Id + "-" + Guid.NewGuid().ToString("N")));
+    }
+
+    private string GetManagedDirectory(PetEntry entry)
+    {
+        var path = Path.GetFullPath(entry.ManifestPath);
+        var directory = Path.GetDirectoryName(path)!;
+        if (entry.Bundled || entry.Id == PetPackage.DefaultId ||
+            !string.Equals(Path.GetDirectoryName(directory), Path.TrimEndingDirectorySeparator(UserDirectory), StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(Path.GetFileName(path), "pet.json", StringComparison.OrdinalIgnoreCase) ||
+            Scan().Pets.Any(p => p.Bundled && p.Id == entry.Id))
+            throw new InvalidDataException("只能管理用户目录中导入的皮肤，随附皮肤不可修改。");
+        PetPackage.RejectLink(UserDirectory);
+        if (PetPackage.Load(path).Manifest.Id != entry.Id) throw new InvalidDataException("皮肤已变化，请刷新列表。");
+        return directory;
+    }
+
+    private static BitmapSource CreateThumbnail(PetPackage package)
+    {
+        var preview = package.Preview;
+        var scale = Math.Min(64.0 / preview.PixelWidth, 64.0 / preview.PixelHeight);
+        var scaled = new TransformedBitmap(preview, new ScaleTransform(scale, scale));
+        var converted = new FormatConvertedBitmap(scaled, PixelFormats.Pbgra32, null, 0);
+        var stride = converted.PixelWidth * 4;
+        var pixels = new byte[stride * converted.PixelHeight];
+        converted.CopyPixels(pixels, stride, 0);
+        // Detach the small image so the list does not retain every decoded sprite sheet.
+        var thumbnail = BitmapSource.Create(converted.PixelWidth, converted.PixelHeight, 96, 96,
+            PixelFormats.Pbgra32, null, pixels, stride);
+        thumbnail.Freeze();
+        return thumbnail;
     }
 }
