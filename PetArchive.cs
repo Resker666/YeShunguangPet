@@ -48,7 +48,11 @@ public static class PetArchive
 
     public static void Export(string manifestPath, string destination, bool overwrite = false)
     {
-        var snapshot = PetPackage.ReadPackage(manifestPath);
+        ExportSnapshot(PetPackage.ReadPackage(manifestPath), destination, overwrite);
+    }
+
+    internal static void ExportSnapshot((PetPackage Package, byte[] Json, byte[] Png) snapshot, string destination, bool overwrite)
+    {
         destination = Path.GetFullPath(destination);
         if (!Path.GetExtension(destination).Equals(".zip", StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("导出文件必须为 ZIP。");

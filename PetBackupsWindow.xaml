@@ -1,0 +1,43 @@
+<Window x:Class="YeShunguangPet.PetBackupsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="皮肤备份与恢复" Width="900" Height="570" MinWidth="740" MinHeight="450"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="#F7F7F7" Foreground="#202020" FontFamily="Segoe UI">
+    <Window.Resources>
+        <Style TargetType="Button"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,4"/><Setter Property="Margin" Value="6,0,0,0"/></Style>
+    </Window.Resources>
+    <Grid Margin="16" Background="#F7F7F7">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Width="34" Padding="0" FontFamily="Segoe MDL2 Assets" Content="&#xE72C;" ToolTip="刷新备份" AutomationProperties.Name="刷新备份" Click="Refresh_Click"/>
+            <ComboBox x:Name="FilterSelector" DockPanel.Dock="Left" Width="120" MinHeight="30" SelectionChanged="Filter_Changed"><ComboBoxItem Content="全部"/><ComboBoxItem Content="历史版本"/><ComboBoxItem Content="已删除"/></ComboBox>
+            <TextBlock x:Name="SummaryText" Margin="16,0,0,0" VerticalAlignment="Center"/>
+        </DockPanel>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
+            <ListView x:Name="BackupSelector" SelectionChanged="Backup_Changed" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <ListView.View><GridView>
+                    <GridViewColumn Header="角色" Width="150" DisplayMemberBinding="{Binding Name}"/>
+                    <GridViewColumn Header="类型" Width="74" DisplayMemberBinding="{Binding Kind}"/>
+                    <GridViewColumn Header="目录时间" Width="135" DisplayMemberBinding="{Binding TimeText}"/>
+                    <GridViewColumn Header="大小" Width="90" DisplayMemberBinding="{Binding SizeText}"/>
+                    <GridViewColumn Header="状态" Width="80" DisplayMemberBinding="{Binding Status}"/>
+                </GridView></ListView.View>
+            </ListView>
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="16,0,0,0">
+                <StackPanel><Image x:Name="BackupPreview" Height="180" Stretch="Uniform"/><TextBlock x:Name="SelectedName" Margin="0,12,0,6" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="SelectedDetails" TextWrapping="Wrap" Foreground="#666666"/>
+                </StackPanel>
+            </ScrollViewer>
+            <TextBlock x:Name="EmptyText" Text="暂无备份" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#666666" IsHitTestVisible="False"/>
+        </Grid>
+        <ScrollViewer Grid.Row="2" MaxHeight="64" VerticalScrollBarVisibility="Auto" Margin="0,10"><TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="#A51F36"/></ScrollViewer>
+        <DockPanel Grid.Row="3" LastChildFill="False">
+            <Button DockPanel.Dock="Left" x:Name="PurgeButton" Foreground="#A51F36" Click="Purge_Click"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="永久清理"/></StackPanel></Button>
+            <Button DockPanel.Dock="Right" x:Name="RestoreButton" Content="恢复皮肤" Background="#A51F36" Foreground="White" Click="Restore_Click"/>
+            <Button DockPanel.Dock="Right" x:Name="CopyButton" Content="恢复为副本" Click="Copy_Click"/>
+            <Button DockPanel.Dock="Right" x:Name="ExportButton" Content="导出 ZIP" Click="Export_Click"/>
+            <Button DockPanel.Dock="Right" Content="关闭" IsCancel="True"/>
+        </DockPanel>
+    </Grid>
+</Window>

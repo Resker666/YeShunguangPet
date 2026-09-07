@@ -83,6 +83,7 @@ internal static class Program
             VerifySettingsWindow(catalog, original, imported, expectedPetIds, args.Length > 1 ? args[1] : null);
             VerifyRuntimeSwitch(custom, original);
             SkinManagementTests.Run((success, name) => Check(success, name), catalog, imported, _root);
+            EditorBackupTests.Run((success, name) => Check(success, name), catalog, imported, _root, args.Length > 1 ? args[1] : null);
             SessionVisualTests.Run((success, name) => Check(success, name), original, custom);
             CompanionTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);

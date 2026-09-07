@@ -224,6 +224,7 @@ public partial class SettingsWindow : Window
         SkinDescription.Text = string.Empty;
         SkinDetails.Text = string.Empty;
         SaveButton.IsEnabled = false;
+        EditPetButton.IsEnabled = false;
         ExportPetButton.IsEnabled = false;
         UpdatePetButton.IsEnabled = false;
         DeletePetButton.IsEnabled = false;
@@ -244,6 +245,7 @@ public partial class SettingsWindow : Window
                 .Select(s => new PreviewAction(s, ActionName(s))).ToArray();
             PreviewActionSelector.SelectedIndex = 0;
             SaveButton.IsEnabled = true;
+            EditPetButton.IsEnabled = true;
             ExportPetButton.IsEnabled = true;
             UpdatePetButton.IsEnabled = !entry.Bundled;
             DeletePetButton.IsEnabled = !entry.Bundled && entry.Id != _activePetId;
@@ -371,7 +373,7 @@ public partial class SettingsWindow : Window
         _previewTimer.Interval = TimeSpan.FromMilliseconds(_previewAnimation.DurationsMs[_previewFrame]);
     }
 
-    private static string ActionName(PetState state) => state switch
+    internal static string ActionName(PetState state) => state switch
     {
         PetState.Idle => "待机",
         PetState.RunningRight => "向右走动",
@@ -386,4 +388,27 @@ public partial class SettingsWindow : Window
     };
 
     private sealed record PreviewAction(PetState State, string Name);
+
+    private void EditPet_Click(object sender, RoutedEventArgs e)
+    {
+        if (PetSelector.SelectedItem is not PetEntry entry) return;
+        _previewTimer.Stop();
+        try
+        {
+            var editor = new PetEditorWindow(_catalog, entry) { Owner = this };
+            editor.ShowDialog();
+            RefreshPets(editor.SavedEntry?.Id ?? entry.Id);
+            if (editor.SavedEntry is not null) SkinStatus.Text = "皮肤库已保存，点击保存后应用到桌面。";
+        }
+        catch (Exception ex) { SkinStatus.Text = ex.Message; StartPreview(); }
+    }
+
+    private void Backups_Click(object sender, RoutedEventArgs e)
+    {
+        var id = (PetSelector.SelectedItem as PetEntry)?.Id;
+        _previewTimer.Stop();
+        var backups = new PetBackupsWindow(_catalog) { Owner = this };
+        backups.ShowDialog();
+        RefreshPets(backups.RestoredId ?? id);
+    }
 }

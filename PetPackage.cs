@@ -90,6 +90,17 @@ public sealed class PetPackage
         return ReadPackage(manifestPath).Package;
     }
 
+    internal static byte[] SerializeManifest(PetManifest manifest) => JsonSerializer.SerializeToUtf8Bytes(manifest,
+        new JsonSerializerOptions(JsonOptions) { WriteIndented = true });
+
+    internal static PetPackage WithManifest(byte[] json, BitmapSource sprite)
+    {
+        var manifest = ReadManifest(json);
+        if (sprite.PixelWidth != manifest.CellWidth * manifest.Columns || sprite.PixelHeight != manifest.CellHeight * manifest.Rows)
+            throw new InvalidDataException("PNG 尺寸与单元格、行列数不一致。");
+        return new PetPackage(manifest, sprite);
+    }
+
     internal static (PetPackage Package, byte[] Json, byte[] Png) ReadPackage(string manifestPath)
     {
         manifestPath = Path.GetFullPath(manifestPath);
@@ -166,9 +177,19 @@ public sealed class PetPackage
     private static void Validate(PetManifest m)
     {
         if (m.SchemaVersion != 1) throw new InvalidDataException("不支持的皮肤 schemaVersion，当前支持 1。");
-        if (m.Id is null || !Regex.IsMatch(m.Id, @"\A[a-z][a-z0-9-]{0,63}\z") ||
-            new[] { "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9" }.Contains(m.Id))
+        ValidateId(m.Id);
+        ValidateContent(m);
+    }
+
+    internal static void ValidateId(string id)
+    {
+        if (id is null || !Regex.IsMatch(id, @"\A[a-z][a-z0-9-]{0,63}\z") ||
+            new[] { "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9" }.Contains(id))
             throw new InvalidDataException("皮肤 id 必须为小写字母开头的 1-64 位字母、数字或连字符，不能是系统保留名称。");
+    }
+
+    private static void ValidateContent(PetManifest m)
+    {
         if (string.IsNullOrWhiteSpace(m.Name) || m.Name.Length > 64 || m.Name.Any(char.IsControl) ||
             m.Description is null || m.Description.Length > 400)
             throw new InvalidDataException("皮肤名称需为 1-64 字符，描述最多 400 字符。");

@@ -15,7 +15,7 @@ public sealed record PetEntry(string Id, string Name, string ManifestPath, bool 
 }
 public sealed record PetCatalogResult(IReadOnlyList<PetEntry> Pets, IReadOnlyList<string> Errors);
 
-public sealed class PetCatalog
+public sealed partial class PetCatalog
 {
     public string BundledDirectory { get; }
     public string UserDirectory { get; }
@@ -85,8 +85,12 @@ public sealed class PetCatalog
 
     public PetEntry Import(string manifestPath)
     {
+        return ImportSnapshot(PetArchive.Read(manifestPath));
+    }
+
+    internal PetEntry ImportSnapshot((PetPackage Package, byte[] Json, byte[] Png) snapshot)
+    {
         // Copy only the validated snapshot, then publish the directory atomically.
-        var snapshot = PetArchive.Read(manifestPath);
         var id = snapshot.Package.Manifest.Id;
         if (id == PetPackage.DefaultId || Scan().Pets.Any(p => p.Id == id))
             throw new InvalidDataException($"皮肤 id {id} 已存在。请选择已有的导入皮肤并使用“更新皮肤”，或修改新皮肤的 id。");
@@ -113,8 +117,12 @@ public sealed class PetCatalog
 
     public PetEntry Update(PetEntry entry, string source)
     {
-        var destination = GetManagedDirectory(entry);
-        var snapshot = PetArchive.Read(source);
+        return UpdateSnapshot(entry, PetArchive.Read(source));
+    }
+
+    internal PetEntry UpdateSnapshot(PetEntry entry, (PetPackage Package, byte[] Json, byte[] Png) snapshot, bool recoverInvalid = false)
+    {
+        var destination = GetManagedDirectory(entry, recoverInvalid);
         if (snapshot.Package.Manifest.Id != entry.Id) throw new InvalidDataException("更新包的 id 必须与选中的皮肤相同。");
         var staging = Path.Combine(UserDirectory, ".import-" + Guid.NewGuid().ToString("N"));
         var backup = Path.Combine(UserDirectory, ".backup-" + entry.Id + "-" + Guid.NewGuid().ToString("N"));
@@ -147,17 +155,29 @@ public sealed class PetCatalog
         Directory.Move(directory, Path.Combine(UserDirectory, ".deleted-" + entry.Id + "-" + Guid.NewGuid().ToString("N")));
     }
 
-    private string GetManagedDirectory(PetEntry entry)
+    private string GetManagedDirectory(PetEntry entry, bool recoverInvalid = false)
     {
         var path = Path.GetFullPath(entry.ManifestPath);
         var directory = Path.GetDirectoryName(path)!;
         if (entry.Bundled || entry.Id == PetPackage.DefaultId ||
+            Path.GetFileName(directory).StartsWith('.') ||
             !string.Equals(Path.GetDirectoryName(directory), Path.TrimEndingDirectorySeparator(UserDirectory), StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(Path.GetFileName(path), "pet.json", StringComparison.OrdinalIgnoreCase) ||
             Scan().Pets.Any(p => p.Bundled && p.Id == entry.Id))
             throw new InvalidDataException("只能管理用户目录中导入的皮肤，随附皮肤不可修改。");
         PetPackage.RejectLink(UserDirectory);
-        if (PetPackage.Load(path).Manifest.Id != entry.Id) throw new InvalidDataException("皮肤已变化，请刷新列表。");
+        PetPackage.RejectLink(directory);
+        if (recoverInvalid)
+        {
+            PetPackage.ValidateId(entry.Id);
+            if (Path.GetFileName(directory) != entry.Id) throw new InvalidDataException("恢复目录与 id 不一致。");
+            PetPackage? current = null;
+            try { current = PetPackage.Load(path); }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException) { }
+            if (current is not null && current.Manifest.Id != entry.Id)
+                throw new InvalidDataException("该目录属于另一个有效皮肤，不能覆盖。请恢复为副本。");
+        }
+        else if (PetPackage.Load(path).Manifest.Id != entry.Id) throw new InvalidDataException("皮肤已变化，请刷新列表。");
         return directory;
     }
 
