@@ -64,17 +64,23 @@ internal static class Program
 
             var users = Path.Combine(_root, "users");
             var catalog = new PetCatalog(Path.Combine(source, "Pets"), users);
+            var initialScan = catalog.Scan();
+            Check(initialScan.Errors.Count == 0 && initialScan.Pets.Any(p => p.Id == PetPackage.DefaultId),
+                "bundled skin catalog is valid", DescribeCatalog(initialScan));
+            var expectedPetIds = initialScan.Pets.Select(p => p.Id).Append(custom.Manifest.Id).ToArray();
             var imported = catalog.Import(fixture);
-            Check(imported.Id == "custom" && catalog.Scan().Pets.Count == 2, "import and catalog discovery");
+            Check(imported.Id == custom.Manifest.Id, "import preserves skin id");
+            CheckCatalog(catalog.Scan(), expectedPetIds, "import and catalog discovery");
             Check(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(fixture)!, "spritesheet.png")).SequenceEqual(
-                File.ReadAllBytes(Path.Combine(users, "custom", "spritesheet.png"))), "import preserves image bytes");
+                File.ReadAllBytes(Path.Combine(users, imported.Id, "spritesheet.png"))), "import preserves image bytes");
             ExpectFailure(() => catalog.Import(fixture), "duplicate import does not overwrite");
             Check(!Directory.GetDirectories(users).Any(p => Path.GetFileName(p).StartsWith('.')), "no staging debris");
             Directory.Delete(Path.GetDirectoryName(fixture)!, true);
-            Check(catalog.LoadPreferred("custom", out var fallback).Manifest.Id == "custom" && fallback is null, "import survives source removal");
-            Check(catalog.LoadPreferred("missing", out fallback).Manifest.Id == PetPackage.DefaultId && fallback is not null, "missing selected skin fallback");
+            Check(catalog.LoadPreferred(imported.Id, out var fallback).Manifest.Id == imported.Id && fallback is null, "import survives source removal");
+            var missingPetId = "test-missing-" + Guid.NewGuid().ToString("N");
+            Check(catalog.LoadPreferred(missingPetId, out fallback).Manifest.Id == PetPackage.DefaultId && fallback is not null, "missing selected skin fallback");
 
-            VerifySettingsWindow(catalog, original, imported, args.Length > 1 ? args[1] : null);
+            VerifySettingsWindow(catalog, original, imported, expectedPetIds, args.Length > 1 ? args[1] : null);
             VerifyRuntimeSwitch(custom, original);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
@@ -112,13 +118,13 @@ internal static class Program
             File.WriteAllText(imported.ManifestPath, "{\"schemaVersion\":1,\"schemaVersion\":1}");
             ExpectFailure(() => PetPackage.Load(imported.ManifestPath), "duplicate JSON properties");
             File.WriteAllText(imported.ManifestPath, "broken");
-            Check(catalog.Scan().Errors.Count > 0 && catalog.LoadPreferred("custom", out fallback).Manifest.Id == PetPackage.DefaultId, "broken skin isolated from startup");
+            Check(catalog.Scan().Errors.Count > 0 && catalog.LoadPreferred(imported.Id, out fallback).Manifest.Id == PetPackage.DefaultId, "broken skin isolated from startup");
             var badCatalog = new PetCatalog(Path.Combine(source, "Pets"), Path.Combine(_root, "reject-target"));
             ExpectFailure(() => badCatalog.Import(imported.ManifestPath), "invalid import rejected");
             Check(!Directory.Exists(badCatalog.UserDirectory), "invalid import creates no user files");
             File.WriteAllText(imported.ManifestPath, importedJson, new System.Text.UTF8Encoding(true));
-            Check(PetPackage.Load(imported.ManifestPath).Manifest.Id == "custom", "UTF8 BOM supported");
-            File.WriteAllBytes(Path.Combine(users, "custom", "spritesheet.png"), new byte[] { 1, 2, 3 });
+            Check(PetPackage.Load(imported.ManifestPath).Manifest.Id == imported.Id, "UTF8 BOM supported");
+            File.WriteAllBytes(Path.Combine(users, imported.Id, "spritesheet.png"), new byte[] { 1, 2, 3 });
             ExpectFailure(() => PetPackage.Load(imported.ManifestPath), "invalid PNG");
             ExpectFailure(() => new PetCatalog(Path.Combine(_root, "empty"), Path.Combine(_root, "empty-user")).LoadPreferred("missing", out _), "no skins yields actionable failure");
 
@@ -159,18 +165,24 @@ internal static class Program
           "animations": { "idle": { "row": 1, "startColumn": 1, "durationsMs": [200], "loop": true } }
         }
         """;
-        File.WriteAllText(Path.Combine(path, "pet.json"), json);
+        var manifest = JsonNode.Parse(json)!;
+        manifest["id"] = "test-import-" + Guid.NewGuid().ToString("N");
+        File.WriteAllText(Path.Combine(path, "pet.json"), manifest.ToJsonString());
         return Path.Combine(path, "pet.json");
     }
 
-    private static void VerifySettingsWindow(PetCatalog catalog, PetPackage original, PetEntry imported, string? renderRoot)
+    private static void VerifySettingsWindow(PetCatalog catalog, PetPackage original, PetEntry imported,
+        string[] expectedPetIds, string? renderRoot)
     {
         var settings = new PetSettings();
         var window = new SettingsWindow(settings, true, catalog, original);
         try
         {
             var selector = (ComboBox)window.FindName("PetSelector");
-            Check(selector.Items.Count == 2, "skin selector shows bundled and imported skins");
+            var displayedIds = selector.Items.Cast<PetEntry>().Select(p => p.Id).OrderBy(id => id, StringComparer.Ordinal);
+            Check(displayedIds.SequenceEqual(expectedPetIds.OrderBy(id => id, StringComparer.Ordinal)),
+                "skin selector shows bundled and imported skins",
+                $"Expected: {string.Join(", ", expectedPetIds)}; displayed: {string.Join(", ", displayedIds)}");
             selector.SelectedValue = imported.Id;
             Check(((Image)window.FindName("SkinPreview")).Source is BitmapSource { PixelWidth: 16 }, "preview switches dimensions");
             Check(!((CheckBox)window.FindName("LookAtMouseCheckBox")).IsEnabled &&
@@ -248,9 +260,21 @@ internal static class Program
         encoder.Save(stream);
     }
 
-    private static void Check(bool success, string name)
+    private static void CheckCatalog(PetCatalogResult scan, IEnumerable<string> expectedIds, string name)
     {
-        if (!success) throw new InvalidOperationException("FAIL: " + name);
+        var expected = expectedIds.OrderBy(id => id, StringComparer.Ordinal).ToArray();
+        var actual = scan.Pets.Select(p => p.Id).OrderBy(id => id, StringComparer.Ordinal);
+        Check(scan.Errors.Count == 0 && actual.SequenceEqual(expected), name,
+            $"Expected: {string.Join(", ", expected)}; {DescribeCatalog(scan)}");
+    }
+
+    private static string DescribeCatalog(PetCatalogResult scan)
+        => $"Found ({scan.Pets.Count}): {string.Join(", ", scan.Pets.Select(p => p.Id))}; errors: {string.Join("; ", scan.Errors)}";
+
+    private static void Check(bool success, string name, string? details = null)
+    {
+        if (!success) throw new InvalidOperationException("FAIL: " + name +
+            (details is null ? string.Empty : Environment.NewLine + details));
         _passed++;
         Console.WriteLine("PASS: " + name);
     }
