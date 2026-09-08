@@ -24,15 +24,27 @@ internal static class Program
     {
         _root = Path.Combine(Path.GetTempPath(), "YeShunguangPet-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_root);
+        typeof(AppLogger).GetMethod("SetSink", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null,
+            new object[] { new ResilientLog(new[] { Path.Combine(_root, "test-logs") }) });
+        AppLogger.Initialize();
+        Check(AppLogger.Capture().ActivePath?.StartsWith(_root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) == true,
+            "test diagnostics write only to their isolated log directory");
         try
         {
             var source = Path.GetFullPath(args[0]);
+            if (args.Length > 2 && args[2] == "--sprite-thread-smoke")
+            {
+                SpriteThreadTests.Run((success, name) => Check(success, name), source, _root);
+                Console.WriteLine($"PASS: {_passed} sprite threading checks");
+                return 0;
+            }
             if (args.Length > 2 && args[2] == "--ui-smoke")
             {
                 UiTests.RunLive((success, name) => Check(success, name), new PetCatalog(Path.Combine(source, "Pets"), Path.Combine(_root, "ui-users")), args[1]);
                 Console.WriteLine($"PASS: {_passed} native UI checks");
                 return 0;
             }
+            SpriteThreadTests.Run((success, name) => Check(success, name), source, _root);
             var manifestPath = Path.Combine(source, "Pets", "YeShunguang", "pet.json");
             var original = PetPackage.Load(manifestPath);
             Check(original.Manifest.Id == PetPackage.DefaultId && original.Manifest.Animations.Count == 9, "default package loads");
@@ -96,6 +108,9 @@ internal static class Program
             EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             UiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);
             DiagnosticsTests.Run((success, name) => Check(success, name), catalog, _root);
+            SpeechStudyTests.Run((success, name) => Check(success, name), catalog, _root);
+            FocusDialTests.Run((success, name) => Check(success, name), catalog, _root);
+            FocusLayoutTests.Run((success, name) => Check(success, name), catalog, _root);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
             void Bad(Action<JsonObject> edit, string name)

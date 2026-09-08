@@ -69,6 +69,7 @@ public partial class SettingsWindow : ThemedWindow
         UpdateValueLabels();
         _previewTimer.Tick += PreviewTimer_Tick;
         Closed += (_, _) => _previewTimer.Stop();
+        Loaded += (_, _) => SpeechButton.IsEnabled = Owner is MainWindow main && main.CanEditSpeech;
         SettingsTabs.SelectionChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.Source, SettingsTabs)) return;
@@ -414,6 +415,11 @@ public partial class SettingsWindow : ThemedWindow
             if (editor.SavedEntry is not null) SkinStatus.Text = "皮肤库已保存，点击保存后应用到桌面。";
         }
         catch (Exception ex) { SkinStatus.Text = ex.Message; StartPreview(); }
+    }
+
+    private void Speech_Click(object sender, RoutedEventArgs e)
+    {
+        if (_previewPet is not null && Owner is MainWindow main) main.OpenSpeechSettings(this, _previewPet);
     }
 
     private void Backups_Click(object sender, RoutedEventArgs e)

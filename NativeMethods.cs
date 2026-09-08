@@ -10,6 +10,8 @@ internal static class NativeMethods
     private const int GwlExStyle = -20;
     private const long WsExLayered = 0x00080000L;
     private const long WsExTransparent = 0x00000020L;
+    private const long WsExNoActivate = 0x08000000L;
+    private const long WsExToolWindow = 0x00000080L;
     private const uint MonitorDefaultToNearest = 0x00000002;
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoZOrder = 0x0004;
@@ -40,6 +42,30 @@ internal static class NativeMethods
         {
             SetForegroundWindow(hwnd);
         }
+    }
+
+    internal static void SetPassiveOverlay(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        var style = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
+        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(style | WsExLayered | WsExTransparent | WsExNoActivate | WsExToolWindow));
+    }
+    internal static bool TryGetWindowBounds(Window window, out Rect bounds)
+    {
+        bounds = Rect.Empty;
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var rect)) return false;
+        bounds = new Rect(rect.Left, rect.Top, Math.Max(0, rect.Right - rect.Left), Math.Max(0, rect.Bottom - rect.Top));
+        return true;
+    }
+    internal static bool MoveWindowPixels(Window window, int left, int top) => SetWindowPos(new WindowInteropHelper(window).Handle,
+        IntPtr.Zero, left, top, 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate);
+
+    internal static bool IsWindowNormal(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        return hwnd != IntPtr.Zero && !IsIconic(hwnd) && !IsZoomed(hwnd);
     }
 
     public static bool RegisterGlobalHotKey(Window window, int id, uint modifiers, uint virtualKey)
@@ -189,6 +215,14 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsZoomed(IntPtr hwnd);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromRect(ref NativeRect rect, uint flags);

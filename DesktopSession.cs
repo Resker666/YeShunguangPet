@@ -24,6 +24,7 @@ public sealed class DesktopSession : IDisposable
     private MainWindow? _settingsOwner;
     private bool _disposed;
     private bool _started;
+    private readonly DesktopSpeech _speech;
     public DesktopConfiguration Configuration { get; }
     public CompanionRuntime Companion { get; }
     public PetCatalog Catalog { get; }
@@ -32,7 +33,7 @@ public sealed class DesktopSession : IDisposable
     public event Action? Changed;
     public event Action? ExitRequested;
 
-    public DesktopSession(DesktopConfiguration configuration, PetCatalog catalog, Action<DesktopConfiguration> save, bool nativeIntegration = true, TimeProvider? clock = null)
+    public DesktopSession(DesktopConfiguration configuration, PetCatalog catalog, Action<DesktopConfiguration> save, bool nativeIntegration = true, TimeProvider? clock = null, StudyHistory? history = null)
     {
         configuration.Validate();
         Configuration = configuration;
@@ -42,7 +43,13 @@ public sealed class DesktopSession : IDisposable
         _nativeIntegration = nativeIntegration;
         var globalSettings = new PetSettings();
         configuration.Companion.ApplyTo(globalSettings);
-        Companion = new CompanionRuntime(globalSettings, clock);
+        Companion = new CompanionRuntime(globalSettings, clock, history, PersistCompanionDurations, configuration.FocusWindow, PersistFocusWindow);
+        Companion.DurationsChanged += () =>
+        {
+            foreach (var window in Windows) window.ApplyGlobal(Configuration.Companion);
+            Changed?.Invoke();
+        };
+        _speech = new DesktopSpeech(this, clock);
         Companion.Notification += ShowNotification;
         Catalog.IsPetInUse = id => _windows.Values.Any(w => w.Package.Manifest.Id == id);
     }
@@ -128,6 +135,7 @@ public sealed class DesktopSession : IDisposable
     internal void Capture(MainWindow window)
     {
         if (_disposed) return;
+        _speech.Dismiss(window);
         var instance = Configuration.Pets.FirstOrDefault(p => p.InstanceId == window.InstanceId);
         if (instance is null) return;
         instance.Capture(window.InstanceSettings);
@@ -156,6 +164,23 @@ public sealed class DesktopSession : IDisposable
         Changed?.Invoke();
     }
 
+    private void PersistCompanionDurations(PetSettings draft)
+    {
+        if (HasSettingsOpen) throw new InvalidOperationException("请先关闭角色设置窗口，再调整时长。");
+        var previous = Configuration.Companion;
+        Configuration.Companion = CompanionOptions.From(draft);
+        try { Persist(); }
+        catch { Configuration.Companion = previous; throw; }
+    }
+
+    private void PersistFocusWindow(FocusWindowOptions options)
+    {
+        var previous = Configuration.FocusWindow;
+        Configuration.FocusWindow = options.Copy();
+        try { Persist(); }
+        catch { Configuration.FocusWindow = previous; throw; }
+    }
+
     public void SetQuiet(bool quiet)
     {
         var settings = Companion.Settings.Clone();
@@ -175,11 +200,24 @@ public sealed class DesktopSession : IDisposable
     }
 
     internal bool HasSettingsOpen => _settingsOwner is not null;
+    internal void Speak(MainWindow owner, SpeechEvent trigger) => _speech.Request(owner, trigger);
+    internal void DismissSpeech(MainWindow? owner = null) => _speech.Dismiss(owner);
+    public void UpdateSpeech(SpeechOptions options)
+    {
+        var previous = Configuration.Speech;
+        var next = options.Clone();
+        next.Normalize();
+        Configuration.Speech = next;
+        try { Persist(); } catch { Configuration.Speech = previous; throw; }
+        _speech.Dismiss();
+        Changed?.Invoke();
+    }
 
     internal bool BeginSettings(MainWindow window)
     {
         if (_settingsOwner is not null) { _settingsOwner.ActivateSettings(); return false; }
         _settingsOwner = window;
+        _speech.Dismiss();
         Changed?.Invoke();
         return true;
     }
@@ -213,6 +251,15 @@ public sealed class DesktopSession : IDisposable
     {
         if (_disposed) return;
         var dialog = new DiagnosticsWindow(this);
+        if (owner is not null) dialog.Owner = owner;
+        dialog.ShowDialog();
+    }
+
+    public void OpenSpeechSettings(PetPackage pet, Window? owner = null)
+    {
+        if (_disposed) return;
+        _speech.Dismiss();
+        var dialog = new SpeechSettingsWindow(this, pet);
         if (owner is not null) dialog.Owner = owner;
         dialog.ShowDialog();
     }
@@ -259,10 +306,14 @@ public sealed class DesktopSession : IDisposable
             try { action(); }
             catch (Exception ex) { AppLogger.Error("Desktop shutdown cleanup failed.", ex); }
         }
+        Cleanup(_speech.Dispose);
         foreach (var window in Windows) Cleanup(window.PrepareForApplicationShutdown);
         if (saveConfiguration)
             Cleanup(() =>
             {
+                Companion.FlushDurationEdits();
+                Companion.FlushWindowPlacement();
+                Companion.History.Flush();
                 foreach (var window in Windows)
                 {
                     window.CapturePosition();

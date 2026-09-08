@@ -18,6 +18,7 @@ public partial class MainWindow
     public bool HasAmbientTimer => _ambientTimer.IsEnabled;
     public bool HasRoamingTimer => _roamTimer.IsEnabled;
     public bool HasDockTimer => _dockTimer.IsEnabled;
+    internal bool CanShowSpeech => _loadedOnce && IsVisible && !IsDocked && !_isDragging && !_pointerDown && !_isRoaming && !_isMenuOpen && _settingsWindow is null && !_isExiting;
 
     internal void CapturePosition()
     {
@@ -36,6 +37,8 @@ public partial class MainWindow
     public void HideInstance() => HidePet();
     public void ConfigureInstance() => OpenSettings();
     public void ConfigureCompanionSettings() => OpenSettingsCore(companionTab: true);
+    internal bool CanEditSpeech => _desktop is not null;
+    internal void OpenSpeechSettings(Window owner, PetPackage pet) => _desktop?.OpenSpeechSettings(pet, owner);
     internal void OpenDiagnostics(Window owner)
     {
         if (_desktop is not null) _desktop.OpenDiagnostics(owner);

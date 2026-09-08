@@ -91,6 +91,17 @@ public static class UiTheme
         window.OnThemeUpdated();
     }
 
+    internal static void MatchTitleBarBackground(Window window)
+    {
+        var handle = new WindowInteropHelper(window).Handle;
+        if (handle == IntPtr.Zero || window.Background is not SolidColorBrush brush) return;
+        var color = brush.Color.R | (brush.Color.G << 8) | (brush.Color.B << 16);
+        if (SystemParameters.HighContrast) color = -1;
+        try { DwmSetWindowAttribute(handle, 35, ref color, sizeof(int)); }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+    }
+
     private static void SetPalette(ResourceDictionary resources)
     {
         foreach (var (key, color) in GetColors()) { var brush = new SolidColorBrush(color); brush.Freeze(); resources[key] = brush; }

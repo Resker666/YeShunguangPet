@@ -70,7 +70,7 @@ public partial class MainWindow : Window
         _petCatalog = desktop?.Catalog ?? new PetCatalog();
         _pet = package!;
         _imageLease = package?.RetainImage();
-        _companion = desktop?.Companion ?? new CompanionRuntime(_settings);
+        _companion = desktop?.Companion ?? new CompanionRuntime(_settings, persistDurations: draft => draft.Save());
         _focusSession = _companion.Session;
         _frameTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -213,6 +213,7 @@ public partial class MainWindow : Window
 
     internal void PrepareForApplicationShutdown()
     {
+        _desktop?.DismissSpeech(this);
         _isExiting = true;
         _isRoaming = false;
         _roamTimer.Stop();
@@ -584,6 +585,7 @@ public partial class MainWindow : Window
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
+        _desktop?.DismissSpeech(this);
         if (!_isDragging)
         {
             return;
@@ -610,6 +612,7 @@ public partial class MainWindow : Window
         SaveWindowPosition();
         PlayRestingAnimation();
         ApplyEffectiveWindowOptions();
+        _desktop?.Speak(this, SpeechEvent.Drag);
     }
 
     private void BuildWindowContextMenu()
@@ -770,6 +773,7 @@ public partial class MainWindow : Window
 
     private void BeginMenuInteraction()
     {
+        _desktop?.DismissSpeech(this);
         CancelPointerInteraction();
         ExpandDock(immediately: true);
         _isMenuOpen = true;
@@ -875,6 +879,7 @@ public partial class MainWindow : Window
 
     private void HidePet()
     {
+        _desktop?.DismissSpeech(this);
         CancelPointerInteraction();
         LeaveDock();
         StopRoaming(returnToIdle: true);

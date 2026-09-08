@@ -1,16 +1,20 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace YeShunguangPet;
 
 public static class AppLogger
 {
     private static readonly Lazy<ResilientLog> Sink = new(CreateSink);
+    private static ResilientLog? _configuredSink;
+    private static ResilientLog CurrentSink => Volatile.Read(ref _configuredSink) ?? Sink.Value;
+    internal static void SetSink(ResilientLog sink) => Volatile.Write(ref _configuredSink, sink ?? throw new ArgumentNullException(nameof(sink)));
 
     public static string LogsDirectory => Path.Combine(PetSettings.SettingsDirectory, "logs");
-    public static string LogPath => Sink.Value.Capture().ActivePath ?? Path.Combine(LogsDirectory, "app.log");
-    public static LogSnapshot Capture() => Sink.Value.Capture();
+    public static string LogPath => CurrentSink.Capture().ActivePath ?? Path.Combine(LogsDirectory, "app.log");
+    public static LogSnapshot Capture() => CurrentSink.Capture();
 
     public static void Initialize()
     {
@@ -38,7 +42,7 @@ public static class AppLogger
 
     private static void Write(string level, string message)
     {
-        try { Sink.Value.Write(level, message); }
+        try { CurrentSink.Write(level, message); }
         catch { /* Logging must never replace the original application error. */ }
     }
 

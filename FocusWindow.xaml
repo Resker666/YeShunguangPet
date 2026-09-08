@@ -2,45 +2,86 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:YeShunguangPet"
-        Title="学习陪伴" Width="400" Height="450"
-        ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI Variable, Segoe UI, Microsoft YaHei UI">
-    <Grid Background="{DynamicResource SurfaceBrush}" Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <DockPanel LastChildFill="False">
-            <Image x:Name="PetImage" Width="56" Height="60" Stretch="Uniform" />
-            <TextBlock x:Name="PetName" Margin="10,0" MaxWidth="160" TextTrimming="CharacterEllipsis"
-                       FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock x:Name="QuietStatus" DockPanel.Dock="Right" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" />
-        </DockPanel>
-        <StackPanel Grid.Row="1" VerticalAlignment="Center">
-            <TextBlock x:Name="PhaseText" FontSize="16" HorizontalAlignment="Center" />
-            <TextBlock x:Name="TimeText" Text="25:00" FontSize="52" FontFamily="Segoe UI Variable, Segoe UI" FontWeight="Light"
-                       HorizontalAlignment="Center" Margin="0,8,0,12" />
-            <ProgressBar x:Name="Progress" Height="4" Minimum="0" Maximum="1"
-                         Foreground="{DynamicResource DangerBrush}" Background="{DynamicResource BorderBrush}" BorderThickness="0" />
-            <TextBlock x:Name="SessionsText" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,12,0,0" />
-        </StackPanel>
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12">
-            <Button x:Name="ToggleButton" Style="{StaticResource PrimaryButton}" Width="136" Height="36" Click="Toggle_Click"
-                    Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource OnAccentBrush}" BorderBrush="{DynamicResource AccentBrush}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="ToggleIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE768;" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock x:Name="ToggleText" Text="开始专注" />
+        Title="学习陪伴" Width="400" Height="560" MinWidth="320" MinHeight="460"
+        ResizeMode="CanResize" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}">
+    <ui:ThemedWindow.Resources>
+        <Style x:Key="FocusError" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/><Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/><Setter Property="Margin" Value="0,4,0,0"/>
+            <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
+        </Style>
+    </ui:ThemedWindow.Resources>
+    <ScrollViewer x:Name="FocusScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  Background="{DynamicResource SurfaceBrush}" PreviewMouseLeftButtonDown="Surface_MouseDown"
+                  SizeChanged="Surface_SizeChanged">
+        <Grid x:Name="ContentRoot" Margin="24,16" MaxWidth="480" VerticalAlignment="Center" HorizontalAlignment="Center" Background="Transparent">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid x:Name="HeaderRow" Height="46">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Image x:Name="PetImage" Width="40" Height="44" Stretch="Uniform"/>
+                <TextBlock x:Name="PetName" Grid.Column="1" Margin="10,0" TextTrimming="CharacterEllipsis" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock x:Name="SessionsText" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock x:Name="QuietStatus" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right"/>
                 </StackPanel>
-            </Button>
-            <Button x:Name="ResetButton" Style="{StaticResource IconButton}" Width="36" Height="36" Margin="8,0,0,0" ToolTip="结束计时" Click="Reset_Click">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE71A;" />
-            </Button>
-            <Button x:Name="SkipButton" Style="{StaticResource IconButton}" Width="36" Height="36" Margin="8,0,0,0" ToolTip="跳过休息" Click="Skip_Click">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE893;" />
-            </Button>
-        </StackPanel>
-        <TextBlock Grid.Row="3" x:Name="DurationText" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0" />
-    </Grid>
+            </Grid>
+            <Border Grid.Row="1" Background="{DynamicResource SubtleBrush}" CornerRadius="7" Padding="3" HorizontalAlignment="Center" Margin="0,4,0,0">
+                <UniformGrid Columns="2" Width="184">
+                    <RadioButton x:Name="FocusMode" Content="专注" GroupName="Phase" Style="{StaticResource SegmentButton}" Click="Mode_Click" Tag="Focus"/>
+                    <RadioButton x:Name="BreakMode" Content="休息" GroupName="Phase" Style="{StaticResource SegmentButton}" Click="Mode_Click" Tag="Break"/>
+                </UniformGrid>
+            </Border>
+            <Grid x:Name="DialArea" Grid.Row="2" MinHeight="196" SizeChanged="DialArea_SizeChanged">
+              <Grid x:Name="DialFrame" Width="240" Height="240" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ui:DurationDial x:Name="Dial" Minimum="1" Maximum="120"
+                                 Foreground="{DynamicResource AccentTextBrush}" Cursor="Hand"
+                                 AutomationProperties.Name="计时分钟数" ToolTip="调整分钟数"/>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock x:Name="PhaseText" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <Grid x:Name="NumberArea" Height="78" Width="180">
+                        <TextBox x:Name="MinutesInput" FontSize="58" FontWeight="Light" FontFamily="Segoe UI Variable, Segoe UI"
+                                 TextAlignment="Center" VerticalContentAlignment="Center" Padding="0" BorderThickness="0" Background="Transparent"
+                                 MaxLength="3" ToolTip="输入分钟数" AutomationProperties.Name="分钟数"
+                                 GotKeyboardFocus="Minutes_GotFocus" LostKeyboardFocus="Minutes_LostFocus" PreviewKeyDown="Minutes_KeyDown"/>
+                        <TextBlock x:Name="TimeText" Text="25:00" FontSize="48" FontWeight="Light" FontFamily="Segoe UI Variable, Segoe UI"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden"/>
+                    </Grid>
+                    <TextBlock x:Name="MinuteUnit" Text="分钟" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                </StackPanel>
+              </Grid>
+            </Grid>
+            <Border x:Name="PresetHost" Grid.Row="3" Height="36" ClipToBounds="True">
+            <UniformGrid x:Name="Presets" Columns="4" MaxWidth="288" Height="32" VerticalAlignment="Top">
+                <RadioButton x:Name="Preset1" GroupName="Preset" Style="{StaticResource SegmentButton}" Click="Preset_Click" Padding="4,5"/>
+                <RadioButton x:Name="Preset2" GroupName="Preset" Style="{StaticResource SegmentButton}" Click="Preset_Click" Padding="4,5"/>
+                <RadioButton x:Name="Preset3" GroupName="Preset" Style="{StaticResource SegmentButton}" Click="Preset_Click" Padding="4,5"/>
+                <RadioButton x:Name="Preset4" GroupName="Preset" Style="{StaticResource SegmentButton}" Click="Preset_Click" Padding="4,5"/>
+            </UniformGrid>
+            </Border>
+            <TextBlock x:Name="DurationError" Grid.Row="4" Style="{StaticResource FocusError}" AutomationProperties.LiveSetting="Polite"/>
+            <StackPanel x:Name="ActionsRow" Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,4">
+                <Button x:Name="ToggleButton" Style="{StaticResource PrimaryButton}" Width="156" Height="40" Click="Toggle_Click">
+                    <StackPanel Orientation="Horizontal"><TextBlock x:Name="ToggleIcon" FontFamily="{StaticResource IconFont}" Text="&#xE768;" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock x:Name="ToggleText" Text="开始专注"/></StackPanel>
+                </Button>
+                <Button x:Name="ResetButton" Style="{StaticResource IconButton}" Width="40" Height="40" Margin="8,0,0,0" ToolTip="结束并重置计时" AutomationProperties.Name="结束并重置计时" Click="Reset_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE777;"/></Button>
+                <Button x:Name="SkipButton" Style="{StaticResource IconButton}" Width="40" Height="40" Margin="4,0,0,0" ToolTip="跳过休息" AutomationProperties.Name="跳过休息" Click="Skip_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE893;"/></Button>
+            </StackPanel>
+            <Border x:Name="Footer" Grid.Row="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,6,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="DurationText" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <Button x:Name="HistoryButton" Style="{StaticResource LinkButton}" MinHeight="28" HorizontalAlignment="Center" Margin="0,3,0,0" Click="History_Click"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE81C;" Margin="0,0,7,0"/><TextBlock x:Name="TodaySummary" Text="学习记录"/></StackPanel></Button>
+                    <TextBlock x:Name="WindowError" Style="{StaticResource FocusError}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
 </ui:ThemedWindow>

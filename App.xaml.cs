@@ -56,7 +56,8 @@ public partial class App : Application
             var store = new DesktopSettingsStore();
             var configuration = store.Load();
             configuration.Companion.LaunchAtStartup = PetSettings.IsLaunchAtStartupEnabled();
-            _desktop = new DesktopSession(configuration, new PetCatalog(), store.Save);
+            var history = new StudyHistory(System.IO.Path.Combine(PetSettings.SettingsDirectory, "study-history.json"));
+            _desktop = new DesktopSession(configuration, new PetCatalog(), store.Save, history: history);
             _desktop.ExitRequested += () => Shutdown();
             _desktop.Start();
             AppLogger.Info($"Desktop session started: {_desktop.Windows.Count} role(s).");

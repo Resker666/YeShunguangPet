@@ -21,6 +21,8 @@ internal static class UiTests
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
+        var coldPackages = SpriteThreadTests.OnWorker(() => Directory.GetFiles(catalog.BundledDirectory, "pet.json", SearchOption.AllDirectories).Select(PetPackage.Load).ToArray());
+        check(coldPackages.Length > 0 && coldPackages.All(p => p.SpriteSheet.IsFrozen), "native startup uses sheets first decoded by a background thread");
         var config = DesktopConfiguration.Migrate(new PetSettings { Topmost = false, LookAtMouse = false, RandomIdleActions = false });
         config.Appearance = new AppearanceOptions { Theme = "light" };
         using var desktop = new DesktopSession(config, catalog, _ => { }, nativeIntegration: false);
@@ -43,6 +45,9 @@ internal static class UiTests
             var changed = !UiTheme.MotionEnabled;
             for (var i = 0; i < 12; i++) { Await(Task.Delay(90)); changed |= !ReferenceEquals(originalFrame, previewProperty.GetValue(card)); }
             check(changed, "native control center animation advances frozen frame references");
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            Await((Task)Invoke(manager, "RefreshSkinsAsync")!);
+            check(string.IsNullOrEmpty(((TextBlock)manager.FindName("StatusText")).Text), "background catalog refresh after collection has no decoder-thread failures");
             manager.WindowState = WindowState.Minimized;
             Await(Task.Delay(60));
             check(!timer.IsEnabled, "minimized control center stops its animation timer");
@@ -94,6 +99,14 @@ internal static class UiTests
                 Await(Task.Delay(100));
                 check(settings.IsLoaded && ((SolidColorBrush)settings.Background).Color.R == 32, "new native settings window adopts active dark theme");
                 var tabs = (TabControl)settings.FindName("SettingsTabs");
+                var about = tabs.Items.Cast<TabItem>().Single(t => Equals(t.Header, "关于"));
+                for (var i = 0; i < 3; i++)
+                {
+                    tabs.SelectedItem = about;
+                    Await(Task.Delay(90));
+                    check(((Image)settings.FindName("AboutPetImage")).Source is BitmapSource { IsFrozen: true }, "native About tab can repeatedly display a background-decoded character");
+                    tabs.SelectedIndex = 0;
+                }
                 tabs.SelectedIndex = 1;
                 Await(Task.Delay(100));
                 var checkBox = (CheckBox)settings.FindName("TopmostCheckBox");
@@ -133,10 +146,13 @@ internal static class UiTests
             }
             finally { closeDialog.Stop(); }
             VerifyDiagnosticsWindow(check, desktop, renders);
+            SpeechStudyUiTests.Run(check, catalog, renders);
+            FocusDialTests.RunLive(check, catalog, renders);
+            FocusLayoutTests.RunLive(check, catalog, renders);
             TrayMenuTests.Run(check, catalog, renders);
             check(failures.Count == 0, "native UI has no unhandled dispatcher errors: " + string.Join("; ", failures.Select(e => e.Message)));
         }
-        finally { manager.Close(); desktop.Dispose(); app.Shutdown(); }
+        finally { manager.Close(); desktop.Dispose(); app.Shutdown(); GC.KeepAlive(coldPackages); }
     }
 
     private static void ShowOffscreen(Window window)
@@ -335,7 +351,7 @@ internal static class UiTests
                 tabs.SelectedIndex = 1;
                 if (renders is not null) Render(settings, renders, $"settings-general-{theme}.png", 844, 641);
                 check(((CheckBox)settings.FindName("TopmostCheckBox")).IsChecked == true, "restyled settings preserve option values");
-                check(((Button)focus.FindName("ToggleButton")).ActualWidth == 136, "focus primary command has stable dimensions");
+                check(((Button)focus.FindName("ToggleButton")).ActualWidth == 156, "focus primary command has stable dimensions");
             }
             finally { picker.Close(); focus.Close(); backups.Close(); editor.Close(); settings.Close(); }
         }

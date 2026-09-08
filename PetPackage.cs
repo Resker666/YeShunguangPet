@@ -24,6 +24,8 @@ public sealed class PetManifest
     public int Rows { get; set; }
     public Dictionary<PetState, AnimationDefinition> Animations { get; set; } = new();
     public List<FrameLocation> LookDirections { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SpeechLines? Speech { get; set; }
 }
 
 public sealed class AnimationDefinition
@@ -165,12 +167,18 @@ public sealed class PetPackage
                 using var stream = new MemoryStream(png, writable: false);
                 var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
                 var decoded = decoder.Frames[0];
-                decoded.Freeze();
-                return decoded;
+                // A frozen BitmapFrame still retains its thread-affine decoder. Detach the
+                // pixels before sharing, so freezing future crops never visits that decoder.
+                var stride = checked((decoded.PixelWidth * decoded.Format.BitsPerPixel + 7) / 8);
+                var pixels = new byte[checked(stride * decoded.PixelHeight)];
+                decoded.CopyPixels(pixels, stride, 0);
+                var detached = BitmapSource.Create(decoded.PixelWidth, decoded.PixelHeight, decoded.DpiX, decoded.DpiY,
+                    decoded.Format, decoded.Palette, pixels, stride);
+                detached.Freeze();
+                return detached;
             });
             if (bitmap.PixelWidth != width || bitmap.PixelHeight != height)
                 throw new InvalidDataException("PNG 解码尺寸不一致。");
-            bitmap.Freeze();
             return new PetPackage(manifest, bitmap);
         }
         catch (Exception ex) when (ex is not InvalidDataException && ex is not OutOfMemoryException)
@@ -195,6 +203,7 @@ public sealed class PetPackage
 
     private static void ValidateContent(PetManifest m)
     {
+        m.Speech?.Validate();
         if (string.IsNullOrWhiteSpace(m.Name) || m.Name.Length > 64 || m.Name.Any(char.IsControl) ||
             m.Description is null || m.Description.Length > 400)
             throw new InvalidDataException("皮肤名称需为 1-64 字符，描述最多 400 字符。");

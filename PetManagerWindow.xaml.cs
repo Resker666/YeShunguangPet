@@ -216,6 +216,12 @@ public partial class PetManagerWindow : ThemedWindow
     }
     private void RecallAll_Click(object sender, RoutedEventArgs e) => Run(_desktop.RecallAll);
     private void Focus_Click(object sender, RoutedEventArgs e) => Run(_desktop.OpenFocus);
+    private void History_Click(object sender, RoutedEventArgs e) => Run(() => _desktop.Companion.OpenHistory(this));
+    private void Speech_Click(object sender, RoutedEventArgs e)
+    {
+        if (Selected is { } card) Run(() => _desktop.OpenSpeechSettings(card.Window.Package, this));
+        else StatusText.Text = "请先添加一个桌面角色。";
+    }
     private void Diagnostics_Click(object sender, RoutedEventArgs e) => Run(() => _desktop.OpenDiagnostics(this));
     private void Quiet_Changed(object sender, RoutedEventArgs e) { if (_ready && !_refreshing) Run(() => _desktop.SetQuiet(QuietCheck.IsChecked == true)); }
     private void Notifications_Changed(object sender, RoutedEventArgs e)

@@ -25,6 +25,7 @@ public sealed class CompanionSession
     public bool IsFocusing => Phase == SessionPhase.Focus && Status == SessionStatus.Running;
     public event Action? Changed;
     public event Action<SessionPhase>? Completed;
+    public event Action<FocusCompletion>? FocusCompleted;
     public TimeSpan Duration { get; private set; } = TimeSpan.FromMinutes(25);
     public TimeSpan Remaining => Status == SessionStatus.Running
         ? MaxZero(_remaining - _clock.GetElapsedTime(_startedAt))
@@ -35,7 +36,17 @@ public sealed class CompanionSession
         _focusMinutes = Math.Clamp(focusMinutes, 1, 120);
         _breakMinutes = Math.Clamp(breakMinutes, 1, 60);
         if (Status == SessionStatus.Ready)
-            Duration = _remaining = TimeSpan.FromMinutes(_focusMinutes);
+            Duration = _remaining = TimeSpan.FromMinutes(Phase == SessionPhase.Focus ? _focusMinutes : _breakMinutes);
+        Changed?.Invoke();
+    }
+
+    public void PreparePhase(SessionPhase phase)
+    {
+        if (Status is SessionStatus.Running or SessionStatus.Paused) return;
+        if (phase is not (SessionPhase.Focus or SessionPhase.Break)) throw new ArgumentOutOfRangeException(nameof(phase));
+        Phase = phase;
+        Status = SessionStatus.Ready;
+        Duration = _remaining = TimeSpan.FromMinutes(phase == SessionPhase.Focus ? _focusMinutes : _breakMinutes);
         Changed?.Invoke();
     }
 
@@ -79,9 +90,14 @@ public sealed class CompanionSession
         if (Status != SessionStatus.Running || Remaining > TimeSpan.Zero) return;
         _remaining = TimeSpan.Zero;
         Status = SessionStatus.Completed;
-        if (Phase == SessionPhase.Focus) CompletedFocusSessions++;
+        var phase = Phase;
+        if (phase == SessionPhase.Focus)
+        {
+            CompletedFocusSessions++;
+            FocusCompleted?.Invoke(new FocusCompletion(Guid.NewGuid().ToString("N"), _clock.GetLocalNow(), (int)Duration.TotalSeconds));
+        }
         Changed?.Invoke();
-        Completed?.Invoke(Phase);
+        Completed?.Invoke(phase);
     }
 
     private static TimeSpan MaxZero(TimeSpan value) => value > TimeSpan.Zero ? value : TimeSpan.Zero;

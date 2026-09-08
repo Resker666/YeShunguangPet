@@ -22,7 +22,10 @@ public partial class MainWindow
             _clickTimer.Stop();
             if (IsVisible && CanPlayDockAnimation && _settings.ClickInteraction && !EffectiveClickThrough && !_isDragging &&
                 !_isMenuOpen && _settingsWindow is null)
+            {
                 PlayAnimation(PetState.Waving, restart: true);
+                _desktop?.Speak(this, SpeechEvent.Click);
+            }
         };
     }
 
@@ -30,6 +33,7 @@ public partial class MainWindow
     {
         if (EffectiveClickThrough || e.ChangedButton != MouseButton.Left) return;
         ExpandDock(immediately: true);
+        _desktop?.DismissSpeech(this);
         _clickTimer.Stop();
         StopRoaming(returnToIdle: true);
         _pointerDown = true;
@@ -68,7 +72,10 @@ public partial class MainWindow
         if (_settings.ClickInteraction)
         {
             if (_doublePress)
+            {
                 PlayAnimation(_pet.Supports(PetState.Jumping) ? PetState.Jumping : PetState.Waving, restart: true);
+                _desktop?.Speak(this, SpeechEvent.Click);
+            }
             else
                 _clickTimer.Start();
         }

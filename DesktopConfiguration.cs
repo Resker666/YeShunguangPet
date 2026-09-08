@@ -110,6 +110,8 @@ public sealed class DesktopConfiguration
     public int SchemaVersion { get; set; } = 2;
     public CompanionOptions Companion { get; set; } = new();
     public AppearanceOptions Appearance { get; set; } = new();
+    public SpeechOptions Speech { get; set; } = new();
+    public FocusWindowOptions FocusWindow { get; set; } = new();
     public List<PetInstanceOptions> Pets { get; set; } = new();
 
     public static DesktopConfiguration Migrate(PetSettings legacy)
@@ -127,6 +129,10 @@ public sealed class DesktopConfiguration
             throw new InvalidDataException("桌面配置版本或角色数量无效。原配置未被覆盖。");
         Appearance ??= new AppearanceOptions();
         Appearance.Normalize();
+        Speech ??= new SpeechOptions();
+        Speech.Normalize();
+        FocusWindow ??= new FocusWindowOptions();
+        FocusWindow.Normalize();
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var global = new PetSettings();
         Companion.ApplyTo(global);

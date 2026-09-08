@@ -1,0 +1,35 @@
+<ui:ThemedWindow x:Class="YeShunguangPet.StudyWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:YeShunguangPet"
+    Title="学习记录" Width="760" Height="680" MinWidth="640" MinHeight="550" WindowStartupLocation="CenterOwner">
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,22"><TextBlock Text="学习记录" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="DateText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/></DockPanel>
+        <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="今日专注" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/><TextBlock x:Name="TodayText" FontSize="28" Margin="0,7,0,0"/></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="今日完成" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/><TextBlock x:Name="CountText" FontSize="28" Margin="0,7,0,0"/></StackPanel>
+            <StackPanel Grid.Column="2"><TextBlock Text="近 7 天" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/><TextBlock x:Name="WeekText" FontSize="28" Margin="0,7,0,0"/></StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="2" Margin="0,20,0,14">
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock x:Name="GoalStatus" VerticalAlignment="Center" FontSize="12"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal"><TextBlock Text="每日目标" VerticalAlignment="Center" FontSize="12" Margin="0,0,8,0"/><TextBox x:Name="GoalInput" Width="58" MaxLength="3" AutomationProperties.Name="每日目标分钟"/><TextBlock Text="分钟" FontSize="12" Margin="8,0" VerticalAlignment="Center"/><Button x:Name="SaveGoalButton" Style="{StaticResource IconButton}" Content="&#xE74E;" ToolTip="保存每日目标" AutomationProperties.Name="保存每日目标" Click="SaveGoal_Click"/></StackPanel>
+            </Grid>
+            <ProgressBar x:Name="GoalProgress" Height="4" Maximum="1" Margin="0,10,0,0"/>
+        </StackPanel>
+        <ItemsControl x:Name="WeekBars" Grid.Row="3" Margin="0,0,0,18">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate><DataTemplate><Grid Margin="8,0" ToolTip="{Binding Summary}"><Grid.RowDefinitions><RowDefinition Height="20"/><RowDefinition Height="76"/><RowDefinition Height="24"/></Grid.RowDefinitions>
+                <TextBlock Text="{Binding Minutes}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center"/>
+                <Border Grid.Row="1" Height="{Binding Height}" MaxWidth="36" Background="{DynamicResource AccentBrush}" CornerRadius="2" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Row="2" Text="{Binding Label}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+            </Grid></DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Grid Grid.Row="4"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <DockPanel Margin="0,0,0,8"><TextBlock Text="完成记录" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/><ComboBox x:Name="RangeChoice" HorizontalAlignment="Right" Width="108" SelectedIndex="0" SelectionChanged="Range_Changed" AutomationProperties.Name="记录范围"><ComboBoxItem Content="近 7 天"/><ComboBoxItem Content="今天"/><ComboBoxItem Content="全部"/></ComboBox></DockPanel>
+            <ListView Grid.Row="1" x:Name="RecordList" ScrollViewer.HorizontalScrollBarVisibility="Disabled"><ListView.View><GridView><GridViewColumn Header="日期" Width="180" DisplayMemberBinding="{Binding Date}"/><GridViewColumn Header="完成时间" Width="145" DisplayMemberBinding="{Binding Time}"/><GridViewColumn Header="专注时长" Width="145" DisplayMemberBinding="{Binding Duration}"/></GridView></ListView.View></ListView>
+            <TextBlock Grid.Row="1" x:Name="EmptyText" Text="暂无已完成的专注" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+        </Grid>
+        <DockPanel Grid.Row="5" Margin="0,12,0,0"><Button x:Name="RetryButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE72C;" ToolTip="重试读取或保存记录" AutomationProperties.Name="重试保存记录" Click="Retry_Click"/><TextBlock x:Name="StatusText" TextWrapping="Wrap" MaxHeight="50" FontSize="12" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center"/></DockPanel>
+    </Grid>
+</ui:ThemedWindow>

@@ -101,6 +101,7 @@
                         <WrapPanel HorizontalAlignment="Right" Margin="0,8,0,0">
                             <Button Click="ImportPet_Click"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B5;" Margin="0,0,6,0" VerticalAlignment="Center" /><TextBlock Text="导入皮肤" /></StackPanel></Button>
                             <Button x:Name="EditPetButton" Style="{StaticResource SkinTool}" Content="&#xE70F;" ToolTip="编辑动作配置" AutomationProperties.Name="编辑动作配置" Click="EditPet_Click" />
+                            <Button x:Name="SpeechButton" Content="台词" Click="Speech_Click"/>
                             <Button Style="{StaticResource SkinTool}" Content="&#xE81C;" ToolTip="备份与恢复" AutomationProperties.Name="备份与恢复" Click="Backups_Click" />
                             <Button x:Name="ExportPetButton" Style="{StaticResource SkinTool}" Content="&#xE898;" ToolTip="导出皮肤 ZIP" AutomationProperties.Name="导出皮肤 ZIP" Click="ExportPet_Click" />
                             <Button x:Name="UpdatePetButton" Style="{StaticResource SkinTool}" Content="&#xE8AB;" ToolTip="更新选中的导入皮肤" AutomationProperties.Name="更新皮肤" Click="UpdatePet_Click" />
