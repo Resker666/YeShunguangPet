@@ -95,6 +95,7 @@ internal static class Program
             CompanionTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             UiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);
+            DiagnosticsTests.Run((success, name) => Check(success, name), catalog, _root);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
             void Bad(Action<JsonObject> edit, string name)

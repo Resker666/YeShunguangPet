@@ -132,6 +132,7 @@ internal static class UiTests
                 check(AppDialog.Show(manager, "确认此操作？", "UI confirmation test", MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.Cancel, "themed confirmation preserves cancellation result");
             }
             finally { closeDialog.Stop(); }
+            VerifyDiagnosticsWindow(check, desktop, renders);
             TrayMenuTests.Run(check, catalog, renders);
             check(failures.Count == 0, "native UI has no unhandled dispatcher errors: " + string.Join("; ", failures.Select(e => e.Message)));
         }
@@ -144,6 +145,55 @@ internal static class UiTests
         window.Left = window.Top = -30000;
         window.ShowInTaskbar = window.ShowActivated = false;
         window.Show();
+    }
+
+    private static void VerifyDiagnosticsWindow(Action<bool, string> check, DesktopSession desktop, string renders)
+    {
+        var folder = Path.Combine(Path.GetFullPath(renders), "diagnostics-ui-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var blocked = Path.Combine(folder, "blocked");
+        File.WriteAllText(blocked, "not a directory");
+        var log = new ResilientLog(new[] { blocked, Path.Combine(folder, "fallback") });
+        log.Write("ERROR", "Cannot open 'C:\\Users\\private-user\\notes.txt' for alice@example.com\n at YeShunguangPet.UiMotion.MoveToggle");
+        foreach (var theme in new[] { "light", "dark" })
+        {
+            UiTheme.Apply(new AppearanceOptions { Theme = theme, ReduceMotion = true });
+            var window = new DiagnosticsWindow(desktop, log);
+            try
+            {
+                Await((Task)Invoke(window, "RefreshAsync")!);
+                ShowOffscreen(window);
+                Await(Task.Delay(150));
+                var logs = (TextBox)window.FindName("LogsText");
+                check(((Button)window.FindName("ExportButton")).IsEnabled && logs.IsReadOnly, "diagnostics preview enables export only after collecting a report");
+                check(!logs.Text.Contains("alice@example.com") && !logs.Text.Contains("private-user") && logs.Text.Contains("MoveToggle"), "diagnostics window previews the actual redacted export content");
+                check(((TextBlock)window.FindName("LogStatusText")).Text.Contains("备用") && ((Button)window.FindName("FolderButton")).IsEnabled, "diagnostics window reports fallback storage accurately");
+                Render(window, renders, "diagnostics-" + theme + ".png", 644, 541);
+                ((TabControl)window.FindName("ReportTabs")).SelectedIndex = 1;
+                Render(window, renders, "diagnostics-logs-" + theme + ".png", 644, 541);
+                window.Width = 510;
+                window.Height = 450;
+                Await(Task.Delay(80));
+                Render(window, renders, "diagnostics-compact-" + theme + ".png", 494, 411);
+                var exportBounds = ((Button)window.FindName("ExportButton")).TransformToAncestor((System.Windows.Media.Visual)window.Content)
+                    .TransformBounds(new Rect(0, 0, ((Button)window.FindName("ExportButton")).ActualWidth, ((Button)window.FindName("ExportButton")).ActualHeight));
+                check(exportBounds.Right <= 494 && exportBounds.Bottom <= 411, "compact diagnostics window keeps export command inside client area");
+            }
+            finally { window.Close(); }
+        }
+        var memory = new DiagnosticsWindow(null, new ResilientLog(Array.Empty<string>()));
+        try
+        {
+            Await((Task)Invoke(memory, "RefreshAsync")!);
+            check(((TextBlock)memory.FindName("LogStatusText")).Text.Contains("内存") && !((Button)memory.FindName("FolderButton")).IsEnabled && ((Button)memory.FindName("ExportButton")).IsEnabled,
+                "memory-only diagnostics can export without claiming a log file exists");
+        }
+        finally { memory.Close(); }
+        var closing = new DiagnosticsWindow(null, log);
+        var task = (Task)Invoke(closing, "RefreshAsync")!;
+        closing.Close();
+        Await(task);
+        check(((TextBox)closing.FindName("InformationText")).Text.Length == 0, "closed diagnostic window discards late refresh results");
     }
     public static void Run(Action<bool, string> check, PetCatalog catalog, string root, string? renders)
     {

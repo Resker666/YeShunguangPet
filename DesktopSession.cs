@@ -194,6 +194,7 @@ public sealed class DesktopSession : IDisposable
 
     public void OpenManager()
     {
+        AppLogger.Info("Opening control center.");
         if (_manager is not null) { if (_manager.WindowState == WindowState.Minimized) _manager.WindowState = WindowState.Normal; _manager.Activate(); return; }
         _manager = new PetManagerWindow(this);
         _manager.Closed += (_, _) => _manager = null;
@@ -202,9 +203,18 @@ public sealed class DesktopSession : IDisposable
 
     public void OpenFocus()
     {
+        AppLogger.Info("Opening focus panel.");
         var first = Windows.FirstOrDefault();
         var pet = first?.Package ?? Catalog.LoadPreferred(PetPackage.DefaultId, out _);
         Companion.Open(pet, first?.InstanceId);
+    }
+
+    public void OpenDiagnostics(Window? owner = null)
+    {
+        if (_disposed) return;
+        var dialog = new DiagnosticsWindow(this);
+        if (owner is not null) dialog.Owner = owner;
+        dialog.ShowDialog();
     }
 
     public void RequestExit()
@@ -237,32 +247,41 @@ public sealed class DesktopSession : IDisposable
 
     private void ShowNotification(string title, string message) => _tray?.ShowBalloonTip(5000, title, message, WinForms.ToolTipIcon.None);
 
-    public void Dispose()
+    public void Dispose() => DisposeCore(saveConfiguration: true);
+    internal void DisposeAfterFailure() => DisposeCore(saveConfiguration: false);
+
+    private void DisposeCore(bool saveConfiguration)
     {
         if (_disposed) return;
-        try
-        {
-            foreach (var window in Windows)
-            {
-                window.CapturePosition();
-                Configuration.Pets.First(p => p.InstanceId == window.InstanceId).Capture(window.InstanceSettings);
-            }
-            Persist();
-        }
-        catch (Exception ex) { AppLogger.Error("Failed to persist desktop configuration during shutdown.", ex); }
         _disposed = true;
-        _manager?.Close();
-        Companion.Dispose();
-        foreach (var window in Windows.ToArray()) { window.PrepareForApplicationShutdown(); window.Close(); }
+        void Cleanup(Action action)
+        {
+            try { action(); }
+            catch (Exception ex) { AppLogger.Error("Desktop shutdown cleanup failed.", ex); }
+        }
+        foreach (var window in Windows) Cleanup(window.PrepareForApplicationShutdown);
+        if (saveConfiguration)
+            Cleanup(() =>
+            {
+                foreach (var window in Windows)
+                {
+                    window.CapturePosition();
+                    Configuration.Pets.First(p => p.InstanceId == window.InstanceId).Capture(window.InstanceSettings);
+                }
+                _save(Configuration);
+            });
+        Cleanup(Companion.Dispose);
+        Cleanup(() => _manager?.Close());
+        foreach (var window in Windows.ToArray()) Cleanup(window.Close);
         _windows.Clear();
         Catalog.IsPetInUse = null;
-        if (_hotkeyWindow is not null && HotkeyRegistered) NativeMethods.UnregisterGlobalHotKey(_hotkeyWindow, 0x5911);
+        if (_hotkeyWindow is not null && HotkeyRegistered) Cleanup(() => NativeMethods.UnregisterGlobalHotKey(_hotkeyWindow, 0x5911));
         HotkeyRegistered = false;
-        _source?.RemoveHook(HotkeyHook);
-        _hotkeyWindow?.Close();
-        _tray?.Dispose();
-        _trayMenu?.Dispose();
-        _icon?.Dispose();
+        Cleanup(() => _source?.RemoveHook(HotkeyHook));
+        Cleanup(() => _hotkeyWindow?.Close());
+        Cleanup(() => _tray?.Dispose());
+        Cleanup(() => _trayMenu?.Dispose());
+        Cleanup(() => _icon?.Dispose());
         Changed = null;
         ExitRequested = null;
     }

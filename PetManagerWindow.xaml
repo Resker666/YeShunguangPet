@@ -87,6 +87,7 @@
                             <CheckBox x:Name="NotificationsCheck" Content="桌面通知与完成动作" Checked="Notifications_Changed" Unchecked="Notifications_Changed"/>
                             <Separator Margin="0,24,0,18"/>
                             <Button Style="{StaticResource LinkButton}" Content="全局陪伴设置" HorizontalAlignment="Left" Click="CompanionSettings_Click"/>
+                            <Button x:Name="DiagnosticsButton" Style="{StaticResource LinkButton}" Content="诊断与日志" HorizontalAlignment="Left" Click="Diagnostics_Click"/>
                         </StackPanel>
                         <StackPanel x:Name="RoleSettingsPanel" Visibility="Collapsed"><ComboBox x:Name="RoleChoice" DisplayMemberPath="DisplayName" SelectionChanged="RoleChoice_Changed" Margin="0,0,0,24" AutomationProperties.Name="当前角色"/><ContentControl x:Name="SettingsRoleHost" HorizontalContentAlignment="Stretch"/><TextBlock x:Name="NoRoleText" Text="暂无桌面角色" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel>
                     </StackPanel>

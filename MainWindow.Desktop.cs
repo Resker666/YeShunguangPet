@@ -36,6 +36,11 @@ public partial class MainWindow
     public void HideInstance() => HidePet();
     public void ConfigureInstance() => OpenSettings();
     public void ConfigureCompanionSettings() => OpenSettingsCore(companionTab: true);
+    internal void OpenDiagnostics(Window owner)
+    {
+        if (_desktop is not null) _desktop.OpenDiagnostics(owner);
+        else new DiagnosticsWindow(null) { Owner = owner }.ShowDialog();
+    }
     internal void UpdateDisplay(double scale, bool topmost, bool edgeAutoHide, bool clickThrough)
     {
         if (_isExiting) return;

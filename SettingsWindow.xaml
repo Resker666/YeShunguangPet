@@ -289,7 +289,7 @@
                                HorizontalAlignment="Center" />
                     <StackPanel Margin="0,24,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
                         <Button Content="项目主页" Click="OpenRepository_Click" />
-                        <Button Content="日志目录" Click="OpenLogs_Click" />
+                        <Button Content="诊断与日志" Click="Diagnostics_Click" />
                     </StackPanel>
                 </StackPanel>
                 </ui:SmoothScrollViewer>

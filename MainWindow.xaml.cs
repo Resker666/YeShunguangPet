@@ -721,6 +721,7 @@ public partial class MainWindow : Window
 
     private async void OpenSettingsCore(bool companionTab = false)
     {
+        AppLogger.Info("Opening role settings.");
         CancelPointerInteraction();
         if (_settingsWindow is not null)
         {

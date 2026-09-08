@@ -216,6 +216,7 @@ public partial class PetManagerWindow : ThemedWindow
     }
     private void RecallAll_Click(object sender, RoutedEventArgs e) => Run(_desktop.RecallAll);
     private void Focus_Click(object sender, RoutedEventArgs e) => Run(_desktop.OpenFocus);
+    private void Diagnostics_Click(object sender, RoutedEventArgs e) => Run(() => _desktop.OpenDiagnostics(this));
     private void Quiet_Changed(object sender, RoutedEventArgs e) { if (_ready && !_refreshing) Run(() => _desktop.SetQuiet(QuietCheck.IsChecked == true)); }
     private void Notifications_Changed(object sender, RoutedEventArgs e)
     {

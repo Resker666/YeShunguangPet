@@ -197,6 +197,12 @@ public partial class SettingsWindow : ThemedWindow
         }
     }
 
+    private void Diagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        if (Owner is MainWindow main) main.OpenDiagnostics(this);
+        else new DiagnosticsWindow(null) { Owner = this }.ShowDialog();
+    }
+
     private static string GetApplicationVersion()
     {
         return Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "未知";

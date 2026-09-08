@@ -1,36 +1,20 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 
 namespace YeShunguangPet;
 
 public static class AppLogger
 {
-    private const long MaxLogLength = 2 * 1024 * 1024;
-    private static readonly object SyncRoot = new();
-    private static readonly UTF8Encoding Utf8WithoutBom = new(false);
+    private static readonly Lazy<ResilientLog> Sink = new(CreateSink);
 
     public static string LogsDirectory => Path.Combine(PetSettings.SettingsDirectory, "logs");
-    public static string LogPath => Path.Combine(LogsDirectory, "app.log");
+    public static string LogPath => Sink.Value.Capture().ActivePath ?? Path.Combine(LogsDirectory, "app.log");
+    public static LogSnapshot Capture() => Sink.Value.Capture();
 
     public static void Initialize()
     {
-        lock (SyncRoot)
-        {
-            try
-            {
-                Directory.CreateDirectory(LogsDirectory);
-                if (File.Exists(LogPath) && new FileInfo(LogPath).Length > MaxLogLength)
-                {
-                    File.Move(LogPath, Path.Combine(LogsDirectory, "app.previous.log"), overwrite: true);
-                }
-            }
-            catch
-            {
-                // Logging must never prevent the pet from starting.
-            }
-        }
+        Info("Log session initialized.");
     }
 
     public static void Info(string message) => Write("INFO", message);
@@ -43,28 +27,34 @@ public static class AppLogger
 
     public static void OpenFolder()
     {
-        Initialize();
+        Info("Opening active log folder.");
+        var path = Capture().ActivePath ?? throw new IOException("日志目录均不可写，当前记录只保存在内存中。请导出诊断包。");
         Process.Start(new ProcessStartInfo
         {
-            FileName = LogsDirectory,
+            FileName = Path.GetDirectoryName(path)!,
             UseShellExecute = true
         });
     }
 
     private static void Write(string level, string message)
     {
-        lock (SyncRoot)
+        try { Sink.Value.Write(level, message); }
+        catch { /* Logging must never replace the original application error. */ }
+    }
+
+    private static ResilientLog CreateSink()
+    {
+        var directories = new System.Collections.Generic.List<string>();
+        foreach (var folder in new[] { Environment.SpecialFolder.ApplicationData, Environment.SpecialFolder.LocalApplicationData })
         {
             try
             {
-                Directory.CreateDirectory(LogsDirectory);
-                var line = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz} [{level}] {message}{Environment.NewLine}";
-                File.AppendAllText(LogPath, line, Utf8WithoutBom);
+                var root = Environment.GetFolderPath(folder);
+                if (!string.IsNullOrWhiteSpace(root)) directories.Add(Path.Combine(root, "YeShunguangPet", "logs"));
             }
-            catch
-            {
-                // Logging must remain best-effort.
-            }
+            catch { }
         }
+        try { directories.Add(Path.Combine(Path.GetTempPath(), "YeShunguangPet", "logs")); } catch { }
+        return new ResilientLog(directories);
     }
 }
