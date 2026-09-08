@@ -168,7 +168,7 @@ public sealed class PetSettings
         };
     }
 
-    private void Normalize()
+    internal void Normalize()
     {
         if (string.IsNullOrWhiteSpace(SelectedPetId)) SelectedPetId = PetPackage.DefaultId;
         if (!double.IsFinite(Scale))

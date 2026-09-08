@@ -1,0 +1,236 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows;
+using System.Windows.Interop;
+using Drawing = System.Drawing;
+using WinForms = System.Windows.Forms;
+
+namespace YeShunguangPet;
+
+public sealed class DesktopSession : IDisposable
+{
+    private readonly Dictionary<string, MainWindow> _windows = new();
+    private readonly Action<DesktopConfiguration> _save;
+    private readonly bool _nativeIntegration;
+    private Window? _hotkeyWindow;
+    private HwndSource? _source;
+    private WinForms.NotifyIcon? _tray;
+    private Drawing.Icon? _icon;
+    private PetManagerWindow? _manager;
+    private MainWindow? _settingsOwner;
+    private bool _disposed;
+    private bool _started;
+    public DesktopConfiguration Configuration { get; }
+    public CompanionRuntime Companion { get; }
+    public PetCatalog Catalog { get; }
+    public bool HotkeyRegistered { get; private set; }
+    public IReadOnlyCollection<MainWindow> Windows => _windows.Values;
+    public event Action? Changed;
+    public event Action? ExitRequested;
+
+    public DesktopSession(DesktopConfiguration configuration, PetCatalog catalog, Action<DesktopConfiguration> save, bool nativeIntegration = true, TimeProvider? clock = null)
+    {
+        configuration.Validate();
+        Configuration = configuration;
+        Catalog = catalog;
+        _save = save;
+        _nativeIntegration = nativeIntegration;
+        var globalSettings = new PetSettings();
+        configuration.Companion.ApplyTo(globalSettings);
+        Companion = new CompanionRuntime(globalSettings, clock);
+        Companion.Notification += ShowNotification;
+        Catalog.IsPetInUse = id => _windows.Values.Any(w => w.Package.Manifest.Id == id);
+    }
+
+    public void Start(bool showWindows = true)
+    {
+        if (_started || _disposed) return;
+        _started = true;
+        if (_nativeIntegration) CreateNativeControls();
+        foreach (var instance in Configuration.Pets.ToArray()) CreateWindow(instance, showWindows);
+        Companion.Start();
+        Persist();
+        if (_nativeIntegration && Windows.Count == 0) OpenManager();
+    }
+
+    private MainWindow CreateWindow(PetInstanceOptions instance, bool show)
+    {
+        var package = Catalog.LoadPreferred(instance.PetId, out var warning);
+        instance.PetId = package.Manifest.Id;
+        var window = new MainWindow(instance.ToSettings(Configuration.Companion), package, this, instance.InstanceId) { ShowActivated = false };
+        _windows.Add(instance.InstanceId, window);
+        if (show && !instance.Hidden) window.Show();
+        if (warning is not null) AppLogger.Info(warning);
+        return window;
+    }
+
+    public MainWindow Add(string petId, bool show = true)
+    {
+        if (_disposed) throw new ObjectDisposedException(nameof(DesktopSession));
+        if (Configuration.Pets.Count >= DesktopConfiguration.MaximumPets) throw new InvalidOperationException("最多同时保留 3 个角色，请先关闭一个角色。");
+        if (_settingsOwner is not null) throw new InvalidOperationException("请先关闭角色设置窗口。");
+        var entry = Catalog.Scan().Pets.FirstOrDefault(p => p.Id == petId) ?? throw new InvalidOperationException("皮肤不存在，请刷新列表。");
+        var instance = new PetInstanceOptions { PetId = entry.Id };
+        Configuration.Pets.Add(instance);
+        try
+        {
+            var window = CreateWindow(instance, show);
+            Persist();
+            Changed?.Invoke();
+            return window;
+        }
+        catch
+        {
+            Configuration.Pets.Remove(instance);
+            if (_windows.Remove(instance.InstanceId, out var failed)) { failed.PrepareForApplicationShutdown(); failed.Close(); }
+            throw;
+        }
+    }
+
+    public void Remove(MainWindow window)
+    {
+        if (_settingsOwner is not null) throw new InvalidOperationException("请先关闭角色设置窗口。");
+        if (!_windows.Remove(window.InstanceId)) return;
+        Configuration.Pets.RemoveAll(p => p.InstanceId == window.InstanceId);
+        window.PrepareForApplicationShutdown();
+        window.Close();
+        Persist();
+        Changed?.Invoke();
+    }
+
+    internal void Capture(MainWindow window)
+    {
+        if (_disposed) return;
+        var instance = Configuration.Pets.FirstOrDefault(p => p.InstanceId == window.InstanceId);
+        if (instance is null) return;
+        instance.Capture(window.InstanceSettings);
+        Persist();
+        Changed?.Invoke();
+    }
+
+    internal void SetHidden(MainWindow window, bool hidden)
+    {
+        var instance = Configuration.Pets.FirstOrDefault(p => p.InstanceId == window.InstanceId);
+        if (instance is not null) { instance.Hidden = hidden; Capture(window); }
+    }
+
+    public bool IsHidden(MainWindow window) => Configuration.Pets.FirstOrDefault(p => p.InstanceId == window.InstanceId)?.Hidden ?? true;
+    public int Number(MainWindow window) => Configuration.Pets.FindIndex(p => p.InstanceId == window.InstanceId) + 1;
+    internal double PlacementOffset(MainWindow window) => _windows.Values.TakeWhile(w => w != window).Sum(w => double.IsNaN(w.Width) ? 208 : w.Width + 16);
+
+    internal void UpdateGlobal(PetSettings updated)
+    {
+        updated.Normalize();
+        Configuration.Companion = CompanionOptions.From(updated);
+        Configuration.Companion.ApplyTo(Companion.Settings);
+        foreach (var window in Windows) window.ApplyGlobal(Configuration.Companion);
+        Companion.Configure();
+        Persist();
+        Changed?.Invoke();
+    }
+
+    public void SetQuiet(bool quiet)
+    {
+        var settings = Companion.Settings.Clone();
+        settings.DoNotDisturb = quiet;
+        UpdateGlobal(settings);
+    }
+
+    internal bool BeginSettings(MainWindow window)
+    {
+        if (_settingsOwner is not null) { _settingsOwner.ActivateSettings(); return false; }
+        _settingsOwner = window;
+        return true;
+    }
+
+    internal void EndSettings() => _settingsOwner = null;
+    private void Persist() { if (!_disposed) _save(Configuration); }
+
+    public void ShowAll() { foreach (var window in Windows.ToArray()) window.ShowAndActivate(); }
+    public void HideAll() { foreach (var window in Windows.ToArray()) window.HideInstance(); }
+    public void RecallAll() { foreach (var window in Windows.ToArray()) window.RecallToPrimaryScreen(); }
+    public void ToggleAll() { if (Windows.Any(w => !IsHidden(w))) HideAll(); else ShowAll(); }
+
+    public void OpenManager()
+    {
+        if (_manager is not null) { if (_manager.WindowState == WindowState.Minimized) _manager.WindowState = WindowState.Normal; _manager.Activate(); return; }
+        _manager = new PetManagerWindow(this);
+        _manager.Closed += (_, _) => _manager = null;
+        _manager.Show();
+    }
+
+    public void OpenFocus()
+    {
+        var first = Windows.FirstOrDefault();
+        var pet = first?.Package ?? Catalog.LoadPreferred(PetPackage.DefaultId, out _);
+        Companion.Open(pet, first?.InstanceId);
+    }
+
+    public void RequestExit()
+    {
+        if (_settingsOwner is not null) { _settingsOwner.ActivateSettings(); return; }
+        var exit = ExitRequested;
+        try { Dispose(); }
+        finally { exit?.Invoke(); }
+    }
+
+    private void CreateNativeControls()
+    {
+        _hotkeyWindow = new Window { ShowInTaskbar = false, Width = 1, Height = 1, WindowStyle = WindowStyle.None };
+        var handle = new WindowInteropHelper(_hotkeyWindow).EnsureHandle();
+        _source = HwndSource.FromHwnd(handle);
+        _source?.AddHook(HotkeyHook);
+        HotkeyRegistered = NativeMethods.RegisterGlobalHotKey(_hotkeyWindow, 0x5911, 0x4003, 0x59);
+        var menu = new WinForms.ContextMenuStrip();
+        menu.Items.Add("角色管理...", null, (_, _) => OpenManager());
+        menu.Items.Add("学习陪伴...", null, (_, _) => OpenFocus());
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("显示全部", null, (_, _) => ShowAll());
+        menu.Items.Add("隐藏全部", null, (_, _) => HideAll());
+        menu.Items.Add("召回全部 (Ctrl+Alt+Y)", null, (_, _) => RecallAll());
+        var quiet = new WinForms.ToolStripMenuItem("勿扰模式") { CheckOnClick = true };
+        quiet.Click += (_, _) => SetQuiet(quiet.Checked);
+        menu.Items.Add(quiet);
+        menu.Opening += (_, _) => quiet.Checked = Companion.Settings.DoNotDisturb;
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("退出程序", null, (_, _) => RequestExit());
+        _icon = Environment.ProcessPath is { } path ? Drawing.Icon.ExtractAssociatedIcon(path) : null;
+        _tray = new WinForms.NotifyIcon { Icon = _icon ?? Drawing.SystemIcons.Application, Text = "叶瞬光桌面宠物", ContextMenuStrip = menu, Visible = true };
+        _tray.DoubleClick += (_, _) => ToggleAll();
+        _tray.BalloonTipClicked += (_, _) => OpenFocus();
+    }
+
+    private IntPtr HotkeyHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (message == NativeMethods.WmHotkey && wParam.ToInt32() == 0x5911) { RecallAll(); handled = true; }
+        return IntPtr.Zero;
+    }
+
+    private void ShowNotification(string title, string message) => _tray?.ShowBalloonTip(5000, title, message, WinForms.ToolTipIcon.None);
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        try
+        {
+            foreach (var window in Windows) window.CapturePosition();
+            Persist();
+        }
+        catch (Exception ex) { AppLogger.Error("Failed to persist desktop configuration during shutdown.", ex); }
+        _disposed = true;
+        _manager?.Close();
+        Companion.Dispose();
+        foreach (var window in Windows.ToArray()) { window.PrepareForApplicationShutdown(); window.Close(); }
+        _windows.Clear();
+        Catalog.IsPetInUse = null;
+        if (_hotkeyWindow is not null && HotkeyRegistered) NativeMethods.UnregisterGlobalHotKey(_hotkeyWindow, 0x5911);
+        HotkeyRegistered = false;
+        _source?.RemoveHook(HotkeyHook);
+        _hotkeyWindow?.Close();
+        _tray?.Dispose();
+        _icon?.Dispose();
+        Changed = null;
+        ExitRequested = null;
+    }
+}

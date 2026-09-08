@@ -107,8 +107,7 @@ public partial class MainWindow
         };
         DockHandle.ToolTip = $"展开 {_pet.Manifest.Name}";
         DockHandle.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed;
-        if (collapsed) _frameTimer.Stop();
-        else if (_dockTransition.IsExpanded && !_isLookMode) _frameTimer.Start();
+        RefreshActivityTimers();
     }
 
     private void SetDockBounds(Rect bounds)
@@ -160,7 +159,12 @@ public partial class MainWindow
 
     private void OnDockDisplayChanged()
     {
-        if (!IsEdgeDocked || _isExiting) return;
+        if (_isExiting || !_loadedOnce) return;
+        if (!IsEdgeDocked)
+        {
+            if (IsVisible) { EnsureWindowInWorkArea(); SaveWindowPosition(); }
+            return;
+        }
         var currentArea = GetCurrentWorkAreaInDips();
         var previousArea = _dockLayout!.WorkArea;
         if (Math.Abs(currentArea.Left - previousArea.Left) < 0.5 &&

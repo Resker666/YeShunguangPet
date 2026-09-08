@@ -8,7 +8,6 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using Drawing = System.Drawing;
 using WinForms = System.Windows.Forms;
 
 namespace YeShunguangPet;
@@ -24,13 +23,9 @@ public partial class MainWindow : Window
     private const double MaxRoamDistance = 420;
 
     private const int SummonHotkeyId = 0x5911;
-    private const uint ModAlt = 0x0001;
-    private const uint ModControl = 0x0002;
-    private const uint ModNoRepeat = 0x4000;
-    private const uint VirtualKeyY = 0x59;
 
     private readonly PetSettings _settings;
-    private readonly PetCatalog _petCatalog = new();
+    private readonly PetCatalog _petCatalog;
     private readonly Dictionary<(int Row, int Column), BitmapSource> _frameCache = new();
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _ambientTimer;
@@ -48,7 +43,6 @@ public partial class MainWindow : Window
     private bool _isRoaming;
     private bool _isExiting;
     private bool _sourceReady;
-    private bool _summonHotkeyRegistered;
     private double _lastDragLeft;
     private double _roamRemainingDistance;
     private bool _roamPaused;
@@ -59,24 +53,25 @@ public partial class MainWindow : Window
     private HwndSource? _windowSource;
     private SettingsWindow? _settingsWindow;
 
-    private WinForms.NotifyIcon? _trayIcon;
-    private Drawing.Icon? _applicationIcon;
-    private WinForms.ToolStripMenuItem? _trayTopmostItem;
-    private WinForms.ToolStripMenuItem? _trayClickThroughItem;
-    private WinForms.ToolStripMenuItem? _trayStartupItem;
-    private WinForms.ToolStripMenuItem? _trayRandomIdleItem;
-    private WinForms.ToolStripMenuItem? _trayRoamingItem;
     private MenuItem? _windowTopmostItem;
     private MenuItem? _windowClickThroughItem;
     private MenuItem? _windowStartupItem;
     private MenuItem? _windowRandomIdleItem;
     private MenuItem? _windowRoamingItem;
 
-    public MainWindow()
+    public MainWindow() : this(PetSettings.Load(), null, null, string.Empty) { }
+
+    internal MainWindow(PetSettings settings, PetPackage? package, DesktopSession? desktop, string instanceId)
     {
         InitializeComponent();
-
-        _settings = PetSettings.Load();
+        _settings = settings;
+        _desktop = desktop;
+        InstanceId = instanceId;
+        _petCatalog = desktop?.Catalog ?? new PetCatalog();
+        _pet = package!;
+        _imageLease = package?.RetainImage();
+        _companion = desktop?.Companion ?? new CompanionRuntime(_settings);
+        _focusSession = _companion.Session;
         _frameTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromMilliseconds(120)
@@ -96,13 +91,18 @@ public partial class MainWindow : Window
         _roamTimer.Tick += RoamTimer_Tick;
         InitializeClickInteraction();
         InitializeDocking();
+        IsVisibleChanged += (_, _) => RefreshActivityTimers();
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        if (_loadedOnce) { RefreshActivityTimers(); return; }
+        _loadedOnce = true;
         try
         {
-            _pet = _petCatalog.LoadPreferred(_settings.SelectedPetId, out var fallback);
+            string? fallback = null;
+            _pet ??= _petCatalog.LoadPreferred(_settings.SelectedPetId, out fallback);
+            _imageLease ??= _pet.RetainImage();
             _settings.SelectedPetId = _pet.Manifest.Id;
             Title = _pet.Manifest.Name;
             if (fallback is not null)
@@ -117,7 +117,6 @@ public partial class MainWindow : Window
         }
 
         BuildWindowContextMenu();
-        CreateTrayIcon();
         ApplyScale(_settings.Scale, save: false);
         Topmost = _settings.Topmost;
         SetInitialPosition();
@@ -127,7 +126,7 @@ public partial class MainWindow : Window
 
         PlayAnimation(PetState.Idle, restart: true);
         InitializeCompanion();
-        _ambientTimer.Start();
+        RefreshActivityTimers();
         AppLogger.Info("Main window loaded.");
     }
 
@@ -138,20 +137,6 @@ public partial class MainWindow : Window
 
         _windowSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
         _windowSource?.AddHook(WindowMessageHook);
-        _summonHotkeyRegistered = NativeMethods.RegisterGlobalHotKey(
-            this,
-            SummonHotkeyId,
-            ModControl | ModAlt | ModNoRepeat,
-            VirtualKeyY);
-
-        if (!_summonHotkeyRegistered)
-        {
-            AppLogger.Error("Failed to register Ctrl+Alt+Y summon hotkey.");
-        }
-        else
-        {
-            AppLogger.Info("Ctrl+Alt+Y summon hotkey registered.");
-        }
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
@@ -167,17 +152,23 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _frameTimer.Stop();
+        _ambientTimer.Stop();
+        _roamTimer.Stop();
         _dockTimer.Stop();
         CancelPointerInteraction();
         CloseCompanion();
         ReleaseNativeResources();
-        _trayIcon?.Dispose();
-        _applicationIcon?.Dispose();
+        _frameCache.Clear();
+        SpriteImage.Source = null;
+        _imageLease?.Dispose();
+        _imageLease = null;
         base.OnClosed(e);
     }
 
     public void ShowAndActivate()
     {
+        if (_isExiting) return;
         ExpandDock(immediately: true);
         if (!IsVisible)
         {
@@ -189,8 +180,13 @@ public partial class MainWindow : Window
             WindowState = WindowState.Normal;
         }
 
+        if (!IsEdgeDocked) EnsureWindowInWorkArea();
+        CapturePosition();
+
         Activate();
         NativeMethods.ActivateWindow(this);
+        _desktop?.SetHidden(this, false);
+        RefreshActivityTimers();
 
         if (_state == PetState.Idle && !_isRoaming)
         {
@@ -261,7 +257,7 @@ public partial class MainWindow : Window
     private void ResetPosition()
     {
         var area = SystemParameters.WorkArea;
-        Left = Math.Max(area.Left, area.Right - Width - 48);
+        Left = Math.Max(area.Left, area.Right - Width - 48 - (_desktop?.PlacementOffset(this) ?? 0));
         Top = Math.Max(area.Top, area.Bottom - Height - 32);
         EnsureWindowInWorkArea();
         SaveWindowPosition();
@@ -284,7 +280,7 @@ public partial class MainWindow : Window
 
         ShowFrame(_animation.Row, _animation.StartColumn + _frameIndex);
         _frameTimer.Interval = CurrentFrameDuration();
-        _frameTimer.Start();
+        RefreshActivityTimers();
 
         if (state == PetState.Idle && !_isRoaming)
         {
@@ -621,6 +617,7 @@ public partial class MainWindow : Window
         var menu = new ContextMenu();
         menu.Items.Add(CreateMenuItem("设置...", (_, _) => Dispatcher.BeginInvoke(OpenSettings)));
         menu.Items.Add(CreateMenuItem("学习陪伴...", (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow)));
+        if (_desktop is not null) menu.Items.Add(CreateMenuItem("角色管理...", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager)));
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateAnimationMenuItem("待机", PetState.Idle));
         menu.Items.Add(CreateAnimationMenuItem("打招呼", PetState.Waving));
@@ -682,7 +679,8 @@ public partial class MainWindow : Window
 
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateMenuItem("隐藏", (_, _) => HidePet()));
-        menu.Items.Add(CreateMenuItem("退出", (_, _) => ExitApplication()));
+        if (_desktop is not null) menu.Items.Add(CreateMenuItem("关闭此角色", (_, _) => CloseInstance()));
+        menu.Items.Add(CreateMenuItem("退出程序", (_, _) => ExitApplication()));
         menu.Opened += (_, _) => BeginMenuInteraction();
         menu.Closed += (_, _) => EndMenuInteraction();
         ContextMenu = menu;
@@ -718,76 +716,6 @@ public partial class MainWindow : Window
         return item;
     }
 
-    private void CreateTrayIcon()
-    {
-        var menu = new WinForms.ContextMenuStrip();
-        menu.Opening += (_, _) => Dispatcher.Invoke(BeginMenuInteraction);
-        menu.Closed += (_, _) => Dispatcher.Invoke(EndMenuInteraction);
-        menu.Items.Add("设置...", null, (_, _) => Dispatcher.BeginInvoke(OpenSettings));
-        menu.Items.Add("学习陪伴...", null, (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow));
-        _trayQuietItem = new WinForms.ToolStripMenuItem("勿扰模式") { CheckOnClick = true, Checked = _settings.DoNotDisturb };
-        _trayQuietItem.Click += (_, _) => Dispatcher.Invoke(() => SetDoNotDisturb(_trayQuietItem.Checked));
-        menu.Items.Add(_trayQuietItem);
-        menu.Items.Add("显示/隐藏", null, (_, _) => Dispatcher.Invoke(ToggleVisibility));
-        menu.Items.Add("召回主屏幕 (Ctrl+Alt+Y)", null, (_, _) => Dispatcher.Invoke(RecallToPrimaryScreen));
-        menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("待机", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Idle))).Tag = PetState.Idle;
-        menu.Items.Add("打招呼", null, (_, _) => Dispatcher.Invoke(() => TriggerUserAnimation(PetState.Waving))).Tag = PetState.Waving;
-        menu.Items.Add(new WinForms.ToolStripSeparator());
-
-        _trayTopmostItem = new WinForms.ToolStripMenuItem("总在最前")
-        {
-            CheckOnClick = true,
-            Checked = _settings.Topmost
-        };
-        _trayTopmostItem.Click += (_, _) => Dispatcher.Invoke(() => SetTopmost(_trayTopmostItem.Checked));
-        menu.Items.Add(_trayTopmostItem);
-
-        _trayClickThroughItem = new WinForms.ToolStripMenuItem("点击穿透")
-        {
-            CheckOnClick = true,
-            Checked = _settings.ClickThrough
-        };
-        _trayClickThroughItem.Click += (_, _) => Dispatcher.Invoke(() => SetClickThrough(_trayClickThroughItem.Checked));
-        menu.Items.Add(_trayClickThroughItem);
-
-        _trayRandomIdleItem = new WinForms.ToolStripMenuItem("随机待机")
-        {
-            CheckOnClick = true,
-            Checked = _settings.RandomIdleActions
-        };
-        _trayRandomIdleItem.Click += (_, _) => Dispatcher.Invoke(() => SetRandomIdle(_trayRandomIdleItem.Checked));
-        menu.Items.Add(_trayRandomIdleItem);
-
-        _trayRoamingItem = new WinForms.ToolStripMenuItem("桌面走动")
-        {
-            CheckOnClick = true,
-            Checked = _settings.DesktopRoaming
-        };
-        _trayRoamingItem.Click += (_, _) => Dispatcher.Invoke(() => SetDesktopRoaming(_trayRoamingItem.Checked));
-        menu.Items.Add(_trayRoamingItem);
-
-        _trayStartupItem = new WinForms.ToolStripMenuItem("开机启动")
-        {
-            CheckOnClick = true,
-            Checked = _settings.LaunchAtStartup
-        };
-        _trayStartupItem.Click += (_, _) => Dispatcher.Invoke(() => SetLaunchAtStartup(_trayStartupItem.Checked));
-        menu.Items.Add(_trayStartupItem);
-
-        menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("退出", null, (_, _) => Dispatcher.Invoke(ExitApplication));
-
-        _trayIcon = new WinForms.NotifyIcon
-        {
-            Text = _pet.Manifest.Name,
-            Icon = LoadApplicationIcon(),
-            ContextMenuStrip = menu,
-            Visible = true
-        };
-        _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ToggleVisibility);
-        _trayIcon.BalloonTipClicked += (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow);
-    }
 
     private void OpenSettings()
     {
@@ -798,31 +726,30 @@ public partial class MainWindow : Window
             return;
         }
 
-        ShowAndActivate();
-        StopRoaming(returnToIdle: true);
-
-        var dialog = new SettingsWindow(_settings, _summonHotkeyRegistered, _petCatalog, _pet)
-        {
-            Owner = this
-        };
-
+        if (_desktop is not null && !_desktop.BeginSettings(this)) return;
         PetSettings? result = null;
-        _settingsWindow = dialog;
+        PetPackage? selectedPackage = null;
         try
         {
+            ShowAndActivate();
+            StopRoaming(returnToIdle: true);
+            var dialog = new SettingsWindow(_settings, _desktop?.HotkeyRegistered ?? false, _petCatalog, _pet) { Owner = this };
+            _settingsWindow = dialog;
             if (dialog.ShowDialog() == true)
             {
                 result = dialog.Result;
+                selectedPackage = dialog.SelectedPackage;
             }
         }
         finally
         {
             _settingsWindow = null;
+            _desktop?.EndSettings();
         }
 
         if (result is not null)
         {
-            ApplySettings(result, dialog.SelectedPackage!);
+            ApplySettings(result, selectedPackage!);
         }
         else if (_state == PetState.Idle)
         {
@@ -893,6 +820,7 @@ public partial class MainWindow : Window
         _settings.QuietHoursEnabled = updated.QuietHoursEnabled;
         _settings.QuietStartMinute = updated.QuietStartMinute;
         _settings.QuietEndMinute = updated.QuietEndMinute;
+        _desktop?.UpdateGlobal(_settings);
 
         ApplyScale(_settings.Scale, save: false);
         Left = centerX - Width / 2;
@@ -924,12 +852,14 @@ public partial class MainWindow : Window
     private void AdoptPackage(PetPackage package)
     {
         _frameTimer.Stop();
+        var lease = package.RetainImage();
+        _imageLease?.Dispose();
+        _imageLease = lease;
         _pet = package;
         _frameCache.Clear();
         _settings.SelectedPetId = package.Manifest.Id;
         Title = package.Manifest.Name;
-        if (_trayIcon is not null) _trayIcon.Text = package.Manifest.Name;
-        _focusWindow?.UpdatePet(package);
+        _companion.UpdateAvatar(InstanceId, package);
     }
 
     private void HidePet()
@@ -938,6 +868,8 @@ public partial class MainWindow : Window
         LeaveDock();
         StopRoaming(returnToIdle: true);
         Hide();
+        _desktop?.SetHidden(this, true);
+        RefreshActivityTimers();
     }
 
     private void ChangeScale(double delta)
@@ -963,7 +895,7 @@ public partial class MainWindow : Window
 
         if (save)
         {
-            _settings.Save();
+            PersistSettings();
         }
     }
 
@@ -971,7 +903,7 @@ public partial class MainWindow : Window
     {
         _settings.Topmost = enabled;
         ApplyEffectiveWindowOptions();
-        _settings.Save();
+        PersistSettings();
         UpdateMenuChecks();
     }
 
@@ -980,14 +912,14 @@ public partial class MainWindow : Window
         _settings.ClickThrough = enabled;
         ApplyEffectiveWindowOptions();
 
-        _settings.Save();
+        PersistSettings();
         UpdateMenuChecks();
     }
 
     private void SetRandomIdle(bool enabled)
     {
         _settings.RandomIdleActions = enabled;
-        _settings.Save();
+        PersistSettings();
         ResetIdleBehaviorSchedule();
         UpdateMenuChecks();
     }
@@ -1000,7 +932,7 @@ public partial class MainWindow : Window
             StopRoaming(returnToIdle: true);
         }
 
-        _settings.Save();
+        PersistSettings();
         ResetIdleBehaviorSchedule();
         UpdateMenuChecks();
     }
@@ -1011,7 +943,8 @@ public partial class MainWindow : Window
         {
             PetSettings.SetLaunchAtStartup(enabled);
             _settings.LaunchAtStartup = PetSettings.IsLaunchAtStartupEnabled();
-            _settings.Save();
+            _desktop?.UpdateGlobal(_settings);
+            PersistSettings();
         }
         catch (Exception ex)
         {
@@ -1024,73 +957,29 @@ public partial class MainWindow : Window
 
     private void UpdateMenuChecks()
     {
-        if (_trayQuietItem is not null) _trayQuietItem.Checked = _settings.DoNotDisturb;
-        foreach (var item in ContextMenu.Items.OfType<MenuItem>())
-            if (item.Tag is PetState state) item.IsEnabled = _pet.Supports(state);
-        if (_trayIcon?.ContextMenuStrip is { } trayMenu)
-            foreach (WinForms.ToolStripItem item in trayMenu.Items)
-                if (item.Tag is PetState state) item.Enabled = _pet.Supports(state);
-        if (_windowRandomIdleItem is not null) _windowRandomIdleItem.IsEnabled = _pet.RandomActions.Length > 0;
-        if (_trayRandomIdleItem is not null) _trayRandomIdleItem.Enabled = _pet.RandomActions.Length > 0;
-        if (_windowRoamingItem is not null) _windowRoamingItem.IsEnabled = _pet.CanRoam;
-        if (_trayRoamingItem is not null) _trayRoamingItem.Enabled = _pet.CanRoam;
-        if (_windowTopmostItem is not null)
-        {
-            _windowTopmostItem.IsChecked = _settings.Topmost;
-        }
-
-        if (_windowClickThroughItem is not null)
-        {
-            _windowClickThroughItem.IsChecked = _settings.ClickThrough;
-        }
-
+        if (ContextMenu is not null)
+            foreach (var item in ContextMenu.Items.OfType<MenuItem>())
+                if (item.Tag is PetState state) item.IsEnabled = _pet.Supports(state);
         if (_windowRandomIdleItem is not null)
         {
+            _windowRandomIdleItem.IsEnabled = _pet.RandomActions.Length > 0;
             _windowRandomIdleItem.IsChecked = _settings.RandomIdleActions;
         }
-
         if (_windowRoamingItem is not null)
         {
+            _windowRoamingItem.IsEnabled = _pet.CanRoam;
             _windowRoamingItem.IsChecked = _settings.DesktopRoaming;
         }
-
-        if (_windowStartupItem is not null)
-        {
-            _windowStartupItem.IsChecked = _settings.LaunchAtStartup;
-        }
-
-        if (_trayTopmostItem is not null)
-        {
-            _trayTopmostItem.Checked = _settings.Topmost;
-        }
-
-        if (_trayClickThroughItem is not null)
-        {
-            _trayClickThroughItem.Checked = _settings.ClickThrough;
-        }
-
-        if (_trayRandomIdleItem is not null)
-        {
-            _trayRandomIdleItem.Checked = _settings.RandomIdleActions;
-        }
-
-        if (_trayRoamingItem is not null)
-        {
-            _trayRoamingItem.Checked = _settings.DesktopRoaming;
-        }
-
-        if (_trayStartupItem is not null)
-        {
-            _trayStartupItem.Checked = _settings.LaunchAtStartup;
-        }
+        if (_windowTopmostItem is not null) _windowTopmostItem.IsChecked = _settings.Topmost;
+        if (_windowClickThroughItem is not null) _windowClickThroughItem.IsChecked = _settings.ClickThrough;
+        if (_windowStartupItem is not null) _windowStartupItem.IsChecked = _settings.LaunchAtStartup;
+        RefreshActivityTimers();
     }
 
     private void SaveWindowPosition()
     {
-        var position = PositionToPersist;
-        _settings.Left = position.X;
-        _settings.Top = position.Y;
-        _settings.Save();
+        CapturePosition();
+        PersistSettings();
     }
 
     private void EnsureWindowInWorkArea()
@@ -1098,43 +987,16 @@ public partial class MainWindow : Window
         NativeMethods.EnsureWindowInWorkArea(this);
     }
 
-    private Drawing.Icon LoadApplicationIcon()
-    {
-        if (_applicationIcon is not null)
-        {
-            return _applicationIcon;
-        }
-
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(Environment.ProcessPath))
-            {
-                _applicationIcon = Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLogger.Error("Failed to load application icon.", ex);
-            _applicationIcon = null;
-        }
-
-        return _applicationIcon ?? Drawing.SystemIcons.Application;
-    }
 
     private void ReleaseNativeResources()
     {
-        if (_summonHotkeyRegistered)
-        {
-            NativeMethods.UnregisterGlobalHotKey(this, SummonHotkeyId);
-            _summonHotkeyRegistered = false;
-        }
-
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
     }
 
     private void ExitApplication()
     {
+        if (_desktop is not null) { _desktop.RequestExit(); return; }
         _dockTimer.Stop();
         CancelPointerInteraction();
         CloseCompanion();
@@ -1146,13 +1008,6 @@ public partial class MainWindow : Window
         SaveWindowPosition();
         ReleaseNativeResources();
         AppLogger.Info("Exit requested by user.");
-
-        if (_trayIcon is not null)
-        {
-            _trayIcon.Visible = false;
-            _trayIcon.Dispose();
-            _trayIcon = null;
-        }
 
         Application.Current.Shutdown();
     }

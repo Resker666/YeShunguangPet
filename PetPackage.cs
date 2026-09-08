@@ -55,6 +55,8 @@ public sealed class PetPackage
     public PetState[] RandomActions { get; }
     public bool CanRoam => Supports(PetState.RunningLeft) && Supports(PetState.RunningRight);
     public bool CanLook => Manifest.LookDirections.Count == LookDirectionCount;
+    public static int ActiveImageLeases => SpriteCache.ActiveLeases;
+    internal IDisposable RetainImage() => SpriteCache.Retain(SpriteSheet);
 
     private PetPackage(PetManifest manifest, BitmapSource bitmap)
     {
@@ -70,10 +72,8 @@ public sealed class PetPackage
 
     public BitmapSource GetFrame(int row, int column)
     {
-        var frame = new CroppedBitmap(SpriteSheet, new Int32Rect(column * Manifest.CellWidth,
+        return SpriteCache.Frame(SpriteSheet, new Int32Rect(column * Manifest.CellWidth,
             row * Manifest.CellHeight, Manifest.CellWidth, Manifest.CellHeight));
-        frame.Freeze();
-        return frame;
     }
 
     public BitmapSource Preview
@@ -160,9 +160,14 @@ public sealed class PetPackage
 
         try
         {
-            using var stream = new MemoryStream(png, writable: false);
-            var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-            var bitmap = decoder.Frames[0];
+            var bitmap = SpriteCache.Decode(png, () =>
+            {
+                using var stream = new MemoryStream(png, writable: false);
+                var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                var decoded = decoder.Frames[0];
+                decoded.Freeze();
+                return decoded;
+            });
             if (bitmap.PixelWidth != width || bitmap.PixelHeight != height)
                 throw new InvalidDataException("PNG 解码尺寸不一致。");
             bitmap.Freeze();

@@ -248,9 +248,10 @@ public partial class SettingsWindow : Window
             EditPetButton.IsEnabled = true;
             ExportPetButton.IsEnabled = true;
             UpdatePetButton.IsEnabled = !entry.Bundled;
-            DeletePetButton.IsEnabled = !entry.Bundled && entry.Id != _activePetId;
-            DeletePetButton.ToolTip = entry.Bundled ? "随附皮肤不可删除" : entry.Id == _activePetId
-                ? "请先切换并保存其他皮肤，再删除当前皮肤" : "删除选中的导入皮肤";
+            var inUse = entry.Id == _activePetId || _catalog.IsPetInUse?.Invoke(entry.Id) == true;
+            DeletePetButton.IsEnabled = !entry.Bundled && !inUse;
+            DeletePetButton.ToolTip = entry.Bundled ? "随附皮肤不可删除" : inUse
+                ? "请先切换或关闭正在使用此皮肤的角色" : "删除选中的导入皮肤";
             SkinStatus.Text = string.Empty;
         }
         catch (Exception ex)

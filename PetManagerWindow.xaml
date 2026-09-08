@@ -1,0 +1,40 @@
+<Window x:Class="YeShunguangPet.PetManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="桌面角色管理" Width="780" Height="510" MinWidth="660" MinHeight="410"
+        WindowStartupLocation="CenterScreen" Background="#F7F7F7" Foreground="#202020" FontFamily="Segoe UI">
+    <Window.Resources>
+        <Style TargetType="Button"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,4"/><Setter Property="Margin" Value="6,0,0,0"/></Style>
+        <Style x:Key="Tool" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Width" Value="34"/><Setter Property="Padding" Value="0"/><Setter Property="FontFamily" Value="Segoe MDL2 Assets"/></Style>
+    </Window.Resources>
+    <Grid Margin="16" Background="#F7F7F7">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,14">
+            <CheckBox x:Name="QuietCheck" DockPanel.Dock="Right" Content="全局勿扰" VerticalAlignment="Center" Checked="Quiet_Changed" Unchecked="Quiet_Changed"/>
+            <TextBlock x:Name="CountText" FontSize="18" FontWeight="SemiBold"/>
+        </DockPanel>
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <ComboBox x:Name="SkinChoice" DisplayMemberPath="Name" MinHeight="32" HorizontalContentAlignment="Stretch"/>
+            <Button x:Name="AddButton" Grid.Column="1" Click="Add_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" Margin="0,0,7,0" VerticalAlignment="Center"/><TextBlock Text="添加角色"/></StackPanel></Button>
+            <Button Grid.Column="2" Style="{StaticResource Tool}" Content="&#xE72C;" ToolTip="刷新皮肤" AutomationProperties.Name="刷新皮肤" Click="Refresh_Click"/>
+        </Grid>
+        <ListView Grid.Row="2" x:Name="Instances" SelectionChanged="Instance_Changed">
+            <ListView.View><GridView>
+                <GridViewColumn Width="65"><GridViewColumn.CellTemplate><DataTemplate><Image Source="{Binding Preview}" Width="48" Height="58" Stretch="Uniform"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+                <GridViewColumn Header="角色" Width="240" DisplayMemberBinding="{Binding Name}"/>
+                <GridViewColumn Header="状态" Width="110" DisplayMemberBinding="{Binding Status}"/>
+                <GridViewColumn Header="大小" Width="70" DisplayMemberBinding="{Binding Scale}"/>
+            </GridView></ListView.View>
+        </ListView>
+        <ScrollViewer Grid.Row="3" MaxHeight="64" VerticalScrollBarVisibility="Auto" Margin="0,10"><TextBlock x:Name="StatusText" Foreground="#A51F36" TextWrapping="Wrap"/></ScrollViewer>
+        <DockPanel Grid.Row="4" LastChildFill="False">
+            <Button DockPanel.Dock="Left" Content="学习陪伴" Click="Focus_Click"/>
+            <Button DockPanel.Dock="Left" Style="{StaticResource Tool}" Content="&#xE8A7;" ToolTip="召回全部角色" AutomationProperties.Name="召回全部角色" Click="RecallAll_Click"/>
+            <Button DockPanel.Dock="Right" x:Name="RemoveButton" Content="关闭角色" Click="Remove_Click"/>
+            <Button DockPanel.Dock="Right" x:Name="SettingsButton" Style="{StaticResource Tool}" Content="&#xE713;" ToolTip="角色设置" AutomationProperties.Name="角色设置" Click="Settings_Click"/>
+            <Button DockPanel.Dock="Right" x:Name="RecallButton" Style="{StaticResource Tool}" Content="&#xE80F;" ToolTip="召回选中角色" AutomationProperties.Name="召回选中角色" Click="Recall_Click"/>
+            <Button DockPanel.Dock="Right" x:Name="HideButton" Content="隐藏" Click="Hide_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

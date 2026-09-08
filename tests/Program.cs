@@ -84,6 +84,7 @@ internal static class Program
             VerifyRuntimeSwitch(custom, original);
             SkinManagementTests.Run((success, name) => Check(success, name), catalog, imported, _root);
             EditorBackupTests.Run((success, name) => Check(success, name), catalog, imported, _root, args.Length > 1 ? args[1] : null);
+            DesktopTests.Run((success, name) => Check(success, name), catalog, imported, _root, args.Length > 1 ? args[1] : null);
             SessionVisualTests.Run((success, name) => Check(success, name), original, custom);
             CompanionTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);

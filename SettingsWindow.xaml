@@ -223,7 +223,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="CompanionTab" Header="陪伴">
+            <TabItem x:Name="CompanionTab" Header="全局陪伴">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
                         <DockPanel LastChildFill="False">

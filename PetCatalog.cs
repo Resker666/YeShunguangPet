@@ -19,6 +19,7 @@ public sealed partial class PetCatalog
 {
     public string BundledDirectory { get; }
     public string UserDirectory { get; }
+    public Func<string, bool>? IsPetInUse { get; set; }
 
     public PetCatalog(string? bundledDirectory = null, string? userDirectory = null)
     {
@@ -149,7 +150,8 @@ public sealed partial class PetCatalog
 
     public void Delete(PetEntry entry, string activePetId)
     {
-        if (entry.Id == activePetId) throw new InvalidDataException("不能删除当前正在使用的皮肤，请先切换并保存其他皮肤。");
+        if (entry.Id == activePetId || IsPetInUse?.Invoke(entry.Id) == true)
+            throw new InvalidDataException("仍有角色正在使用此皮肤，请先切换或关闭对应角色。");
         var directory = GetManagedDirectory(entry);
         // Retain files for recovery, but omit them from the selectable catalog.
         Directory.Move(directory, Path.Combine(UserDirectory, ".deleted-" + entry.Id + "-" + Guid.NewGuid().ToString("N")));

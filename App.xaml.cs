@@ -17,6 +17,7 @@ public partial class App : Application
     private ManualResetEvent? _stopActivationListener;
     private Thread? _activationThread;
     private bool _ownsSingleInstanceMutex;
+    private DesktopSession? _desktop;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -44,13 +45,34 @@ public partial class App : Application
 
         StartActivationListener();
 
-        var window = new MainWindow();
-        MainWindow = window;
-        window.Show();
+        try
+        {
+            var store = new DesktopSettingsStore();
+            var configuration = store.Load();
+            configuration.Companion.LaunchAtStartup = PetSettings.IsLaunchAtStartupEnabled();
+            _desktop = new DesktopSession(configuration, new PetCatalog(), store.Save);
+            _desktop.ExitRequested += () => Shutdown();
+            _desktop.Start();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Failed to start desktop session.", ex);
+            MessageBox.Show(ex.Message, "无法启动桌面宠物", MessageBoxButton.OK, MessageBoxImage.Error);
+            _desktop?.Dispose();
+            Shutdown(-1);
+        }
+    }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e);
+        if (!e.Cancel) _desktop?.Dispose();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        try { _desktop?.Dispose(); }
+        catch (Exception ex) { AppLogger.Error("Failed to close desktop session.", ex); }
         AppLogger.Info($"Application exiting with code {e.ApplicationExitCode}.");
         _stopActivationListener?.Set();
         _activationThread?.Join(millisecondsTimeout: 500);
@@ -100,10 +122,8 @@ public partial class App : Application
 
     private void ShowExistingWindow()
     {
-        if (MainWindow is YeShunguangPet.MainWindow window)
-        {
-            window.ShowAndActivate();
-        }
+        _desktop?.ShowAll();
+        if (_desktop?.Windows.Count == 0) _desktop.OpenManager();
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
@@ -116,11 +136,7 @@ public partial class App : Application
             MessageBoxButton.OK,
             MessageBoxImage.Error);
 
-        if (MainWindow is YeShunguangPet.MainWindow window)
-        {
-            window.PrepareForApplicationShutdown();
-        }
-
+        _desktop?.Dispose();
         Shutdown(-1);
     }
 
