@@ -28,7 +28,9 @@ internal static class TrayMenuTests
         using var menu = new TrayMenu(desktop);
         Forms.ToolStripMenuItem Item(string name) => (Forms.ToolStripMenuItem)menu.Items.Find(name, false).Single();
         check(menu.Items.OfType<Forms.ToolStripMenuItem>().Select(i => i.Name).SequenceEqual(new[] { "manager", "focus", "showAll", "hideAll", "recallAll", "quiet", "exit" }), "tray restyle preserves all seven commands and ordering");
-        check(!menu.ShowImageMargin && !menu.ShowCheckMargin && menu.AutoClose && menu.DropShadowEnabled, "tray menu removes legacy gutters but preserves native dismissal and shadow");
+        check(!menu.ShowImageMargin && !menu.ShowCheckMargin && menu.AutoClose, "tray menu removes legacy gutters but preserves native dismissal");
+        using (var nativeMenu = new Forms.ContextMenuStrip { DropShadowEnabled = true })
+            check(menu.DropShadowEnabled == nativeMenu.DropShadowEnabled, "tray shadow follows the native system policy");
         check(Item("recallAll").ShortcutKeys == Forms.Keys.None && Item("recallAll").ShortcutKeyDisplayString == "Ctrl+Alt+Y", "tray shortcut display does not register another global hotkey");
         var first = desktop.Windows.Single();
         var work = Forms.Screen.PrimaryScreen!.WorkingArea;
