@@ -18,6 +18,7 @@ public sealed class DesktopSession : IDisposable
     private Window? _hotkeyWindow;
     private HwndSource? _source;
     private WinForms.NotifyIcon? _tray;
+    private TrayMenu? _trayMenu;
     private Drawing.Icon? _icon;
     private PetManagerWindow? _manager;
     private MainWindow? _settingsOwner;
@@ -221,21 +222,9 @@ public sealed class DesktopSession : IDisposable
         _source = HwndSource.FromHwnd(handle);
         _source?.AddHook(HotkeyHook);
         HotkeyRegistered = NativeMethods.RegisterGlobalHotKey(_hotkeyWindow, 0x5911, 0x4003, 0x59);
-        var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("角色管理...", null, (_, _) => OpenManager());
-        menu.Items.Add("学习陪伴...", null, (_, _) => OpenFocus());
-        menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("显示全部", null, (_, _) => ShowAll());
-        menu.Items.Add("隐藏全部", null, (_, _) => HideAll());
-        menu.Items.Add("召回全部 (Ctrl+Alt+Y)", null, (_, _) => RecallAll());
-        var quiet = new WinForms.ToolStripMenuItem("勿扰模式") { CheckOnClick = true };
-        quiet.Click += (_, _) => SetQuiet(quiet.Checked);
-        menu.Items.Add(quiet);
-        menu.Opening += (_, _) => quiet.Checked = Companion.Settings.DoNotDisturb;
-        menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("退出程序", null, (_, _) => RequestExit());
+        _trayMenu = new TrayMenu(this);
         _icon = Environment.ProcessPath is { } path ? Drawing.Icon.ExtractAssociatedIcon(path) : null;
-        _tray = new WinForms.NotifyIcon { Icon = _icon ?? Drawing.SystemIcons.Application, Text = "叶瞬光桌面宠物", ContextMenuStrip = menu, Visible = true };
+        _tray = new WinForms.NotifyIcon { Icon = _icon ?? Drawing.SystemIcons.Application, Text = "叶瞬光桌面宠物", ContextMenuStrip = _trayMenu, Visible = true };
         _tray.DoubleClick += (_, _) => ToggleAll();
         _tray.BalloonTipClicked += (_, _) => OpenFocus();
     }
@@ -272,6 +261,7 @@ public sealed class DesktopSession : IDisposable
         _source?.RemoveHook(HotkeyHook);
         _hotkeyWindow?.Close();
         _tray?.Dispose();
+        _trayMenu?.Dispose();
         _icon?.Dispose();
         Changed = null;
         ExitRequested = null;

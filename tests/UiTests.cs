@@ -132,6 +132,7 @@ internal static class UiTests
                 check(AppDialog.Show(manager, "确认此操作？", "UI confirmation test", MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.Cancel, "themed confirmation preserves cancellation result");
             }
             finally { closeDialog.Stop(); }
+            TrayMenuTests.Run(check, catalog, renders);
             check(failures.Count == 0, "native UI has no unhandled dispatcher errors: " + string.Join("; ", failures.Select(e => e.Message)));
         }
         finally { manager.Close(); desktop.Dispose(); app.Shutdown(); }

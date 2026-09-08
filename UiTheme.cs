@@ -17,6 +17,7 @@ public static class UiTheme
     private static AppearanceOptions _current = new();
     private static bool _applicationStylesInstalled;
     private static Dispatcher? _dispatcher;
+    internal static event Action? Changed;
     public static AppearanceOptions Current => _current.Clone();
     public static bool MotionEnabled => !_current.ReduceMotion && SystemParameters.ClientAreaAnimation && !SystemParameters.HighContrast;
     public static bool IsDark => _current.Theme == "dark" || (_current.Theme == "system" && !SystemUsesLightTheme());
@@ -73,6 +74,7 @@ public static class UiTheme
                 else window.Dispatcher.BeginInvoke(() => Update(window));
             }
         Windows.RemoveAll(reference => !reference.TryGetTarget(out _));
+        Changed?.Invoke();
     }
 
     internal static void Update(ThemedWindow window)
@@ -90,6 +92,11 @@ public static class UiTheme
     }
 
     private static void SetPalette(ResourceDictionary resources)
+    {
+        foreach (var (key, color) in GetColors()) { var brush = new SolidColorBrush(color); brush.Freeze(); resources[key] = brush; }
+    }
+
+    internal static IReadOnlyDictionary<string, Color> GetColors()
     {
         var dark = IsDark;
         var accent = (Color)ColorConverter.ConvertFromString(_current.Accent);
@@ -119,7 +126,7 @@ public static class UiTheme
             colors["AccentBrush"] = SystemColors.HighlightColor;
             colors["OnAccentBrush"] = SystemColors.HighlightTextColor;
         }
-        foreach (var (key, color) in colors) { var brush = new SolidColorBrush(color); brush.Freeze(); resources[key] = brush; }
+        return colors;
     }
 
     private static Color ColorOf(string hex) => (Color)ColorConverter.ConvertFromString(hex);
