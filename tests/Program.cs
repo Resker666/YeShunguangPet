@@ -147,6 +147,8 @@ internal static class Program
         catch (Exception ex)
         {
             Console.Error.WriteLine(ex);
+            if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+                Console.WriteLine("::error::" + ex.ToString().Replace("%", "%25").Replace("\r", "%0D").Replace("\n", "%0A"));
             return 1;
         }
         finally
