@@ -717,7 +717,9 @@ public partial class MainWindow : Window
     }
 
 
-    private void OpenSettings()
+    private void OpenSettings() => OpenSettingsCore();
+
+    private async void OpenSettingsCore(bool companionTab = false)
     {
         CancelPointerInteraction();
         if (_settingsWindow is not null)
@@ -733,13 +735,21 @@ public partial class MainWindow : Window
         {
             ShowAndActivate();
             StopRoaming(returnToIdle: true);
-            var dialog = new SettingsWindow(_settings, _desktop?.HotkeyRegistered ?? false, _petCatalog, _pet) { Owner = this };
+            var scan = await _petCatalog.ScanAsync();
+            if (_isExiting) return;
+            var dialog = new SettingsWindow(_settings, _desktop?.HotkeyRegistered ?? false, _petCatalog, _pet, scan) { Owner = this };
             _settingsWindow = dialog;
+            if (companionTab) dialog.SelectCompanionTab();
             if (dialog.ShowDialog() == true)
             {
                 result = dialog.Result;
                 selectedPackage = dialog.SelectedPackage;
             }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Failed to open settings.", ex);
+            MessageBox.Show(ex.Message, "无法打开设置", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {

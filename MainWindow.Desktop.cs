@@ -35,6 +35,36 @@ public partial class MainWindow
 
     public void HideInstance() => HidePet();
     public void ConfigureInstance() => OpenSettings();
+    public void ConfigureCompanionSettings() => OpenSettingsCore(companionTab: true);
+    internal void UpdateDisplay(double scale, bool topmost, bool edgeAutoHide, bool clickThrough)
+    {
+        if (_isExiting) return;
+        if (Math.Abs(scale - _settings.Scale) > 0.001)
+        {
+            StopRoaming(returnToIdle: false);
+            var edge = LeaveDock();
+            var centerX = Left + Width / 2;
+            var centerY = Top + Height / 2;
+            ApplyScale(scale, save: false);
+            if (_loadedOnce)
+            {
+                Left = centerX - Width / 2;
+                Top = centerY - Height / 2;
+                EnsureWindowInWorkArea();
+                RestoreDock(edge);
+            }
+            PlayRestingAnimation();
+        }
+        if (_settings.EdgeAutoHide && !edgeAutoHide) LeaveDock();
+        _settings.Topmost = topmost;
+        _settings.EdgeAutoHide = edgeAutoHide;
+        _settings.ClickThrough = clickThrough;
+        ApplyEffectiveWindowOptions();
+        CapturePosition();
+        UpdateMenuChecks();
+    }
+
+    internal void SaveDisplay() { CapturePosition(); PersistSettings(); }
     internal void ActivateSettings() => _settingsWindow?.Activate();
     private void CloseInstance()
     {

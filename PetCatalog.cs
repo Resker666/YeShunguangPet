@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -28,6 +30,12 @@ public sealed partial class PetCatalog
     }
 
     public PetCatalogResult Scan()
+        => Scan(CancellationToken.None);
+
+    public Task<PetCatalogResult> ScanAsync(CancellationToken cancellationToken = default)
+        => Task.Run(() => Scan(cancellationToken), cancellationToken);
+
+    private PetCatalogResult Scan(CancellationToken cancellationToken)
     {
         var pets = new List<PetEntry>();
         var errors = new List<string>();
@@ -40,6 +48,7 @@ public sealed partial class PetCatalog
                 PetPackage.RejectLink(root);
                 foreach (var directory in Directory.GetDirectories(root).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (Path.GetFileName(directory).StartsWith('.')) continue;
                     try
                     {
@@ -59,13 +68,13 @@ public sealed partial class PetCatalog
                         pets.Add(new PetEntry(manifest.Id, manifest.Name, path, bundled) { Thumbnail = CreateThumbnail(package) });
                         fingerprints.Add(manifest.Id, fingerprint);
                     }
-                    catch (Exception ex) when (ex is not OutOfMemoryException)
+                    catch (Exception ex) when (ex is not OutOfMemoryException && ex is not OperationCanceledException)
                     {
                         errors.Add($"{Path.GetFileName(directory)}: {ex.Message}");
                     }
                 }
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
+            catch (Exception ex) when (ex is not OutOfMemoryException && ex is not OperationCanceledException)
             {
                 errors.Add($"{root}: {ex.Message}");
             }

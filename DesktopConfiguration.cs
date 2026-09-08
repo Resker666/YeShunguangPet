@@ -109,6 +109,7 @@ public sealed class DesktopConfiguration
     public const int MaximumPets = 3;
     public int SchemaVersion { get; set; } = 2;
     public CompanionOptions Companion { get; set; } = new();
+    public AppearanceOptions Appearance { get; set; } = new();
     public List<PetInstanceOptions> Pets { get; set; } = new();
 
     public static DesktopConfiguration Migrate(PetSettings legacy)
@@ -124,6 +125,8 @@ public sealed class DesktopConfiguration
     {
         if (SchemaVersion != 2 || Companion is null || Pets is null || Pets.Count > MaximumPets)
             throw new InvalidDataException("桌面配置版本或角色数量无效。原配置未被覆盖。");
+        Appearance ??= new AppearanceOptions();
+        Appearance.Normalize();
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var global = new PetSettings();
         Companion.ApplyTo(global);

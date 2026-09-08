@@ -27,6 +27,12 @@ internal static class Program
         try
         {
             var source = Path.GetFullPath(args[0]);
+            if (args.Length > 2 && args[2] == "--ui-smoke")
+            {
+                UiTests.RunLive((success, name) => Check(success, name), new PetCatalog(Path.Combine(source, "Pets"), Path.Combine(_root, "ui-users")), args[1]);
+                Console.WriteLine($"PASS: {_passed} native UI checks");
+                return 0;
+            }
             var manifestPath = Path.Combine(source, "Pets", "YeShunguang", "pet.json");
             var original = PetPackage.Load(manifestPath);
             Check(original.Manifest.Id == PetPackage.DefaultId && original.Manifest.Animations.Count == 9, "default package loads");
@@ -88,6 +94,7 @@ internal static class Program
             SessionVisualTests.Run((success, name) => Check(success, name), original, custom);
             CompanionTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
+            UiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
             void Bad(Action<JsonObject> edit, string name)

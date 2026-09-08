@@ -11,7 +11,7 @@ using Microsoft.Win32;
 
 namespace YeShunguangPet;
 
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : ThemedWindow
 {
     private const string RepositoryUrl = "https://github.com/Resker666/YeShunguangPet";
     private readonly PetSettings _workingSettings;
@@ -22,7 +22,7 @@ public partial class SettingsWindow : Window
     private PetAnimation? _previewAnimation;
     private int _previewFrame;
 
-    public SettingsWindow(PetSettings settings, bool summonHotkeyRegistered, PetCatalog catalog, PetPackage currentPet)
+    public SettingsWindow(PetSettings settings, bool summonHotkeyRegistered, PetCatalog catalog, PetPackage currentPet, PetCatalogResult? initialScan = null)
     {
         InitializeComponent();
 
@@ -75,10 +75,11 @@ public partial class SettingsWindow : Window
             if (SkinTab.IsSelected) StartPreview();
             else _previewTimer.Stop();
         };
-        RefreshPets(currentPet.Manifest.Id);
+        RefreshPets(currentPet.Manifest.Id, initialScan);
     }
 
     public PetSettings? Result { get; private set; }
+    internal void SelectCompanionTab() => SettingsTabs.SelectedItem = CompanionTab;
     public PetPackage? SelectedPackage { get; private set; }
 
     private void UpdateValueLabels()
@@ -179,7 +180,7 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             AppLogger.Error("Failed to open repository URL.", ex);
-            MessageBox.Show(this, ex.Message, "无法打开项目主页", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(this, ex.Message, "无法打开项目主页", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -192,7 +193,7 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             AppLogger.Error("Failed to open logs directory.", ex);
-            MessageBox.Show(this, ex.Message, "无法打开日志目录", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialog.Show(this, ex.Message, "无法打开日志目录", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -201,9 +202,9 @@ public partial class SettingsWindow : Window
         return Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "未知";
     }
 
-    private void RefreshPets(string? selectId = null)
+    private void RefreshPets(string? selectId = null, PetCatalogResult? existingScan = null)
     {
-        var scan = _catalog.Scan();
+        var scan = existingScan ?? _catalog.Scan();
         PetSelector.ItemsSource = scan.Pets;
         PetSelector.SelectedItem = scan.Pets.FirstOrDefault(p => p.Id == (selectId ?? _workingSettings.SelectedPetId))
             ?? scan.Pets.FirstOrDefault(p => p.Id == PetPackage.DefaultId) ?? scan.Pets.FirstOrDefault();
@@ -304,7 +305,7 @@ public partial class SettingsWindow : Window
         var picker = new OpenFileDialog { Title = "更新皮肤（相同 id）",
             Filter = "皮肤包 (*.zip;pet.json)|*.zip;pet.json", CheckFileExists = true };
         if (picker.ShowDialog(this) != true) return;
-        if (MessageBox.Show(this, $"更新“{entry.Name}”？\n旧文件会保留为备份。此操作立即生效，不受设置页的取消按钮影响。",
+        if (AppDialog.Show(this, $"更新“{entry.Name}”？\n旧文件会保留为备份。此操作立即生效，不受设置页的取消按钮影响。",
                 "更新皮肤", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         try
         {
@@ -318,7 +319,7 @@ public partial class SettingsWindow : Window
     private void DeletePet_Click(object sender, RoutedEventArgs e)
     {
         if (PetSelector.SelectedItem is not PetEntry { Bundled: false } entry) return;
-        if (MessageBox.Show(this, $"从列表删除“{entry.Name}”？\n原文件会移到皮肤目录内的 .deleted- 备份文件夹。此操作立即生效。",
+        if (AppDialog.Show(this, $"从列表删除“{entry.Name}”？\n原文件会移到皮肤目录内的 .deleted- 备份文件夹。此操作立即生效。",
                 "删除皮肤", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
         try
         {
@@ -343,16 +344,21 @@ public partial class SettingsWindow : Window
     }
 
     private void PreviewAction_SelectionChanged(object sender, SelectionChangedEventArgs e) => StartPreview();
-    private void Replay_Click(object sender, RoutedEventArgs e) => StartPreview();
+    private void Replay_Click(object sender, RoutedEventArgs e) => StartPreview(explicitPlayback: true);
 
-    private void StartPreview()
+    private void StartPreview(bool explicitPlayback = false)
     {
         _previewTimer.Stop();
         if (_previewPet is null || PreviewActionSelector.SelectedItem is not PreviewAction action) return;
         _previewAnimation = _previewPet.GetAnimation(action.State);
         _previewFrame = 0;
         RenderPreview();
-        if (SkinTab.IsSelected) _previewTimer.Start();
+        if (SkinTab.IsSelected && (UiTheme.MotionEnabled || explicitPlayback)) _previewTimer.Start();
+    }
+
+    internal override void OnThemeUpdated()
+    {
+        if (_previewPet is not null) StartPreview();
     }
 
     private void PreviewTimer_Tick(object? sender, EventArgs e)

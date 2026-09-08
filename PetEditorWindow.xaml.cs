@@ -12,7 +12,7 @@ using Microsoft.Win32;
 
 namespace YeShunguangPet;
 
-public partial class PetEditorWindow : Window
+public partial class PetEditorWindow : ThemedWindow
 {
     private readonly PetCatalog _catalog;
     private readonly PetEntry _entry;
@@ -59,6 +59,7 @@ public partial class PetEditorWindow : Window
             _loading = false;
         }
         _loading = false;
+        if (!UiTheme.MotionEnabled) _playing = false;
         ValidateAndPreview();
         _dirtyInputs = false;
     }
@@ -83,6 +84,8 @@ public partial class PetEditorWindow : Window
         LoadDirection();
         _loading = false;
     }
+
+    internal override void OnThemeUpdated() => SheetView?.InvalidateVisual();
 
     private void LoadAction()
     {
@@ -347,7 +350,7 @@ public partial class PetEditorWindow : Window
     private void Replay_Click(object sender, RoutedEventArgs e) { _playing = true; PlayButton.Content = "\uE769"; ValidateAndPreview(); }
     private void Reset_Click(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this, "恢复打开时的全部配置？当前修改将丢弃。", "重置配置", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        if (AppDialog.Show(this, "恢复打开时的全部配置？当前修改将丢弃。", "重置配置", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         _document.Reset();
         LoadDraft();
         _dirtyInputs = false;
@@ -356,7 +359,7 @@ public partial class PetEditorWindow : Window
     private void Update_Click(object sender, RoutedEventArgs e)
     {
         if (!ValidateAndPreview()) return;
-        if (MessageBox.Show(this, "更新此导入皮肤？原版本会保留为备份，保存到皮肤库后无法通过设置的取消按钮撤销。", "保存更新", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        if (AppDialog.Show(this, "更新此导入皮肤？原版本会保留为备份，保存到皮肤库后无法通过设置的取消按钮撤销。", "保存更新", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         Save(() => _document.SaveUpdate(_catalog, _entry));
     }
     private void Copy_Click(object sender, RoutedEventArgs e)
@@ -379,7 +382,7 @@ public partial class PetEditorWindow : Window
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void ConfirmClose(object? sender, CancelEventArgs e)
     {
-        if (SavedEntry is null && _dirtyInputs && MessageBox.Show(this, "配置尚未保存到皮肤库，关闭并放弃修改？", "关闭编辑器",
+        if (SavedEntry is null && _dirtyInputs && AppDialog.Show(this, "配置尚未保存到皮肤库，关闭并放弃修改？", "关闭编辑器",
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) e.Cancel = true;
     }
 

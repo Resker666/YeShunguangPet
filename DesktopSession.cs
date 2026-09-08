@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using Drawing = System.Drawing;
@@ -33,6 +35,7 @@ public sealed class DesktopSession : IDisposable
     {
         configuration.Validate();
         Configuration = configuration;
+        UiTheme.Apply(configuration.Appearance);
         Catalog = catalog;
         _save = save;
         _nativeIntegration = nativeIntegration;
@@ -54,9 +57,10 @@ public sealed class DesktopSession : IDisposable
         if (_nativeIntegration && Windows.Count == 0) OpenManager();
     }
 
-    private MainWindow CreateWindow(PetInstanceOptions instance, bool show)
+    private MainWindow CreateWindow(PetInstanceOptions instance, bool show, PetPackage? prepared = null)
     {
-        var package = Catalog.LoadPreferred(instance.PetId, out var warning);
+        string? warning = null;
+        var package = prepared ?? Catalog.LoadPreferred(instance.PetId, out warning);
         instance.PetId = package.Manifest.Id;
         var window = new MainWindow(instance.ToSettings(Configuration.Companion), package, this, instance.InstanceId) { ShowActivated = false };
         _windows.Add(instance.InstanceId, window);
@@ -67,15 +71,36 @@ public sealed class DesktopSession : IDisposable
 
     public MainWindow Add(string petId, bool show = true)
     {
+        CheckCanAdd();
+        var entry = Catalog.Scan().Pets.FirstOrDefault(p => p.Id == petId) ?? throw new InvalidOperationException("皮肤不存在，请刷新列表。");
+        return AddPrepared(PetPackage.Load(entry.ManifestPath), show);
+    }
+
+    public async Task<MainWindow> AddAsync(string petId, CancellationToken cancellationToken = default, bool show = true)
+    {
+        CheckCanAdd();
+        var scan = await Catalog.ScanAsync(cancellationToken);
+        var entry = scan.Pets.FirstOrDefault(p => p.Id == petId) ?? throw new InvalidOperationException("皮肤不存在，请刷新列表。");
+        var package = await Task.Run(() => PetPackage.Load(entry.ManifestPath), cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return AddPrepared(package, show);
+    }
+
+    private void CheckCanAdd()
+    {
         if (_disposed) throw new ObjectDisposedException(nameof(DesktopSession));
         if (Configuration.Pets.Count >= DesktopConfiguration.MaximumPets) throw new InvalidOperationException("最多同时保留 3 个角色，请先关闭一个角色。");
         if (_settingsOwner is not null) throw new InvalidOperationException("请先关闭角色设置窗口。");
-        var entry = Catalog.Scan().Pets.FirstOrDefault(p => p.Id == petId) ?? throw new InvalidOperationException("皮肤不存在，请刷新列表。");
-        var instance = new PetInstanceOptions { PetId = entry.Id };
+    }
+
+    private MainWindow AddPrepared(PetPackage package, bool show)
+    {
+        CheckCanAdd();
+        var instance = new PetInstanceOptions { PetId = package.Manifest.Id };
         Configuration.Pets.Add(instance);
         try
         {
-            var window = CreateWindow(instance, show);
+            var window = CreateWindow(instance, show, package);
             Persist();
             Changed?.Invoke();
             return window;
@@ -137,14 +162,28 @@ public sealed class DesktopSession : IDisposable
         UpdateGlobal(settings);
     }
 
+    public void UpdateAppearance(AppearanceOptions options)
+    {
+        var previous = Configuration.Appearance;
+        Configuration.Appearance = options.Clone();
+        Configuration.Appearance.Normalize();
+        try { Persist(); }
+        catch { Configuration.Appearance = previous; throw; }
+        UiTheme.Apply(Configuration.Appearance);
+        Changed?.Invoke();
+    }
+
+    internal bool HasSettingsOpen => _settingsOwner is not null;
+
     internal bool BeginSettings(MainWindow window)
     {
         if (_settingsOwner is not null) { _settingsOwner.ActivateSettings(); return false; }
         _settingsOwner = window;
+        Changed?.Invoke();
         return true;
     }
 
-    internal void EndSettings() => _settingsOwner = null;
+    internal void EndSettings() { _settingsOwner = null; Changed?.Invoke(); }
     private void Persist() { if (!_disposed) _save(Configuration); }
 
     public void ShowAll() { foreach (var window in Windows.ToArray()) window.ShowAndActivate(); }
@@ -214,7 +253,11 @@ public sealed class DesktopSession : IDisposable
         if (_disposed) return;
         try
         {
-            foreach (var window in Windows) window.CapturePosition();
+            foreach (var window in Windows)
+            {
+                window.CapturePosition();
+                Configuration.Pets.First(p => p.InstanceId == window.InstanceId).Capture(window.InstanceSettings);
+            }
             Persist();
         }
         catch (Exception ex) { AppLogger.Error("Failed to persist desktop configuration during shutdown.", ex); }

@@ -43,6 +43,10 @@ jobs:
         shell: pwsh
         run: dotnet run --project tests/PetTests.csproj --configuration Release -- .
 
+      - name: Test native control center
+        shell: pwsh
+        run: dotnet run --project tests/PetTests.csproj --configuration Release --no-build -- . artifacts/ui-smoke --ui-smoke
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:

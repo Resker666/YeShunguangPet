@@ -7,7 +7,7 @@ using Microsoft.Win32;
 
 namespace YeShunguangPet;
 
-public partial class PetBackupsWindow : Window
+public partial class PetBackupsWindow : ThemedWindow
 {
     private readonly PetCatalog _catalog;
     private PetBackupResult? _scan;
@@ -73,7 +73,7 @@ public partial class PetBackupsWindow : Window
         if (installed?.Bundled == true) { StatusText.Text = "同 id 的随附皮肤不可覆盖，请选择恢复为副本。"; return; }
         var replacing = installed is not null || Directory.Exists(Path.Combine(_catalog.UserDirectory, entry.Id));
         var message = !replacing ? $"恢复“{entry.Name}”到皮肤库？" : $"用此备份替换“{installed?.Name ?? entry.Id}”现有目录？当前目录会先备份。";
-        if (MessageBox.Show(this, message + "\n操作立即生效，选中的备份仍会保留。", "恢复皮肤",
+        if (AppDialog.Show(this, message + "\n操作立即生效，选中的备份仍会保留。", "恢复皮肤",
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         try
         {
@@ -88,7 +88,7 @@ public partial class PetBackupsWindow : Window
     private void Purge_Click(object sender, RoutedEventArgs e)
     {
         if (BackupSelector.SelectedItem is not PetBackupEntry entry) return;
-        if (MessageBox.Show(this, $"永久删除这份“{entry.Name}”{entry.Kind}备份（{entry.SizeText}）？\n此操作不可撤销，不会删除皮肤库中正在使用的副本。",
+        if (AppDialog.Show(this, $"永久删除这份“{entry.Name}”{entry.Kind}备份（{entry.SizeText}）？\n此操作不可撤销，不会删除皮肤库中正在使用的副本。",
                 "永久清理备份", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
         try { _catalog.PurgeBackup(entry); RefreshBackups(); StatusText.Text = "已清理选中的备份。"; }
         catch (Exception ex) { RefreshBackups(); StatusText.Text = ex.Message; }
@@ -97,7 +97,7 @@ public partial class PetBackupsWindow : Window
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
         if (BackupSelector.SelectedItem is not PetBackupEntry entry) return;
-        if (MessageBox.Show(this, $"将“{entry.Name}”恢复为独立皮肤？不会替换已有皮肤。", "恢复为副本",
+        if (AppDialog.Show(this, $"将“{entry.Name}”恢复为独立皮肤？不会替换已有皮肤。", "恢复为副本",
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         try
         {

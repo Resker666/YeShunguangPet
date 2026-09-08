@@ -6,7 +6,7 @@ using System.Windows.Threading;
 
 namespace YeShunguangPet;
 
-public partial class FocusWindow : Window
+public partial class FocusWindow : ThemedWindow
 {
     private readonly CompanionSession _session;
     private readonly PetSettings _settings;
@@ -73,7 +73,8 @@ public partial class FocusWindow : Window
             _avatarFrame = 0;
             RenderAvatar();
         }
-        if (IsLoaded) _avatarTimer.Start();
+        if (IsLoaded && UiTheme.MotionEnabled) _avatarTimer.Start();
+        else _avatarTimer.Stop();
     }
 
     private void AvatarTimer_Tick(object? sender, EventArgs e)
@@ -84,6 +85,11 @@ public partial class FocusWindow : Window
         // Completion gestures repeat for a bounded three-second acknowledgement.
         _avatarFrame = (_avatarFrame + 1) % _avatarAnimation.FrameCount;
         RenderAvatar();
+    }
+
+    internal override void OnThemeUpdated()
+    {
+        if (_pet is not null && _session is not null) RefreshAvatar();
     }
 
     private void RenderAvatar()

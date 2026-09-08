@@ -53,10 +53,10 @@ public sealed class SpriteGridView : FrameworkElement
     {
         base.OnRender(dc);
         if (Sheet is null) return;
-        dc.DrawRectangle(Brushes.WhiteSmoke, null, new Rect(RenderSize));
+        dc.DrawRectangle(ThemeBrush("SubtleBrush", Brushes.WhiteSmoke), null, new Rect(RenderSize));
         dc.DrawImage(Sheet, new Rect(Gutter, Gutter, Sheet.PixelWidth * Zoom, Sheet.PixelHeight * Zoom));
         if (CellWidth <= 0 || CellHeight <= 0 || Columns is < 1 or > 64 || Rows is < 1 or > 64) return;
-        var pen = new Pen(new SolidColorBrush(Color.FromArgb(110, 70, 80, 85)), 1);
+        var pen = new Pen(ThemeBrush("BorderBrush", Brushes.LightGray), 1);
         for (var c = 0; c <= Columns; c++)
         {
             var x = Gutter + c * CellWidth * Zoom;
@@ -70,7 +70,7 @@ public sealed class SpriteGridView : FrameworkElement
             if (r < Rows) DrawLabel(dc, r, new Point(3, y + 3));
         }
         if (SelectedCount > 0 && SelectedRow >= 0 && SelectedRow < Rows && SelectedColumn >= 0 && SelectedColumn < Columns)
-            dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(35, 20, 140, 135)), new Pen(Brushes.Teal, 2),
+            dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(35, 20, 140, 135)), new Pen(ThemeBrush("AccentTextBrush", Brushes.Teal), 2),
                 new Rect(Gutter + SelectedColumn * CellWidth * Zoom, Gutter + SelectedRow * CellHeight * Zoom,
                     Math.Min(SelectedCount, Columns - SelectedColumn) * CellWidth * Zoom, CellHeight * Zoom));
     }
@@ -78,6 +78,8 @@ public sealed class SpriteGridView : FrameworkElement
     private void DrawLabel(DrawingContext dc, int value, Point position)
     {
         dc.DrawText(new FormattedText(value.ToString(), CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), 11, Brushes.DimGray, VisualTreeHelper.GetDpi(this).PixelsPerDip), position);
+            new Typeface("Segoe UI"), 11, ThemeBrush("SecondaryTextBrush", Brushes.DimGray), VisualTreeHelper.GetDpi(this).PixelsPerDip), position);
     }
+
+    private Brush ThemeBrush(string key, Brush fallback) => TryFindResource(key) as Brush ?? fallback;
 }
