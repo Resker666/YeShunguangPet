@@ -7,11 +7,12 @@ namespace YeShunguangPet;
 
 public sealed class PetEditorDocument
 {
-    private readonly byte[] _originalJson;
-    private readonly byte[] _png;
+    private byte[] _originalJson;
+    private byte[] _png;
     private byte[] _savedJson;
     public PetManifest Draft { get; private set; }
-    public BitmapSource SpriteSheet { get; }
+    public BitmapSource SpriteSheet { get; private set; }
+    public string SourceFingerprint { get; private set; }
     public bool IsDirty => !PetPackage.SerializeManifest(Draft).SequenceEqual(_savedJson);
 
     public PetEditorDocument(string source)
@@ -22,16 +23,31 @@ public sealed class PetEditorDocument
         SpriteSheet = snapshot.Package.SpriteSheet;
         Draft = PetPackage.ReadManifest(_originalJson);
         _savedJson = PetPackage.SerializeManifest(Draft);
+        SourceFingerprint = PetSourceSnapshot.FingerprintOf(snapshot.Json, snapshot.Png);
     }
 
     public void Reset() => Draft = PetPackage.ReadManifest(_originalJson);
+    internal void ReplaceDraft(PetManifest draft) => Draft = draft;
+    internal void MarkClean() => _savedJson = PetPackage.SerializeManifest(Draft);
+    internal void Reload(PetSourceSnapshot snapshot)
+    {
+        _originalJson = snapshot.Json;
+        _png = snapshot.Png;
+        SpriteSheet = snapshot.Package.SpriteSheet;
+        Draft = PetPackage.ReadManifest(snapshot.Json);
+        _savedJson = PetPackage.SerializeManifest(Draft);
+        SourceFingerprint = snapshot.Fingerprint;
+    }
     public PetPackage Preview() => Snapshot().Package;
 
     public PetEntry SaveUpdate(PetCatalog catalog, PetEntry entry)
     {
         var snapshot = Snapshot();
-        var result = catalog.UpdateSnapshot(entry, snapshot);
+        if (PetSourceSnapshot.Read(entry.ManifestPath).Fingerprint != SourceFingerprint)
+            throw new InvalidDataException("源文件已被其他操作修改。请先载入外部版本，或将当前草稿另存为皮肤。");
+        var result = catalog.UpdateSnapshot(entry, snapshot, expectedFingerprint: SourceFingerprint);
         _savedJson = snapshot.Json;
+        SourceFingerprint = PetSourceSnapshot.FingerprintOf(snapshot.Json, snapshot.Png);
         return result;
     }
 

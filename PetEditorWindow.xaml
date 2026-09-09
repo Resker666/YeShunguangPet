@@ -4,10 +4,11 @@
         xmlns:ui="clr-namespace:YeShunguangPet"
         xmlns:local="clr-namespace:YeShunguangPet"
         Title="皮肤动作配置" Width="1020" Height="760" MinWidth="800" MinHeight="560"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI Variable, Segoe UI, Microsoft YaHei UI">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI Variable, Segoe UI, Microsoft YaHei UI"
+        PreviewKeyDown="Editor_KeyDown" PreviewLostKeyboardFocus="Editor_LostFocus">
     <ui:ThemedWindow.Resources>
         <Style TargetType="Button" BasedOn="{StaticResource AppButton}"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,4"/><Setter Property="Margin" Value="6,0,0,0"/></Style>
-        <Style TargetType="TextBox" BasedOn="{StaticResource AppTextBox}"><Setter Property="MinHeight" Value="28"/><Setter Property="Padding" Value="6,3"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource AppTextBox}"><Setter Property="MinHeight" Value="28"/><Setter Property="Padding" Value="6,3"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="MaxLength" Value="8"/></Style>
         <Style TargetType="ComboBox" BasedOn="{StaticResource AppComboBox}"><Setter Property="MinHeight" Value="28"/></Style>
         <Style x:Key="Tool" TargetType="Button" BasedOn="{StaticResource IconButton}"><Setter Property="Width" Value="34"/><Setter Property="Padding" Value="0"/><Setter Property="FontFamily" Value="Segoe MDL2 Assets"/></Style>
     </ui:ThemedWindow.Resources>
@@ -15,11 +16,18 @@
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid Margin="16,12">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <StackPanel Margin="0,0,12,0"><TextBlock Text="名称" Margin="0,0,0,4"/><TextBox x:Name="NameInput" MaxLength="64" TextChanged="Draft_Changed"/></StackPanel>
             <StackPanel Grid.Column="1"><TextBlock Text="皮肤 ID" Margin="0,0,0,4"/><TextBox x:Name="IdInput" MaxLength="64" TextChanged="Draft_Changed"/></StackPanel>
             <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <TextBlock Text="描述" VerticalAlignment="Center" Margin="0,0,12,0"/><TextBox Grid.Column="1" x:Name="DescriptionInput" MaxLength="400" TextChanged="Draft_Changed"/>
+            </Grid>
+            <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <CheckBox x:Name="AutoReloadCheck" Content="自动刷新源文件" IsChecked="True" VerticalAlignment="Center" Checked="AutoReload_Changed" Unchecked="AutoReload_Changed"/>
+                <TextBlock Grid.Column="1" x:Name="SourceStatus" Margin="16,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                <Button Grid.Column="2" x:Name="OpenSourceFolderButton" Style="{StaticResource Tool}" Content="&#xE838;" ToolTip="打开源文件夹" AutomationProperties.Name="打开源文件夹" Click="OpenSourceFolder_Click"/>
+                <Button Grid.Column="3" x:Name="ReloadSourceButton" Style="{StaticResource Tool}" Content="&#xE72C;" ToolTip="重新检查源文件" AutomationProperties.Name="重新检查源文件" Click="ReloadSource_Click"/>
             </Grid>
         </Grid>
         <Grid Grid.Row="1" Margin="16,0,16,12">
@@ -44,14 +52,18 @@
                     <Slider x:Name="ZoomSlider" Minimum="5" Maximum="200" Value="25" VerticalAlignment="Center" ValueChanged="Zoom_Changed"/>
                 </DockPanel>
             </Grid>
-            <ui:SmoothScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ui:SmoothScrollViewer x:Name="EditorControlsScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,0,8,0">
                     <Grid Height="172" Background="{DynamicResource SubtleBrush}"><Image x:Name="AnimationPreview" MaxWidth="180" MaxHeight="164" Stretch="Uniform"/></Grid>
-                    <DockPanel Margin="0,8,0,12">
+                    <DockPanel Margin="0,8,0,4">
                         <Button DockPanel.Dock="Right" x:Name="PlayButton" Style="{StaticResource Tool}" Content="&#xE769;" ToolTip="播放或暂停" AutomationProperties.Name="播放或暂停" Click="Play_Click"/>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource Tool}" Content="&#xE72C;" ToolTip="重播" AutomationProperties.Name="重播" Click="Replay_Click"/>
-                        <TextBlock x:Name="FrameStatus" VerticalAlignment="Center"/>
+                        <Button DockPanel.Dock="Right" x:Name="ReplayButton" Style="{StaticResource Tool}" Content="&#xE72C;" ToolTip="重播" AutomationProperties.Name="重播" IsEnabled="{Binding IsEnabled, ElementName=PlayButton}" Click="Replay_Click"/>
+                        <Button DockPanel.Dock="Right" x:Name="NextFrameButton" Style="{StaticResource Tool}" Content="&#xE893;" Tag="1" ToolTip="下一帧" AutomationProperties.Name="下一帧" Click="StepFrame_Click"/>
+                        <Button DockPanel.Dock="Right" x:Name="PreviousFrameButton" Style="{StaticResource Tool}" Content="&#xE892;" Tag="-1" ToolTip="上一帧" AutomationProperties.Name="上一帧" Click="StepFrame_Click"/>
+                        <TextBlock x:Name="FrameStatus" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"/>
                     </DockPanel>
+                    <Slider x:Name="TimelineSlider" Minimum="0" Maximum="1" Value="0" SmallChange="20" LargeChange="100" IsMoveToPointEnabled="True" Margin="0,2,0,0" AutomationProperties.Name="动作时间轴" ValueChanged="Timeline_Changed"/>
+                    <TextBlock x:Name="TimelineText" Height="22" TextAlignment="Right" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                     <TabControl x:Name="ModeTabs" SelectedIndex="0" SelectionChanged="Mode_Changed">
                         <TabItem Header="动作">
                             <StackPanel Margin="8">
@@ -62,9 +74,16 @@
                                     <StackPanel Margin="0,0,8,0"><TextBlock Text="起始列"/><TextBox x:Name="ActionColumnInput" ToolTip="从 0 开始" TextChanged="Draft_Changed"/></StackPanel>
                                     <StackPanel><TextBlock Text="帧数"/><TextBox x:Name="FrameCountInput" TextChanged="Draft_Changed"/></StackPanel>
                                 </UniformGrid>
-                                <DataGrid x:Name="DurationGrid" Margin="0,10,0,0" Height="138" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False" HeadersVisibility="Column" RowHeight="36" IsEnabled="{Binding IsChecked, ElementName=EnabledCheck}">
+                                <DataGrid x:Name="DurationGrid" Margin="0,10,0,0" Height="138" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False" SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" RowHeight="36" IsEnabled="{Binding IsChecked, ElementName=EnabledCheck}">
                                     <DataGrid.Columns><DataGridTextColumn Header="帧" Binding="{Binding Index}" IsReadOnly="True" Width="55"/><DataGridTextColumn Header="时长 (ms)" Binding="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120"/></DataGrid.Columns>
                                 </DataGrid>
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="65"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="BatchDurationInput" Text="150" MaxLength="5" AutomationProperties.Name="批量帧时长"/>
+                                    <TextBlock Grid.Column="1" Text="ms" VerticalAlignment="Center" Margin="6,0,10,0"/>
+                                    <ComboBox Grid.Column="2" x:Name="BatchScope" SelectedIndex="0" AutomationProperties.Name="批量时长范围"><ComboBoxItem Content="全部帧"/><ComboBoxItem Content="所选帧"/></ComboBox>
+                                    <Button Grid.Column="3" x:Name="ApplyDurationButton" Style="{StaticResource Tool}" Content="&#xE8FB;" ToolTip="应用帧时长" AutomationProperties.Name="应用帧时长" Click="ApplyDuration_Click"/>
+                                </Grid>
                             </StackPanel>
                         </TabItem>
                         <TabItem Header="注视方向">
@@ -82,9 +101,17 @@
             </ui:SmoothScrollViewer>
         </Grid>
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrush}" Padding="16,10" Background="{DynamicResource SidebarBrush}">
-            <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <ui:SmoothScrollViewer MaxHeight="52" VerticalScrollBarVisibility="Auto"><TextBlock x:Name="StatusText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/></ui:SmoothScrollViewer>
-                <DockPanel Grid.Row="1" LastChildFill="False">
+                <Grid x:Name="SourceConflictPanel" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="源文件有新版本，当前草稿尚未保存。" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <Button Grid.Column="1" x:Name="LoadExternalButton" Content="载入外部版本" Click="LoadExternal_Click"/>
+                    <Button Grid.Column="2" x:Name="KeepDraftButton" Content="保留草稿" Click="KeepDraft_Click"/>
+                </Grid>
+                <DockPanel Grid.Row="2" LastChildFill="False">
+                    <Button DockPanel.Dock="Left" x:Name="UndoButton" Style="{StaticResource Tool}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click"/>
+                    <Button DockPanel.Dock="Left" x:Name="RedoButton" Style="{StaticResource Tool}" Content="&#xE7A6;" ToolTip="重做" AutomationProperties.Name="重做" Click="Redo_Click"/>
                     <Button DockPanel.Dock="Left" Style="{StaticResource Tool}" Content="&#xE777;" ToolTip="重置为打开时的配置" AutomationProperties.Name="重置配置" Click="Reset_Click"/>
                     <Button DockPanel.Dock="Right" x:Name="UpdateButton" Content="保存更新" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource OnAccentBrush}" Click="Update_Click"/>
                     <Button DockPanel.Dock="Right" x:Name="CopyButton" Content="另存为皮肤" Click="Copy_Click"/>

@@ -32,6 +32,15 @@ internal static class Program
         try
         {
             var source = Path.GetFullPath(args[0]);
+            if (args.Length > 2 && args[2] == "--editor-smoke")
+            {
+                var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                System.Threading.SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
+                try { EditorAdvancedTests.RunLive((success, name) => Check(success, name), new PetCatalog(Path.Combine(source, "Pets"), Path.Combine(_root, "editor-users")), args[1]); }
+                finally { app.Shutdown(); }
+                Console.WriteLine($"PASS: {_passed} editor UI checks");
+                return 0;
+            }
             if (args.Length > 2 && args[2] == "--quality")
             {
                 var seconds = args.Length > 3 ? int.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0;
@@ -128,6 +137,8 @@ internal static class Program
             VerifyRuntimeSwitch(custom, original);
             SkinManagementTests.Run((success, name) => Check(success, name), catalog, imported, _root);
             EditorBackupTests.Run((success, name) => Check(success, name), catalog, imported, _root, args.Length > 1 ? args[1] : null);
+            EditorAdvancedTests.Run((success, name) => Check(success, name), catalog, _root);
+            PetSourceWatcherTests.Run((success, name) => Check(success, name), catalog, _root);
             DesktopTests.Run((success, name) => Check(success, name), catalog, imported, _root, args.Length > 1 ? args[1] : null);
             SessionVisualTests.Run((success, name) => Check(success, name), original, custom);
             CompanionTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);

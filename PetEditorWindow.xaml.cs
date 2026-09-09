@@ -30,6 +30,7 @@ public partial class PetEditorWindow : ThemedWindow
     private PetPackage? _preview;
     private PetAnimation? _animation;
     private int _frame;
+    private string? _bundledCopyId;
     public PetEntry? SavedEntry { get; private set; }
 
     public PetEditorWindow(PetCatalog catalog, PetEntry entry)
@@ -47,21 +48,34 @@ public partial class PetEditorWindow : ThemedWindow
         SheetView.CellSelected += SelectCell;
         ImageDetails.Text = $"{_document.SpriteSheet.PixelWidth} × {_document.SpriteSheet.PixelHeight}";
         _timer.Tick += Preview_Tick;
-        Loaded += (_, _) => { FitSheet(); if (_playing && _preview is not null) _timer.Start(); };
+        Loaded += (_, _) => { FitSheet(); if (_playing && _preview is not null) _timer.Start(); StartSourceWatcher(); };
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) _timer.Stop(); else ValidateAndPreview(); };
         Closing += ConfirmClose;
-        Closed += (_, _) => _timer.Stop();
+        Closed += (_, _) =>
+        {
+            _closed = true; _loading = true;
+            _timer.Stop(); _timer.Tick -= Preview_Tick;
+            StopSourceWatcher();
+            SheetView.CellSelected -= SelectCell;
+            ClearDurationRows();
+            DurationGrid.ItemsSource = ActionSelector.ItemsSource = DirectionSelector.ItemsSource = null;
+            AnimationPreview.Source = null; SheetView.Sheet = null;
+            _preview = null; _animation = null; _pendingSource = null;
+        };
         LoadDraft();
         if (entry.Bundled)
         {
             _loading = true;
-            IdInput.Text = PetEditorDocument.AvailableId(catalog, entry.Id);
+            IdInput.Text = _bundledCopyId = PetEditorDocument.AvailableId(catalog, entry.Id);
             _loading = false;
         }
         _loading = false;
         if (!UiTheme.MotionEnabled) _playing = false;
         ValidateAndPreview();
         _dirtyInputs = false;
+        _document.MarkClean();
+        _history.Reset(CaptureEditorState());
+        RefreshHistoryButtons();
     }
 
     private void LoadDraft()
@@ -85,7 +99,11 @@ public partial class PetEditorWindow : ThemedWindow
         _loading = false;
     }
 
-    internal override void OnThemeUpdated() => SheetView?.InvalidateVisual();
+    internal override void OnThemeUpdated()
+    {
+        SheetView?.InvalidateVisual();
+        if (PlayButton is not null && !UiTheme.MotionEnabled) PausePreview();
+    }
 
     private void LoadAction()
     {
@@ -97,7 +115,7 @@ public partial class PetEditorWindow : ThemedWindow
         ActionRowInput.Text = (definition?.Row ?? 0).ToString();
         ActionColumnInput.Text = (definition?.StartColumn ?? 0).ToString();
         FrameCountInput.Text = (definition?.DurationsMs.Length ?? 1).ToString();
-        _durations.Clear();
+        ClearDurationRows();
         _durationHistory.Clear();
         foreach (var duration in definition?.DurationsMs ?? new[] { 150 }) AddDuration(duration.ToString());
     }
@@ -106,8 +124,20 @@ public partial class PetEditorWindow : ThemedWindow
     {
         var row = new DurationRow(_durations.Count, text);
         _durationHistory[row.Index] = text;
-        row.PropertyChanged += (_, _) => { if (!_loading) { _durationHistory[row.Index] = row.Text; _dirtyInputs = true; ValidateAndPreview(); } };
+        row.PropertyChanged += Duration_Changed;
         _durations.Add(row);
+    }
+
+    private void Duration_Changed(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_loading || sender is not DurationRow row) return;
+        _durationHistory[row.Index] = row.Text;
+        CommitEditorChange($"duration:{_selectedState}:{row.Index}");
+    }
+    private void ClearDurationRows()
+    {
+        foreach (var row in _durations) row.PropertyChanged -= Duration_Changed;
+        _durations.Clear();
     }
 
     private void LoadDirection()
@@ -120,8 +150,7 @@ public partial class PetEditorWindow : ThemedWindow
     private void Draft_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        _dirtyInputs = true;
-        ValidateAndPreview();
+        CommitEditorChange(sender is TextBox box ? box.Name : null);
     }
 
     private bool CollectDraft()
@@ -137,7 +166,11 @@ public partial class PetEditorWindow : ThemedWindow
         if (EnabledCheck.IsChecked == true)
         {
             var count = Number(FrameCountInput.Text, "帧数", 1, 64);
-            while (_durations.Count > count) _durations.RemoveAt(_durations.Count - 1);
+            while (_durations.Count > count)
+            {
+                _durations[^1].PropertyChanged -= Duration_Changed;
+                _durations.RemoveAt(_durations.Count - 1);
+            }
             while (_durations.Count < count) AddDuration(_durationHistory.GetValueOrDefault(_durations.Count) ?? _durations.LastOrDefault()?.Text ?? "150");
             m.Animations[_selectedState] = new AnimationDefinition
             {
@@ -164,7 +197,7 @@ public partial class PetEditorWindow : ThemedWindow
         return value;
     }
 
-    private bool ValidateAndPreview()
+    private bool ValidateAndPreview(bool preserveFrame = true)
     {
         if (_loading) return false;
         _timer.Stop();
@@ -174,23 +207,23 @@ public partial class PetEditorWindow : ThemedWindow
             RefreshGrid();
             _preview = _document.Preview();
             _animation = _preview.GetAnimation(_selectedState);
-            _frame = 0;
+            _frame = Math.Clamp(preserveFrame ? _frame : 0, 0, _animation.FrameCount - 1);
             RenderFrame();
             StatusText.Text = string.Empty;
             CopyButton.IsEnabled = ExportButton.IsEnabled = true;
-            UpdateButton.IsEnabled = !_entry.Bundled && _entry.Id == _document.Draft.Id;
+            UpdateButton.IsEnabled = !_entry.Bundled && _entry.Id == _document.Draft.Id && !_sourceConflict;
             PlayButton.IsEnabled = ModeTabs.SelectedIndex == 0 && _preview.Supports(_selectedState);
+            UpdateTimelineControls();
             if (_playing && PlayButton.IsEnabled && IsLoaded && WindowState != WindowState.Minimized) _timer.Start();
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _preview = null;
-            AnimationPreview.Source = null;
             FrameStatus.Text = "配置无效";
             StatusText.Text = ex.Message;
             CopyButton.IsEnabled = ExportButton.IsEnabled = UpdateButton.IsEnabled = false;
             PlayButton.IsEnabled = false;
+            TimelineSlider.IsEnabled = PreviousFrameButton.IsEnabled = NextFrameButton.IsEnabled = ApplyDurationButton.IsEnabled = false;
             return false;
         }
     }
@@ -240,6 +273,7 @@ public partial class PetEditorWindow : ThemedWindow
             FrameStatus.Text = $"帧 {_frame + 1}/{_animation.FrameCount} · {_animation.DurationsMs[_frame]} ms";
             _timer.Interval = TimeSpan.FromMilliseconds(_animation.DurationsMs[_frame]);
         }
+        UpdateTimelineControls();
     }
 
     private void Preview_Tick(object? sender, EventArgs e)
@@ -272,7 +306,8 @@ public partial class PetEditorWindow : ThemedWindow
         _selectedState = item.State;
         LoadAction();
         _loading = false;
-        ValidateAndPreview();
+        ValidateAndPreview(preserveFrame: false);
+        RememberNavigation();
     }
 
     private void Enabled_Changed(object sender, RoutedEventArgs e)
@@ -285,8 +320,7 @@ public partial class PetEditorWindow : ThemedWindow
         else if (_document.Draft.Animations.Remove(_selectedState, out var previous)) _disabledActions[_selectedState] = previous;
         LoadAction();
         _loading = false;
-        _dirtyInputs = true;
-        ValidateAndPreview();
+        CommitEditorChange();
     }
 
     private void Direction_Changed(object sender, SelectionChangedEventArgs e)
@@ -306,6 +340,7 @@ public partial class PetEditorWindow : ThemedWindow
         LoadDirection();
         _loading = false;
         ValidateAndPreview();
+        RememberNavigation();
     }
 
     private void LookEnabled_Changed(object sender, RoutedEventArgs e)
@@ -313,13 +348,12 @@ public partial class PetEditorWindow : ThemedWindow
         if (_loading) return;
         if (LookEnabledCheck.IsChecked == false) _lookHistory = _document.Draft.LookDirections.ToArray();
         else if (_lookHistory.Length == 16 && _document.Draft.LookDirections.Count == 0) _document.Draft.LookDirections = _lookHistory.ToList();
-        _dirtyInputs = true;
-        ValidateAndPreview();
+        CommitEditorChange();
     }
 
     private void Mode_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (!_loading && ReferenceEquals(e.Source, ModeTabs)) ValidateAndPreview();
+        if (!_loading && ReferenceEquals(e.Source, ModeTabs)) { ValidateAndPreview(); RememberNavigation(); }
     }
 
     private void SelectCell(int row, int column)
@@ -328,8 +362,7 @@ public partial class PetEditorWindow : ThemedWindow
         if (ModeTabs.SelectedIndex == 1) { LookRowInput.Text = row.ToString(); LookColumnInput.Text = column.ToString(); }
         else { ActionRowInput.Text = row.ToString(); ActionColumnInput.Text = column.ToString(); }
         _loading = false;
-        _dirtyInputs = true;
-        ValidateAndPreview();
+        CommitEditorChange();
     }
 
     private void Zoom_Changed(object sender, RoutedPropertyChangedEventArgs<double> e) { if (!_loading) RefreshGrid(); }
@@ -347,14 +380,14 @@ public partial class PetEditorWindow : ThemedWindow
             _timer.Start();
         }
     }
-    private void Replay_Click(object sender, RoutedEventArgs e) { _playing = true; PlayButton.Content = "\uE769"; ValidateAndPreview(); }
+    private void Replay_Click(object sender, RoutedEventArgs e) { _playing = true; PlayButton.Content = "\uE769"; ValidateAndPreview(preserveFrame: false); }
     private void Reset_Click(object sender, RoutedEventArgs e)
     {
-        if (AppDialog.Show(this, "恢复打开时的全部配置？当前修改将丢弃。", "重置配置", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        if (AppDialog.Show(this, "恢复最近载入的源文件配置？", "重置配置", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         _document.Reset();
+        if (_bundledCopyId is not null) _document.Draft.Id = _bundledCopyId;
         LoadDraft();
-        _dirtyInputs = false;
-        ValidateAndPreview();
+        CommitEditorChange();
     }
     private void Update_Click(object sender, RoutedEventArgs e)
     {

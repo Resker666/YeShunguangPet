@@ -148,6 +148,7 @@ internal static class UiTests
             VerifyDiagnosticsWindow(check, desktop, renders);
             SpeechStudyUiTests.Run(check, catalog, renders);
             FocusDialTests.RunLive(check, catalog, renders);
+            EditorAdvancedTests.RunLive(check, catalog, renders);
             FocusLayoutTests.RunLive(check, catalog, renders);
             MiniMenuTests.RunLive(check, catalog, renders);
             TrayMenuTests.Run(check, catalog, renders);

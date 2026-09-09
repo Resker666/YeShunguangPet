@@ -130,7 +130,7 @@ public sealed partial class PetCatalog
         return UpdateSnapshot(entry, PetArchive.Read(source));
     }
 
-    internal PetEntry UpdateSnapshot(PetEntry entry, (PetPackage Package, byte[] Json, byte[] Png) snapshot, bool recoverInvalid = false)
+    internal PetEntry UpdateSnapshot(PetEntry entry, (PetPackage Package, byte[] Json, byte[] Png) snapshot, bool recoverInvalid = false, string? expectedFingerprint = null)
     {
         var destination = GetManagedDirectory(entry, recoverInvalid);
         if (snapshot.Package.Manifest.Id != entry.Id) throw new InvalidDataException("更新包的 id 必须与选中的皮肤相同。");
@@ -143,7 +143,12 @@ public sealed partial class PetCatalog
             File.WriteAllBytes(Path.Combine(staging, snapshot.Package.Manifest.SpriteSheet), snapshot.Png);
             PetPackage.Load(Path.Combine(staging, "pet.json"));
             Directory.Move(destination, backup);
-            try { Directory.Move(staging, destination); }
+            try
+            {
+                if (expectedFingerprint is not null && PetSourceSnapshot.Read(Path.Combine(backup, "pet.json")).Fingerprint != expectedFingerprint)
+                    throw new InvalidDataException("源文件在保存期间发生变化，未覆盖外部版本。");
+                Directory.Move(staging, destination);
+            }
             catch
             {
                 Directory.Move(backup, destination);
