@@ -63,6 +63,8 @@ GitHub Issue 默认公开，不要上传个人桌面、密码、密钥、工作�
 | [常见问题](docs/USER_GUIDE.md#常见问题) | 无法拖动、找不到角色、快捷键与异常处理 |
 | [备份与恢复](docs/USER_GUIDE.md#备份与恢复) | 皮肤历史版本与恢复 |
 | [开发与构建](docs/USER_GUIDE.md#开发与构建) | .NET SDK、本地测试、便携包及自动发布 |
+| [计时模块架构](docs/ARCHITECTURE.md) | 状态、界面、持久化与生命周期边界 |
+| [质量门禁](docs/QUALITY_GATES.md) | 随机操作重放、截图基线、资源及性能预算 |
 | [更新记录](CHANGELOG.md) | 各版本新增与修复 |
 
 程序源代码使用 [MIT License](LICENSE)，角色素材与宣传演示中的第三方视觉内容不包含在该许可中，详见 [ASSET_NOTICE.md](ASSET_NOTICE.md)。

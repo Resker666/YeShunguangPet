@@ -6,105 +6,40 @@ namespace YeShunguangPet;
 
 public sealed class CompanionRuntime : IDisposable
 {
-    public PetSettings Settings { get; }
-    public CompanionSession Session { get; }
-    public StudyHistory History { get; }
-    private readonly TimeProvider _clock;
-    private readonly Action<PetSettings>? _persistDurations;
-    private readonly Action<FocusWindowOptions>? _persistWindow;
-    private FocusWindowOptions _windowOptions;
-    public FocusWindowOptions WindowOptions => _windowOptions.Copy();
-    public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
-    private readonly BreakReminder _reminder;
+    private readonly CompanionService _service;
+    public PetSettings Settings => _service.Settings;
+    public CompanionSession Session => _service.Session;
+    public StudyHistory History => _service.History;
+    public FocusWindowOptions WindowOptions => _service.WindowOptions;
+    public DateOnly Today => _service.Today;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private FocusWindow? _window;
     private StudyWindow? _studyWindow;
     private string? _avatarInstance;
     private bool _disposed;
-    public bool IsQuiet => DesktopBehavior.IsQuiet(Settings, DateTime.Now);
-    public event Action? Pulse;
-    public event Action<string, string>? Notification;
-    public event Action? BreakReminderDue;
-    public event Action? DurationsChanged;
+    public bool IsQuiet => _service.IsQuiet;
+    public event Action? Pulse { add => _service.Pulse += value; remove => _service.Pulse -= value; }
+    public event Action<string, string>? Notification { add => _service.Notification += value; remove => _service.Notification -= value; }
+    public event Action? BreakReminderDue { add => _service.BreakReminderDue += value; remove => _service.BreakReminderDue -= value; }
+    public event Action? DurationsChanged { add => _service.DurationsChanged += value; remove => _service.DurationsChanged -= value; }
     public int FocusWindowCount => _window is null ? 0 : 1;
 
     public CompanionRuntime(PetSettings settings, TimeProvider? clock = null, StudyHistory? history = null, Action<PetSettings>? persistDurations = null,
         FocusWindowOptions? windowOptions = null, Action<FocusWindowOptions>? persistWindow = null)
     {
-        Settings = settings;
-        _clock = clock ?? TimeProvider.System;
-        _persistDurations = persistDurations;
-        _persistWindow = persistWindow;
-        _windowOptions = windowOptions?.Copy() ?? new FocusWindowOptions();
-        _windowOptions.Normalize();
-        History = history ?? new StudyHistory();
-        Session = new CompanionSession(clock);
-        _reminder = new BreakReminder(clock);
-        Session.Completed += OnCompleted;
-        Session.FocusCompleted += RecordFocus;
+        _service = new CompanionService(settings, clock, history, persistDurations, windowOptions, persistWindow);
         _timer.Tick += (_, _) => Tick();
     }
 
     public void Start() { Configure(); _timer.Start(); }
-    public void Configure()
-    {
-        Session.Configure(Settings.FocusMinutes, Settings.BreakMinutes);
-        _reminder.Configure(Settings.BreakRemindersEnabled, Settings.BreakReminderMinutes);
-    }
-
-    public void SetDurations(int focusMinutes, int breakMinutes)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (Session.Status is SessionStatus.Running or SessionStatus.Paused)
-            throw new InvalidOperationException("请先结束当前计时，再调整时长。");
-        if (focusMinutes is < 1 or > 120 || breakMinutes is < 1 or > 60)
-            throw new ArgumentOutOfRangeException(nameof(focusMinutes), "专注时长为 1–120 分钟，休息时长为 1–60 分钟。");
-        if (Settings.FocusMinutes == focusMinutes && Settings.BreakMinutes == breakMinutes) return;
-        var draft = Settings.Clone();
-        draft.FocusMinutes = focusMinutes;
-        draft.BreakMinutes = breakMinutes;
-        // Persist the candidate before changing the shared timer or live preferences.
-        _persistDurations?.Invoke(draft);
-        Settings.FocusMinutes = focusMinutes;
-        Settings.BreakMinutes = breakMinutes;
-        Session.Configure(focusMinutes, breakMinutes);
-        DurationsChanged?.Invoke();
-    }
-
-    public void Tick()
-    {
-        if (_disposed) return;
-        Session.Tick();
-        Pulse?.Invoke();
-        if (_reminder.Poll(IsQuiet || !Settings.NotificationsEnabled || Session.Status == SessionStatus.Running))
-        {
-            Notification?.Invoke("休息一下", "站起来活动，喝口水，放松一下眼睛。");
-            BreakReminderDue?.Invoke();
-        }
-    }
-
-    public void SaveWindowOptions(FocusWindowOptions options)
-    {
-        if (_disposed) return;
-        var draft = options.Copy();
-        draft.Normalize();
-        if (draft == _windowOptions) return;
-        _persistWindow?.Invoke(draft);
-        _windowOptions = draft;
-    }
-
-    private void OnCompleted(SessionPhase phase)
-    {
-        _reminder.Configure(Settings.BreakRemindersEnabled, Settings.BreakReminderMinutes);
-        if (!Settings.NotificationsEnabled || IsQuiet) return;
-        Notification?.Invoke(phase == SessionPhase.Focus ? "专注完成" : "休息结束", phase == SessionPhase.Focus
-            ? $"完成一次专注，可以开始 {Settings.BreakMinutes} 分钟休息。" : "准备好了就开始下一次专注。");
-    }
-
-    private void RecordFocus(FocusCompletion completion) => History.Record(completion);
+    public void Configure() => _service.Configure();
+    public void SetDurations(int focusMinutes, int breakMinutes) => _service.SetDurations(focusMinutes, breakMinutes);
+    public void Tick() => _service.Tick();
+    public void SaveWindowOptions(FocusWindowOptions options) => _service.SaveWindowOptions(options);
 
     public void Open(PetPackage pet, string? instanceId = null)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _avatarInstance = instanceId;
         if (_window is null)
         {
@@ -152,13 +87,8 @@ public sealed class CompanionRuntime : IDisposable
         if (_disposed) return;
         _disposed = true;
         _timer.Stop();
-        Session.Completed -= OnCompleted;
-        Session.FocusCompleted -= RecordFocus;
+        _service.Dispose();
         _window?.Close();
         _studyWindow?.Close();
-        Pulse = null;
-        Notification = null;
-        BreakReminderDue = null;
-        DurationsChanged = null;
     }
 }

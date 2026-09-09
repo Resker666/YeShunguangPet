@@ -161,11 +161,11 @@ internal static class FocusLayoutTests
                 check((bool)Call(window, "IsWindowDragTarget", Control<DependencyObject>(window, "PetName"))! &&
                       (bool)Call(window, "IsWindowDragTarget", Control<DependencyObject>(window, "ContentRoot"))!, "header and noninteractive blank areas can move the window");
                 desktop.Companion.Session.Reset();
-                typeof(FocusWindow).GetField("_editingMinutes", Private)!.SetValue(window, true);
+                window.Controller.BeginMinuteEdit();
                 Control<TextBox>(window, "MinutesInput").Text = "42";
                 window.Width = 320; window.Height = 460; Wait(300);
                 check(Control<TextBox>(window, "MinutesInput").Text == "42" && desktop.Companion.Settings.FocusMinutes == 120, "resize preserves an uncommitted numeric draft");
-                Call(window, "CommitMinutes");
+                window.Controller.CommitMinutes();
                 desktop.Companion.SetDurations(1, 1);
                 desktop.Companion.Session.StartOrResume(); clock.Advance(60); desktop.Companion.Tick(); Wait(80);
                 check(Control<TextBlock>(window, "PhaseText").Text == "专注完成" && Control<TextBlock>(window, "ToggleText").Text == "开始休息", "compact completed timer retains its next-stage command");

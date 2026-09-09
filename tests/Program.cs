@@ -32,6 +32,23 @@ internal static class Program
         try
         {
             var source = Path.GetFullPath(args[0]);
+            if (args.Length > 2 && args[2] == "--quality")
+            {
+                var seconds = args.Length > 3 ? int.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0;
+                if (seconds is < 0 or > 7200) throw new ArgumentOutOfRangeException(nameof(seconds), "Soak duration must be 0-7200 seconds.");
+                int? seed = args.Length > 4 ? int.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : null;
+                FocusQualityGate.Run((success, name) => Check(success, name), source, args[1], seconds, seed);
+                Console.WriteLine($"PASS: {_passed} quality gate checks");
+                return 0;
+            }
+            if (args.Length > 2 && args[2] == "--record-focus-baselines")
+            {
+                var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                try { FocusVisualGate.Run(source, args[1], record: true); }
+                finally { app.Shutdown(); }
+                Console.WriteLine("Recorded focus baselines. Review images before committing them.");
+                return 0;
+            }
             if (args.Length > 2 && args[2] == "--mini-menu-smoke")
             {
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -119,6 +136,7 @@ internal static class Program
             DiagnosticsTests.Run((success, name) => Check(success, name), catalog, _root);
             SpeechStudyTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusDialTests.Run((success, name) => Check(success, name), catalog, _root);
+            FocusControllerTests.Run((success, name) => Check(success, name));
             FocusLayoutTests.Run((success, name) => Check(success, name), catalog, _root);
             MiniMenuTests.Run((success, name) => Check(success, name), catalog, _root);
 

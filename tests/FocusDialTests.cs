@@ -46,14 +46,14 @@ internal static class FocusDialTests
             check(store.Load().Companion.FocusMinutes == 45 && runtime.Settings.BreakMinutes == 10, "focus preset persists without changing break duration");
             var instance = (PetSettings)typeof(MainWindow).GetField("_settings", Private)!.GetValue(desktop.Windows.First())!;
             check(instance.FocusMinutes == 45 && instance.BreakMinutes == 10, "saved durations propagate to all role preferences");
-            typeof(FocusWindow).GetField("_editingMinutes", Private)!.SetValue(focus, true);
+            focus.Controller.BeginMinuteEdit();
             input.Text = "120";
-            check((bool)Call(focus, "CommitMinutes")! && session.Duration.TotalMinutes == 120, "numeric edit accepts maximum focus duration");
+            check(focus.Controller.CommitMinutes() && session.Duration.TotalMinutes == 120, "numeric edit accepts maximum focus duration");
             foreach (var invalid in new[] { "", "0", "121", "1.5", "abc", "-1" })
             {
-                typeof(FocusWindow).GetField("_editingMinutes", Private)!.SetValue(focus, true);
+                focus.Controller.BeginMinuteEdit();
                 input.Text = invalid;
-                check(!(bool)Call(focus, "CommitMinutes")! && runtime.Settings.FocusMinutes == 120, "invalid duration cannot replace saved minutes: " + invalid);
+                check(!focus.Controller.CommitMinutes() && runtime.Settings.FocusMinutes == 120, "invalid duration cannot replace saved minutes: " + invalid);
                 Click(focus, "ToggleButton");
                 check(session.Status == SessionStatus.Ready, "invalid input blocks starting an unexpected duration");
             }
@@ -180,7 +180,7 @@ internal static class FocusDialTests
                 input.Text = "36";
                 Wait(500);
                 check(input.Text == "36" && config.Companion.FocusMinutes == 35, "pending dial save cannot erase a subsequent numeric draft");
-                check((bool)Call(window, "CommitMinutes")! && config.Companion.FocusMinutes == 36, "numeric draft commits after switching from a queued dial edit");
+                check(window.Controller.CommitMinutes() && config.Companion.FocusMinutes == 36, "numeric draft commits after switching from a queued dial edit");
                 Click(window, "ToggleButton");
                 Render(window, renders, "focus-running-" + theme + ".png");
                 var buttonSize = Control<Button>(window, "ToggleButton").RenderSize;
