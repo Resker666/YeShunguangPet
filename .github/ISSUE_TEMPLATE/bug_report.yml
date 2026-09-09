@@ -9,7 +9,7 @@ body:
     attributes:
       label: 程序版本
       description: 在 EXE 属性的“详细信息”中可以查看版本。
-      placeholder: 例如 1.0.1
+      placeholder: 例如 2.4.0
     validations:
       required: true
 

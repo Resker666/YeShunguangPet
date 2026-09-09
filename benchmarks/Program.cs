@@ -11,6 +11,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args[0] == "--promotion") return PromotionCapture.Run(args[1], args[2]);
         if (args[0] == "--live") return LiveProbe.Run(args[1], args[2], args.Length > 3 ? int.Parse(args[3]) : 30);
         if (args[0] == "--native-smoke") return LiveProbe.Run(args[1], args[2], 3, nativeIntegration: true);
         var source = Path.GetFullPath(args[0]);

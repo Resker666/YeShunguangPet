@@ -1,0 +1,57 @@
+name: 使用体验反馈
+description: 告诉我首次使用哪里顺手、哪里卡住了
+title: "[体验] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢自愿反馈。这里的内容会公开，请不要填写联系方式、真实姓名、个人路径或工作资料，也不必上传完整桌面截图。
+        如果有明确报错，请优先使用 Bug report 模板。
+  - type: input
+    id: version
+    attributes:
+      label: 使用版本（知道的话填写）
+      placeholder: 例如 2.4.0
+  - type: dropdown
+    id: first-use
+    attributes:
+      label: 首次使用到了哪一步？
+      options:
+        - 已经成功启动并使用
+        - 找不到或无法下载程序
+        - 解压或运行时遇到问题
+        - 出现安全提示，暂未运行
+        - 成功启动，但不知道接下来做什么
+        - 其他
+    validations:
+      required: true
+  - type: dropdown
+    id: favorite
+    attributes:
+      label: 目前最愿意保留哪个功能？
+      options:
+        - 角色互动与桌面陪伴
+        - 迷你番茄钟
+        - 学习记录
+        - 自定义皮肤
+        - 暂时没有或还没用到
+  - type: textarea
+    id: friction
+    attributes:
+      label: 最希望改善的一点
+      placeholder: 可以直接说卡在哪一步，或为什么暂时不想继续用。
+    validations:
+      required: true
+  - type: checkboxes
+    id: followup
+    attributes:
+      label: 可选回访
+      options:
+        - label: 我愿意几天后在这个 Issue 里回答是否再次使用，不需要另外留下联系方式。
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 隐私确认
+      options:
+        - label: 我知道内容会公开，并已检查没有密码、密钥、联系方式或其他私人信息。
+          required: true

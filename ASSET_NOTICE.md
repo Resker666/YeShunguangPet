@@ -7,6 +7,7 @@
 - `Pets/YeShunguang/spritesheet.png`（v1.1.0 及以前位于 `Assets/spritesheet.png`）
 - 由该精灵图制作的 `Assets/YeShunguangPet.ico`
 - 由该精灵图组装的 `docs/idle-preview.png`
+- `docs/media/` 中包含第三方角色图像的封面、动画及演示视频；这些展示素材不因被放入源码仓库而获得 MIT 素材授权
 - “叶瞬光”“绝区零”等角色、作品名称和相关视觉设计
 - 其他属于第三方权利人的商标、美术或知识产权
 

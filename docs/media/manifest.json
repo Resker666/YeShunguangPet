@@ -1,0 +1,56 @@
+{
+  "version": "2.4.0",
+  "source": "Native WPF controls rendered offscreen with isolated demonstration settings. Not a recording of the user's desktop.",
+  "skins": [
+    {
+      "Folder": "YeShunguang",
+      "Sha256": "42FBB6129741A7468526AD0CAD27DF82EE3939BE140C768D3F431CC0C9A45C2D"
+    },
+    {
+      "Folder": "robin",
+      "Sha256": "0AF0626FB802726D7795F890743B0954B3B8BD0D95D0637D3A0C876AA262A739"
+    }
+  ],
+  "assets": [
+    {
+      "name": "demo-30s.mp4",
+      "bytes": 1353824,
+      "sha256": "9447271412c2517b3494cd4dcc0b631ef66b6882626a35b7e25695faae8145d9"
+    },
+    {
+      "name": "demo.gif",
+      "bytes": 2614765,
+      "sha256": "a984ae0157a2478f413611c2a1703004f752c8c56ce66f1c36cb91b9bfefcb5e"
+    },
+    {
+      "name": "focus-ready.png",
+      "bytes": 29248,
+      "sha256": "266132f83403539f74baf31ee816ca3af72d763c6c9e58b4ee3b578ae9f59f77"
+    },
+    {
+      "name": "mini-00.png",
+      "bytes": 8128,
+      "sha256": "4d44e234dbd4d6ee3e15dd3243371dab699d732f148aa2e52c277a553bd358f4"
+    },
+    {
+      "name": "overview.png",
+      "bytes": 133546,
+      "sha256": "962223c66caa2f4dc3badb7c0ba7dcf127758604b7599b82ec20a06093d32588"
+    },
+    {
+      "name": "post-cover-square.png",
+      "bytes": 182230,
+      "sha256": "5a20c6976bf566239a4f321ef2f044c16900f96b619dc4bfb443e12b9a147158"
+    },
+    {
+      "name": "skin-robin.png",
+      "bytes": 71705,
+      "sha256": "e58e5d927134e2dfca112eb1d00856f98d1d344d0b190add6e07a1695c0683d6"
+    },
+    {
+      "name": "social-preview.png",
+      "bytes": 160357,
+      "sha256": "a33f6d8f997dfcb8e3c496b1d8a8162d86b822168f4a6559a8365af55cd04eaa"
+    }
+  ]
+}
