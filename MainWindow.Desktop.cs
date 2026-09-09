@@ -8,6 +8,8 @@ public partial class MainWindow
 {
     private readonly DesktopSession? _desktop;
     private bool _loadedOnce;
+    private bool _confirmingClose;
+    private PetAboutWindow? _aboutWindow;
     private IDisposable? _imageLease;
     internal PetSettings InstanceSettings => _settings;
     public string InstanceId { get; }
@@ -76,8 +78,34 @@ public partial class MainWindow
     internal void ActivateSettings() => _settingsWindow?.Activate();
     private void CloseInstance()
     {
-        try { _desktop?.Remove(this); }
+        if (_desktop is null || _isExiting || _confirmingClose) return;
+        _confirmingClose = true;
+        BeginMenuInteraction();
+        try
+        {
+            if (AppDialog.Show(this, $"关闭“{_pet.Manifest.Name}”？\n皮肤文件和学习计时会保留。", "关闭角色", MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.OK)
+                _desktop.Remove(this);
+        }
         catch (Exception ex) { MessageBox.Show(ex.Message, "无法关闭角色", MessageBoxButton.OK, MessageBoxImage.Information); }
+        finally { _confirmingClose = false; if (!_isExiting) EndMenuInteraction(); }
+    }
+
+    private void OpenAbout()
+    {
+        if (_isExiting) return;
+        if (_aboutWindow is not null) { _aboutWindow.Activate(); return; }
+        BeginMenuInteraction();
+        try
+        {
+            _aboutWindow = new PetAboutWindow(_pet) { Owner = this };
+            _aboutWindow.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Failed to open character introduction.", ex);
+            AppDialog.Show(this, ex.Message, "无法打开角色介绍", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { _aboutWindow = null; if (!_isExiting) EndMenuInteraction(); }
     }
 
     internal void ApplyGlobal(CompanionOptions options)

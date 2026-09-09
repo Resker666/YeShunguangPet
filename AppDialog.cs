@@ -31,7 +31,7 @@ public static class AppDialog
         actions.Children.Add(accept);
         content.Children.Add(actions);
         dialog.Content = content;
-        dialog.Loaded += (_, _) => (cancel ?? accept).Focus();
+        dialog.Loaded += (_, _) => { NativeMethods.EnsureWindowInWorkArea(dialog); (cancel ?? accept).Focus(); };
         return dialog.ShowDialog() == true ? buttons == MessageBoxButton.YesNo ? MessageBoxResult.Yes : MessageBoxResult.OK :
             buttons == MessageBoxButton.YesNo ? MessageBoxResult.No : MessageBoxResult.Cancel;
     }

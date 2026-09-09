@@ -215,6 +215,8 @@ public partial class MainWindow : Window
     {
         _desktop?.DismissSpeech(this);
         _isExiting = true;
+        (ContextMenu as PetContextMenu)?.Dispose();
+        _aboutWindow?.Close();
         _isRoaming = false;
         _roamTimer.Stop();
         _frameTimer.Stop();
@@ -617,23 +619,28 @@ public partial class MainWindow : Window
 
     private void BuildWindowContextMenu()
     {
-        var menu = new ContextMenu();
-        menu.Items.Add(CreateMenuItem("设置...", (_, _) => Dispatcher.BeginInvoke(OpenSettings)));
-        menu.Items.Add(CreateMenuItem("学习陪伴...", (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow)));
-        if (_desktop is not null) menu.Items.Add(CreateMenuItem("角色管理...", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager)));
+        (ContextMenu as PetContextMenu)?.Dispose();
+        var menu = new PetContextMenu();
+        menu.Items.Add(CreateMenuItem("学习陪伴", (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow), icon: "\uE916"));
+        menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE713"));
+        menu.Items.Add(CreateMenuItem("查看角色介绍", (_, _) => Dispatcher.BeginInvoke(OpenAbout), icon: "\uE946"));
+        if (_desktop is not null) menu.Items.Add(CreateMenuItem("角色管理", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE716"));
         menu.Items.Add(new Separator());
-        menu.Items.Add(CreateAnimationMenuItem("待机", PetState.Idle));
-        menu.Items.Add(CreateAnimationMenuItem("打招呼", PetState.Waving));
-        menu.Items.Add(CreateAnimationMenuItem("跳一下", PetState.Jumping));
-        menu.Items.Add(CreateAnimationMenuItem("工作中", PetState.Running));
-        menu.Items.Add(CreateAnimationMenuItem("等待确认", PetState.Waiting));
-        menu.Items.Add(CreateAnimationMenuItem("检查成果", PetState.Review));
-        menu.Items.Add(CreateAnimationMenuItem("失败一下", PetState.Failed));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("召回主屏幕", (_, _) => RecallToPrimaryScreen(), "Ctrl+Alt+Y"));
-        menu.Items.Add(CreateMenuItem("放大", (_, _) => ChangeScale(ScaleStep)));
-        menu.Items.Add(CreateMenuItem("缩小", (_, _) => ChangeScale(-ScaleStep)));
-        menu.Items.Add(new Separator());
+        var actions = new MenuItem { Header = "动作", Icon = MenuIcon("\uE768") };
+        actions.Items.Add(CreateAnimationMenuItem("待机", PetState.Idle));
+        actions.Items.Add(CreateAnimationMenuItem("打招呼", PetState.Waving));
+        actions.Items.Add(CreateAnimationMenuItem("跳一下", PetState.Jumping));
+        actions.Items.Add(CreateAnimationMenuItem("工作中", PetState.Running));
+        actions.Items.Add(CreateAnimationMenuItem("等待确认", PetState.Waiting));
+        actions.Items.Add(CreateAnimationMenuItem("检查成果", PetState.Review));
+        actions.Items.Add(CreateAnimationMenuItem("失败一下", PetState.Failed));
+        menu.Items.Add(actions);
+        var display = new MenuItem { Header = "显示与行为", Icon = MenuIcon("\uE7F4") };
+        menu.Items.Add(display);
+        display.Items.Add(CreateMenuItem("放大", (_, _) => ChangeScale(ScaleStep), icon: "\uE8A3"));
+        display.Items.Add(CreateMenuItem("缩小", (_, _) => ChangeScale(-ScaleStep), icon: "\uE71F"));
+        display.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("召回主屏幕", (_, _) => RecallToPrimaryScreen(), "Ctrl+Alt+Y", "\uE80F"));
 
         _windowTopmostItem = CreateCheckMenuItem("总在最前", _settings.Topmost, (_, _) =>
         {
@@ -642,7 +649,7 @@ public partial class MainWindow : Window
                 SetTopmost(_windowTopmostItem.IsChecked);
             }
         });
-        menu.Items.Add(_windowTopmostItem);
+        display.Items.Add(_windowTopmostItem);
 
         _windowClickThroughItem = CreateCheckMenuItem("点击穿透", _settings.ClickThrough, (_, _) =>
         {
@@ -651,7 +658,7 @@ public partial class MainWindow : Window
                 SetClickThrough(_windowClickThroughItem.IsChecked);
             }
         });
-        menu.Items.Add(_windowClickThroughItem);
+        display.Items.Add(_windowClickThroughItem);
 
         _windowRandomIdleItem = CreateCheckMenuItem("随机待机", _settings.RandomIdleActions, (_, _) =>
         {
@@ -660,7 +667,7 @@ public partial class MainWindow : Window
                 SetRandomIdle(_windowRandomIdleItem.IsChecked);
             }
         });
-        menu.Items.Add(_windowRandomIdleItem);
+        display.Items.Add(_windowRandomIdleItem);
 
         _windowRoamingItem = CreateCheckMenuItem("桌面走动", _settings.DesktopRoaming, (_, _) =>
         {
@@ -669,7 +676,7 @@ public partial class MainWindow : Window
                 SetDesktopRoaming(_windowRoamingItem.IsChecked);
             }
         });
-        menu.Items.Add(_windowRoamingItem);
+        display.Items.Add(_windowRoamingItem);
 
         _windowStartupItem = CreateCheckMenuItem("开机启动", _settings.LaunchAtStartup, (_, _) =>
         {
@@ -678,23 +685,33 @@ public partial class MainWindow : Window
                 SetLaunchAtStartup(_windowStartupItem.IsChecked);
             }
         });
-        menu.Items.Add(_windowStartupItem);
+        display.Items.Add(new Separator());
+        display.Items.Add(_windowStartupItem);
 
         menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("隐藏", (_, _) => HidePet()));
-        if (_desktop is not null) menu.Items.Add(CreateMenuItem("关闭此角色", (_, _) => CloseInstance()));
-        menu.Items.Add(CreateMenuItem("退出程序", (_, _) => ExitApplication()));
+        menu.Items.Add(CreateMenuItem("隐藏此角色", (_, _) => HidePet(), icon: "\uE890"));
+        if (_desktop is not null)
+        {
+            var close = CreateMenuItem("关闭此角色...", (_, _) => Dispatcher.BeginInvoke(CloseInstance), icon: "\uE711");
+            close.SetResourceReference(ForegroundProperty, "DangerBrush");
+            menu.Items.Add(close);
+        }
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("退出程序", (_, _) => ExitApplication(), icon: "\uE7E8"));
         menu.Opened += (_, _) => BeginMenuInteraction();
         menu.Closed += (_, _) => EndMenuInteraction();
         ContextMenu = menu;
     }
 
-    private static MenuItem CreateMenuItem(string header, RoutedEventHandler click, string? gesture = null)
+    private static TextBlock MenuIcon(string glyph) => new() { Text = glyph, FontFamily = new System.Windows.Media.FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 14, VerticalAlignment = VerticalAlignment.Center };
+
+    private static MenuItem CreateMenuItem(string header, RoutedEventHandler click, string? gesture = null, string? icon = null)
     {
         var item = new MenuItem
         {
             Header = header,
-            InputGestureText = gesture ?? string.Empty
+            InputGestureText = gesture ?? string.Empty,
+            Icon = icon is null ? null : MenuIcon(icon)
         };
         item.Click += click;
         return item;
@@ -974,7 +991,7 @@ public partial class MainWindow : Window
     private void UpdateMenuChecks()
     {
         if (ContextMenu is not null)
-            foreach (var item in ContextMenu.Items.OfType<MenuItem>())
+            foreach (var item in PetContextMenu.Descendants(ContextMenu))
                 if (item.Tag is PetState state) item.IsEnabled = _pet.Supports(state);
         if (_windowRandomIdleItem is not null)
         {

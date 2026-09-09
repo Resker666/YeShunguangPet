@@ -1,0 +1,15 @@
+<ui:ThemedWindow x:Class="YeShunguangPet.PetAboutWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:YeShunguangPet"
+    Title="角色介绍" Width="400" SizeToContent="Height" MaxHeight="640" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <Image x:Name="CharacterImage" Width="104" Height="114" Stretch="Uniform" HorizontalAlignment="Left"/>
+                <TextBlock x:Name="CharacterName" FontSize="22" FontWeight="Medium" TextWrapping="Wrap" Margin="0,12,0,8"/>
+                <TextBlock x:Name="CharacterDescription" TextWrapping="Wrap" FontSize="13"/>
+                <TextBlock x:Name="CharacterDetails" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,16,0,0"/>
+            </StackPanel>
+        </ScrollViewer>
+        <Button Grid.Row="1" Content="知道了" IsCancel="True" IsDefault="True" MinWidth="82" HorizontalAlignment="Right" Margin="0,16,0,0"/>
+    </Grid>
+</ui:ThemedWindow>

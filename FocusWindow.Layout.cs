@@ -23,27 +23,33 @@ public partial class FocusWindow
     private bool _compactLayout;
     private bool _layoutClosed;
     private bool? _presetsEditable;
+    private FocusWindowOptions _viewOptions = new();
+    private bool _switchingMode;
+    internal bool IsMiniMode => _viewOptions.MiniMode;
 
     private void InitializeWindowLayout()
     {
         FocusScroll.ScrollChanged += (_, e) => { if (e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0) UpdateResponsiveLayout(); };
         _placementTimer.Tick += (_, _) => { _placementTimer.Stop(); SaveWindowPlacement(); };
+        _viewOptions = _runtime?.WindowOptions ?? new FocusWindowOptions();
+        if (_managePlacement) ApplyWindowMode();
         if (!_managePlacement) return;
-        var options = _runtime!.WindowOptions;
-        Width = options.Width;
-        Height = options.Height;
-        if (options.LeftPixels.HasValue) WindowStartupLocation = WindowStartupLocation.Manual;
+        var options = _viewOptions.Copy();
+        var left = options.MiniMode ? options.MiniLeftPixels : options.LeftPixels;
+        var top = options.MiniMode ? options.MiniTopPixels : options.TopPixels;
+        if (left.HasValue) WindowStartupLocation = WindowStartupLocation.Manual;
         SourceInitialized += (_, _) =>
         {
             _windowSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             _windowSource?.AddHook(WindowLayoutHook);
-            if (options.LeftPixels is int x && options.TopPixels is int y) NativeMethods.MoveWindowPixels(this, x, y);
+            if (left is int x && top is int y) NativeMethods.MoveWindowPixels(this, x, y);
         };
         Loaded += (_, _) => { FitToScreen(); _placementReady = true; QueuePlacementSave(); };
         LocationChanged += (_, _) => QueuePlacementSave();
         SizeChanged += (_, _) => QueuePlacementSave();
         StateChanged += (_, _) =>
         {
+            if (_switchingMode) return;
             if (WindowState == WindowState.Normal) QueueScreenRefresh();
             else { _placementTimer.Stop(); SaveWindowPlacement(); }
         };
@@ -55,6 +61,13 @@ public partial class FocusWindow
     private void UpdateResponsiveLayout()
     {
         if (_layoutUpdating || _session is null || FocusScroll is null || FocusScroll.ActualWidth <= 0 || FocusScroll.ActualHeight <= 0) return;
+        if (IsMiniMode)
+        {
+            MiniRoot.Width = FocusScroll.ActualWidth;
+            MiniRoot.Height = FocusScroll.ActualHeight;
+            FocusScroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            return;
+        }
         _layoutUpdating = true;
         try
         {
@@ -87,6 +100,7 @@ public partial class FocusWindow
 
     private void UpdateDialSize()
     {
+        if (IsMiniMode) return;
         if (DialArea is null || DialArea.ActualHeight <= 0 || DialArea.ActualWidth <= 0) return;
         var diameter = Math.Min(Math.Min(312, DialArea.ActualWidth), Math.Max(188, DialArea.ActualHeight - 12));
         DialFrame.Width = DialFrame.Height = diameter;
@@ -142,6 +156,7 @@ public partial class FocusWindow
                 break;
             case 0x0112:
                 var command = wParam.ToInt64() & 0xFFF0;
+                if (IsMiniMode && command == 0xF030) { handled = true; return IntPtr.Zero; }
                 if (command is 0xF020 or 0xF030) SaveWindowPlacement();
                 break;
         }
@@ -155,7 +170,7 @@ public partial class FocusWindow
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             _screenRefreshQueued = false;
-            if (_layoutClosed || _insideSizeMove) return;
+            if (_layoutClosed || _insideSizeMove || _switchingMode) return;
             FitToScreen();
             QueuePlacementSave();
         }));
@@ -167,8 +182,8 @@ public partial class FocusWindow
         var dpi = VisualTreeHelper.GetDpi(this);
         var availableWidth = (area.Right - area.Left) / dpi.DpiScaleX;
         var availableHeight = (area.Bottom - area.Top) / dpi.DpiScaleY;
-        MinWidth = Math.Min(FocusWindowOptions.MinimumWidth, availableWidth);
-        MinHeight = Math.Min(FocusWindowOptions.MinimumHeight, availableHeight);
+        MinWidth = Math.Min(IsMiniMode ? FocusWindowOptions.MiniMinimumWidth : FocusWindowOptions.MinimumWidth, availableWidth);
+        MinHeight = Math.Min(IsMiniMode ? FocusWindowOptions.MiniMinimumHeight : FocusWindowOptions.MinimumHeight, availableHeight);
         Width = Math.Min(Width, availableWidth);
         Height = Math.Min(Height, availableHeight);
         NativeMethods.EnsureWindowInWorkArea(this);
@@ -176,18 +191,30 @@ public partial class FocusWindow
 
     private void CaptureNormalPlacement()
     {
-        if (WindowState != WindowState.Normal || !NativeMethods.IsWindowNormal(this) || !NativeMethods.TryGetWindowBounds(this, out var bounds)) return;
+        if (_switchingMode || WindowState != WindowState.Normal) return;
+        var hasBounds = NativeMethods.TryGetWindowBounds(this, out var bounds);
+        if (hasBounds && !NativeMethods.IsWindowNormal(this)) return;
         var dpi = VisualTreeHelper.GetDpi(this);
-        _lastNormalPlacement = new FocusWindowOptions
+        var options = _viewOptions.Copy();
+        var width = hasBounds ? bounds.Width / dpi.DpiScaleX : Width;
+        var height = hasBounds ? bounds.Height / dpi.DpiScaleY : Height;
+        if (IsMiniMode)
         {
-            Width = bounds.Width / dpi.DpiScaleX, Height = bounds.Height / dpi.DpiScaleY,
-            LeftPixels = (int)bounds.Left, TopPixels = (int)bounds.Top
-        };
+            options.MiniWidth = width; options.MiniHeight = height;
+            if (hasBounds) { options.MiniLeftPixels = (int)bounds.Left; options.MiniTopPixels = (int)bounds.Top; }
+        }
+        else
+        {
+            options.Width = width; options.Height = height;
+            if (hasBounds) { options.LeftPixels = (int)bounds.Left; options.TopPixels = (int)bounds.Top; }
+        }
+        _viewOptions = options;
+        _lastNormalPlacement = options.Copy();
     }
 
     private void QueuePlacementSave()
     {
-        if (!_managePlacement || !_placementReady || _layoutClosed || _runtime?.IsDisposed == true || WindowState != WindowState.Normal) return;
+        if (!_managePlacement || !_placementReady || _layoutClosed || _switchingMode || _runtime?.IsDisposed == true || WindowState != WindowState.Normal) return;
         CaptureNormalPlacement();
         if (_insideSizeMove) return;
         _placementTimer.Stop();
@@ -197,7 +224,7 @@ public partial class FocusWindow
     internal void SaveWindowPlacement()
     {
         _placementTimer.Stop();
-        if (!_managePlacement || !_placementReady || _runtime?.IsDisposed != false) return;
+        if (!_managePlacement || !_placementReady || _switchingMode || _runtime?.IsDisposed != false) return;
         CaptureNormalPlacement();
         if (_lastNormalPlacement is null) return;
         try { _runtime.SaveWindowOptions(_lastNormalPlacement); WindowError.Text = string.Empty; }
@@ -207,6 +234,7 @@ public partial class FocusWindow
             WindowError.Text = "窗口位置未保存，请检查配置目录权限后重试。";
         }
         UpdateResponsiveLayout();
+        RefreshMiniStatus();
     }
 
     private void CloseWindowLayout()
@@ -215,5 +243,7 @@ public partial class FocusWindow
         _placementTimer.Stop();
         _windowSource?.RemoveHook(WindowLayoutHook);
         PresetHost.BeginAnimation(HeightProperty, null);
+        ContentRoot.BeginAnimation(OpacityProperty, null);
+        MiniRoot.BeginAnimation(OpacityProperty, null);
     }
 }

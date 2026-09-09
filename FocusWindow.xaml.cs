@@ -135,6 +135,7 @@ public partial class FocusWindow : ThemedWindow
         {
             RefreshAvatar(); Dial.RefreshAppearance();
             UiTheme.MatchTitleBarBackground(this);
+            if (!UiTheme.MotionEnabled) { ContentRoot.BeginAnimation(OpacityProperty, null); MiniRoot.BeginAnimation(OpacityProperty, null); }
             UpdatePresetLayout(force: true);
             UpdateResponsiveLayout();
         }
@@ -314,5 +315,6 @@ public partial class FocusWindow : ThemedWindow
         }
         RefreshAvatar();
         UpdateResponsiveLayout();
+        RefreshMiniStatus();
     }
 }

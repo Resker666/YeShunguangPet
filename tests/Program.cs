@@ -32,6 +32,15 @@ internal static class Program
         try
         {
             var source = Path.GetFullPath(args[0]);
+            if (args.Length > 2 && args[2] == "--mini-menu-smoke")
+            {
+                var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                System.Threading.SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
+                try { MiniMenuTests.RunLive((success, name) => Check(success, name), new PetCatalog(Path.Combine(source, "Pets"), Path.Combine(_root, "mini-users")), args[1]); }
+                finally { app.Shutdown(); }
+                Console.WriteLine($"PASS: {_passed} mini/menu UI checks");
+                return 0;
+            }
             if (args.Length > 2 && args[2] == "--sprite-thread-smoke")
             {
                 SpriteThreadTests.Run((success, name) => Check(success, name), source, _root);
@@ -111,6 +120,7 @@ internal static class Program
             SpeechStudyTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusDialTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusLayoutTests.Run((success, name) => Check(success, name), catalog, _root);
+            MiniMenuTests.Run((success, name) => Check(success, name), catalog, _root);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
             void Bad(Action<JsonObject> edit, string name)
@@ -268,7 +278,7 @@ internal static class Program
                 "runtime timing follows manifest");
             type.GetMethod("BuildWindowContextMenu", PrivateInstance)!.Invoke(window, null);
             type.GetMethod("UpdateMenuChecks", PrivateInstance)!.Invoke(window, null);
-            Check(window.ContextMenu.Items.OfType<MenuItem>().Where(x => x.Tag is PetState s && s != PetState.Idle).All(x => !x.IsEnabled),
+            Check(PetContextMenu.Descendants(window.ContextMenu).Count(x => x.Tag is PetState) == 7 && PetContextMenu.Descendants(window.ContextMenu).Where(x => x.Tag is PetState s && s != PetState.Idle).All(x => !x.IsEnabled),
                 "runtime disables missing action menu items");
             Check(window.Title == custom.Manifest.Name, "runtime title changes with skin");
             animation.Invoke(window, new object[] { PetState.Waving, true });

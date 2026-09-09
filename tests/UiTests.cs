@@ -149,6 +149,7 @@ internal static class UiTests
             SpeechStudyUiTests.Run(check, catalog, renders);
             FocusDialTests.RunLive(check, catalog, renders);
             FocusLayoutTests.RunLive(check, catalog, renders);
+            MiniMenuTests.RunLive(check, catalog, renders);
             TrayMenuTests.Run(check, catalog, renders);
             check(failures.Count == 0, "native UI has no unhandled dispatcher errors: " + string.Join("; ", failures.Select(e => e.Message)));
         }

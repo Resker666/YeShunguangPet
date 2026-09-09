@@ -102,7 +102,7 @@ public static class UiTheme
         catch (EntryPointNotFoundException) { }
     }
 
-    private static void SetPalette(ResourceDictionary resources)
+    internal static void SetPalette(ResourceDictionary resources)
     {
         foreach (var (key, color) in GetColors()) { var brush = new SolidColorBrush(color); brush.Freeze(); resources[key] = brush; }
     }

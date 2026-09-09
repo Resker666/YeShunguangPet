@@ -11,10 +11,25 @@
             <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/><Setter Property="Margin" Value="0,4,0,0"/>
             <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
         </Style>
+        <Style x:Key="FocusPinButton" TargetType="ToggleButton">
+            <Setter Property="Width" Value="28"/><Setter Property="Height" Value="28"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+                <Border x:Name="PinSurface" CornerRadius="5" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="PinSurface" Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PinSurface" Property="BorderBrush" Value="{DynamicResource BorderBrush}"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="PinSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
     </ui:ThemedWindow.Resources>
     <ScrollViewer x:Name="FocusScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                   Background="{DynamicResource SurfaceBrush}" PreviewMouseLeftButtonDown="Surface_MouseDown"
                   SizeChanged="Surface_SizeChanged">
+      <Grid>
         <Grid x:Name="ContentRoot" Margin="24,16" MaxWidth="480" VerticalAlignment="Center" HorizontalAlignment="Center" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -29,9 +44,14 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Image x:Name="PetImage" Width="40" Height="44" Stretch="Uniform"/>
                 <TextBlock x:Name="PetName" Grid.Column="1" Margin="10,0" TextTrimming="CharacterEllipsis" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                  <StackPanel VerticalAlignment="Center">
                     <TextBlock x:Name="SessionsText" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                     <TextBlock x:Name="QuietStatus" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right"/>
+                  </StackPanel>
+                  <Button x:Name="MiniModeButton" Style="{StaticResource IconButton}" Width="30" Height="30" Margin="8,0,0,0" ToolTip="迷你模式" AutomationProperties.Name="迷你模式" Click="MiniMode_Click">
+                      <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A8;"/>
+                  </Button>
                 </StackPanel>
             </Grid>
             <Border Grid.Row="1" Background="{DynamicResource SubtleBrush}" CornerRadius="7" Padding="3" HorizontalAlignment="Center" Margin="0,4,0,0">
@@ -83,5 +103,32 @@
                 </StackPanel>
             </Border>
         </Grid>
+        <Border x:Name="MiniRoot" Visibility="Collapsed" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12,8">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="*"/><RowDefinition Height="3"/></Grid.RowDefinitions>
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <ToggleButton x:Name="MiniPinButton" Style="{StaticResource FocusPinButton}" ToolTip="置顶迷你计时器" AutomationProperties.Name="置顶迷你计时器" Click="MiniPin_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE718;"/></ToggleButton>
+                        <Button x:Name="ExpandButton" Style="{StaticResource IconButton}" Width="28" Height="28" MinHeight="28" ToolTip="展开计时面板" AutomationProperties.Name="展开计时面板" Click="MiniMode_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A7;"/></Button>
+                        <Button x:Name="MiniCloseButton" Style="{StaticResource IconButton}" Width="28" Height="28" MinHeight="28" ToolTip="关闭面板，继续计时" AutomationProperties.Name="关闭计时面板" Click="MiniClose_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE711;"/></Button>
+                    </StackPanel>
+                    <TextBlock x:Name="MiniPetName" Text="{Binding Text, ElementName=PetName}" VerticalAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis" Margin="2,0,8,0"/>
+                </DockPanel>
+                <Grid Grid.Row="1" Margin="0,2,0,6">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Image x:Name="MiniPetImage" Width="38" Height="42" Stretch="Uniform" Source="{Binding Source, ElementName=PetImage}"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,4,0">
+                        <TextBlock x:Name="MiniPhaseText" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="MiniTimeText" Text="{Binding Text, ElementName=TimeText}" FontSize="28" FontWeight="Light" FontFamily="Segoe UI Variable, Segoe UI"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="MiniResetButton" Style="{StaticResource IconButton}" Width="28" Height="32" IsEnabled="{Binding IsEnabled, ElementName=ResetButton}" ToolTip="结束并重置计时" AutomationProperties.Name="结束并重置计时" Click="Reset_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE777;"/></Button>
+                        <Button x:Name="MiniToggleButton" Style="{StaticResource PrimaryButton}" Width="38" Height="38" Padding="0" Margin="6,0,0,0" ToolTip="{Binding Text, ElementName=ToggleText}" AutomationProperties.Name="{Binding Text, ElementName=ToggleText}" Click="Toggle_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="{Binding Text, ElementName=ToggleIcon}"/></Button>
+                    </StackPanel>
+                </Grid>
+                <ProgressBar x:Name="MiniProgress" Grid.Row="2" Height="3" Minimum="0" Maximum="1" AutomationProperties.Name="计时剩余进度"/>
+            </Grid>
+        </Border>
+      </Grid>
     </ScrollViewer>
 </ui:ThemedWindow>
