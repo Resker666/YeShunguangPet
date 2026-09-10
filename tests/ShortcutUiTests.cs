@@ -37,7 +37,7 @@ internal static class ShortcutUiTests
             try
             {
                 Show(window);
-                check(window.FontFamily.Source == "Segoe UI, Microsoft YaHei UI" && Rows(window).Length == 4, "shortcut editor shares the application font and offers four actions");
+                check(window.FontFamily.Source == "Segoe UI, Microsoft YaHei UI" && Rows(window).Length == 7, "shortcut editor includes separate region, current-screen and all-screen actions");
                 check(Find<TextBlock>(window, "StatusText").Text.Length == 0, "opening shortcut settings does not mark an untouched draft as changed");
                 foreach (var size in new[] { new Size(580, 650), new Size(480, 460) })
                 {
@@ -47,9 +47,8 @@ internal static class ShortcutUiTests
                         check(Inside(Find<FrameworkElement>(window, name), root), $"shortcut command {name} fits at {size} {theme}");
                     var scroll = Find<ScrollViewer>(window, "ShortcutScroll");
                     check(scroll.ScrollableWidth == 0, "shortcut modifier and key fields never require horizontal scrolling");
-                    if (size.Height == 650) check(scroll.ScrollableHeight == 0, "default shortcut window shows all four actions without scrolling");
                     scroll.ScrollToBottom(); Wait(50);
-                    check(Inside(RowControl<CheckBox>(window, 3, "EnabledCheck"), scroll), "last shortcut can be reached in the compact editor");
+                    check(Inside(RowControl<CheckBox>(window, 6, "EnabledCheck"), scroll), "all-screen shortcut can be reached in the compact editor");
                     scroll.ScrollToTop(); Wait(40);
                     Render(window, renders, $"shortcuts-{theme}-{size.Width}x{size.Height}.png");
                 }

@@ -20,6 +20,8 @@ public sealed class CompanionService : IDisposable
     public event Action<string, string>? Notification;
     public event Action? BreakReminderDue;
     public event Action? DurationsChanged;
+    public SessionPhase? PendingCompletion { get; private set; }
+    public event Action? CompletionNoticeChanged;
 
     public CompanionService(PetSettings settings, TimeProvider? clock = null, StudyHistory? history = null,
         Action<PetSettings>? persistDurations = null, FocusWindowOptions? windowOptions = null, Action<FocusWindowOptions>? persistWindow = null)
@@ -35,6 +37,7 @@ public sealed class CompanionService : IDisposable
         _reminder = new BreakReminder(_clock);
         Session.Completed += OnCompleted;
         Session.FocusCompleted += RecordFocus;
+        Session.Changed += OnSessionChanged;
     }
 
     public void Configure()
@@ -42,6 +45,7 @@ public sealed class CompanionService : IDisposable
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         Session.Configure(Settings.FocusMinutes, Settings.BreakMinutes);
         _reminder.Configure(Settings.BreakRemindersEnabled, Settings.BreakReminderMinutes);
+        RefreshCompletionNotice();
     }
 
     public void SetDurations(int focusMinutes, int breakMinutes)
@@ -77,6 +81,7 @@ public sealed class CompanionService : IDisposable
     {
         if (IsDisposed) return;
         Session.Tick();
+        RefreshCompletionNotice();
         Pulse?.Invoke();
         if (_reminder.Poll(IsQuiet || !Settings.NotificationsEnabled || Session.Status == SessionStatus.Running))
         {
@@ -89,11 +94,20 @@ public sealed class CompanionService : IDisposable
     {
         _reminder.Configure(Settings.BreakRemindersEnabled, Settings.BreakReminderMinutes);
         if (!Settings.NotificationsEnabled || IsQuiet) return;
+        PendingCompletion = phase;
+        CompletionNoticeChanged?.Invoke();
         Notification?.Invoke(phase == SessionPhase.Focus ? "专注完成" : "休息结束", phase == SessionPhase.Focus
             ? $"完成一次专注，可以开始 {Settings.BreakMinutes} 分钟休息。" : "准备好了就开始下一次专注。");
     }
 
     private void RecordFocus(FocusCompletion completion) => History.Record(completion);
+    private void OnSessionChanged() { if (Session.Status != SessionStatus.Completed) AcknowledgeCompletion(); RefreshCompletionNotice(); }
+    private void RefreshCompletionNotice() { if (IsQuiet || !Settings.NotificationsEnabled) AcknowledgeCompletion(); }
+    public void AcknowledgeCompletion()
+    {
+        if (PendingCompletion is null) return;
+        PendingCompletion = null; CompletionNoticeChanged?.Invoke();
+    }
 
     public void Dispose()
     {
@@ -101,6 +115,8 @@ public sealed class CompanionService : IDisposable
         IsDisposed = true;
         Session.Completed -= OnCompleted;
         Session.FocusCompleted -= RecordFocus;
+        Session.Changed -= OnSessionChanged;
+        PendingCompletion = null; CompletionNoticeChanged = null;
         Pulse = null; Notification = null; BreakReminderDue = null; DurationsChanged = null;
     }
 }

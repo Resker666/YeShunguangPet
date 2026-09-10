@@ -73,7 +73,7 @@ public partial class ShortcutSettingsWindow : ThemedWindow
         public ShortcutRow(ShortcutAction action, ShortcutGesture? gesture, string status)
         {
             Action = action; Enabled = gesture is not null; Modifiers = gesture?.Modifiers ?? 3;
-            Key = gesture?.Key ?? action switch { ShortcutAction.RecallAll => 0x59u, ShortcutAction.OpenFocus => 0x46u, ShortcutAction.ToggleFocus => 0x20u, _ => 0x4Du };
+            Key = gesture?.Key ?? action switch { ShortcutAction.RecallAll => 0x59u, ShortcutAction.OpenFocus => 0x46u, ShortcutAction.ToggleFocus => 0x20u, ShortcutAction.Capture => 0x53u, ShortcutAction.CaptureCurrentScreen => 0x44u, ShortcutAction.CaptureAllScreens => 0x41u, _ => 0x4Du };
             AppliedStatus = status;
         }
         private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)

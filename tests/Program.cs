@@ -32,6 +32,16 @@ internal static class Program
         try
         {
             var source = Path.GetFullPath(args[0]);
+            if (args.Length > 2 && args[2] == "--capture-smoke")
+            {
+                var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                System.Threading.SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
+                var keeper = new Window { ShowInTaskbar = false }; app.MainWindow = keeper;
+                try { CaptureUiTests.RunLive((success, name) => Check(success, name), new PetCatalog(Path.Combine(source, "Pets"), Path.Combine(_root, "capture-users")), args[1]); }
+                finally { keeper.Close(); app.Shutdown(); }
+                Console.WriteLine($"PASS: {_passed} capture UI checks");
+                return 0;
+            }
             if (args.Length > 2 && args[2] == "--editor-smoke")
             {
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -153,6 +163,7 @@ internal static class Program
             FocusLayoutTests.Run((success, name) => Check(success, name), catalog, _root);
             MiniMenuTests.Run((success, name) => Check(success, name), catalog, _root);
             ShortcutTests.Run((success, name) => Check(success, name), catalog, _root);
+            CaptureTests.Run((success, name) => Check(success, name), catalog, _root);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
             void Bad(Action<JsonObject> edit, string name)

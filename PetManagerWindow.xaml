@@ -24,6 +24,7 @@
                 <StackPanel DockPanel.Dock="Top" Margin="10,0,0,26"><TextBlock Text="桌面宠物" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="控制中心" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5,0,0"/></StackPanel>
                 <StackPanel DockPanel.Dock="Bottom">
                     <Button x:Name="FocusNav" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Click="Focus_Click" Margin="0,0,0,4"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7BE;" Margin="0,0,10,0"/><TextBlock Text="专注计时"/></StackPanel></Button>
+                    <Button x:Name="CaptureNav" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Click="Capture_Click" Margin="0,0,0,4"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE722;" Margin="0,0,10,0"/><TextBlock Text="截图"/></StackPanel></Button>
                     <Button HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Click="RecallAll_Click"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE80F;" Margin="0,0,10,0"/><TextBlock Text="召回全部"/></StackPanel></Button>
                     <Separator/>
                     <CheckBox x:Name="QuietCheck" Content="勿扰" Margin="8,0" Checked="Quiet_Changed" Unchecked="Quiet_Changed"/>

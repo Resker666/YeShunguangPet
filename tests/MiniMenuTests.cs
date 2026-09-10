@@ -82,7 +82,7 @@ internal static class MiniMenuTests
         var roots = menu.Items.OfType<MenuItem>().ToArray();
         var items = PetContextMenu.Descendants(menu).ToArray();
         check(roots.Any(i => Equals(i.Header, "专注计时")) && !roots.Any(i => Equals(i.Header, "学习陪伴")), "desktop menu offers focus timing without a study-only label");
-        check(roots.Length <= 10 && roots.All(i => i.Tag is not PetState), "desktop root menu stays compact and moves animation choices into a submenu");
+        check(roots.Length <= 11 && roots.All(i => i.Tag is not PetState), "desktop root menu stays compact and moves animation choices into a submenu");
         check(items.Count(i => i.Tag is PetState) == 7 && items.Single(i => Equals(i.Header, "显示与行为")).Items.Count > 5, "all prior actions and display options remain available");
         check(roots.Any(i => Equals(i.Header, "查看角色介绍")) && roots.Any(i => Equals(i.Header, "关闭此角色...")), "read-only introduction and confirmed close are distinct root commands");
         check(items.Single(i => Equals(i.Header, "召回主屏幕")).InputGestureText == "Ctrl+Alt+Y", "grouping preserves the summon shortcut hint");

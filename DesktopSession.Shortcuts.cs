@@ -60,6 +60,9 @@ public sealed partial class DesktopSession
             case ShortcutAction.RecallAll: RecallAll(); break;
             case ShortcutAction.OpenFocus: OpenFocus(); break;
             case ShortcutAction.ToggleFocus: Companion.ToggleFromShortcut(); break;
+            case ShortcutAction.Capture: StartCapture(); break;
+            case ShortcutAction.CaptureCurrentScreen: StartCurrentScreenCapture(); break;
+            case ShortcutAction.CaptureAllScreens: StartAllScreensCapture(); break;
             case ShortcutAction.ToggleMini:
                 var closed = Companion.FocusWindowCount == 0;
                 if (closed) OpenFocus();
@@ -67,7 +70,7 @@ public sealed partial class DesktopSession
         }
     }
 
-    private bool CanExecuteShortcut(ShortcutAction action) => !_disposed && _shortcutDialog is null &&
+    private bool CanExecuteShortcut(ShortcutAction action) => !_disposed && !_capturing && _shortcutDialog is null &&
         (action == ShortcutAction.RecallAll || (!HasSettingsOpen &&
             Application.Current?.Windows.Cast<Window>().Any(w => w.IsVisible && !NativeMethods.IsWindowInputEnabled(w)) != true));
 }

@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 
 namespace YeShunguangPet;
 
-public enum ShortcutAction { RecallAll, OpenFocus, ToggleFocus, ToggleMini }
+public enum ShortcutAction { RecallAll, OpenFocus, ToggleFocus, ToggleMini, Capture, CaptureCurrentScreen, CaptureAllScreens }
 
 public sealed record ShortcutGesture(uint Modifiers, uint Key)
 {
@@ -27,11 +27,16 @@ public sealed class ShortcutOptions
     public ShortcutGesture? OpenFocus { get; set; }
     public ShortcutGesture? ToggleFocus { get; set; }
     public ShortcutGesture? ToggleMini { get; set; }
-    public ShortcutOptions Copy() => new() { RecallAll = RecallAll, OpenFocus = OpenFocus, ToggleFocus = ToggleFocus, ToggleMini = ToggleMini };
+    public ShortcutGesture? Capture { get; set; }
+    public ShortcutGesture? CaptureCurrentScreen { get; set; }
+    public ShortcutGesture? CaptureAllScreens { get; set; }
+    public ShortcutOptions Copy() => new() { RecallAll = RecallAll, OpenFocus = OpenFocus, ToggleFocus = ToggleFocus, ToggleMini = ToggleMini, Capture = Capture, CaptureCurrentScreen = CaptureCurrentScreen, CaptureAllScreens = CaptureAllScreens };
     public ShortcutGesture? Get(ShortcutAction action) => action switch
     {
         ShortcutAction.RecallAll => RecallAll, ShortcutAction.OpenFocus => OpenFocus,
         ShortcutAction.ToggleFocus => ToggleFocus, ShortcutAction.ToggleMini => ToggleMini,
+        ShortcutAction.Capture => Capture,
+        ShortcutAction.CaptureCurrentScreen => CaptureCurrentScreen, ShortcutAction.CaptureAllScreens => CaptureAllScreens,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
     public void Set(ShortcutAction action, ShortcutGesture? gesture)
@@ -42,6 +47,9 @@ public sealed class ShortcutOptions
             case ShortcutAction.OpenFocus: OpenFocus = gesture; break;
             case ShortcutAction.ToggleFocus: ToggleFocus = gesture; break;
             case ShortcutAction.ToggleMini: ToggleMini = gesture; break;
+            case ShortcutAction.Capture: Capture = gesture; break;
+            case ShortcutAction.CaptureCurrentScreen: CaptureCurrentScreen = gesture; break;
+            case ShortcutAction.CaptureAllScreens: CaptureAllScreens = gesture; break;
             default: throw new ArgumentOutOfRangeException(nameof(action));
         }
     }
@@ -62,6 +70,8 @@ public sealed class ShortcutOptions
     {
         ShortcutAction.RecallAll => "召回全部角色", ShortcutAction.OpenFocus => "打开专注计时",
         ShortcutAction.ToggleFocus => "开始 / 暂停计时", ShortcutAction.ToggleMini => "切换迷你模式",
+        ShortcutAction.Capture => "区域截图",
+        ShortcutAction.CaptureCurrentScreen => "当前屏幕截图", ShortcutAction.CaptureAllScreens => "全部屏幕截图",
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 }

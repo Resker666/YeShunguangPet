@@ -59,6 +59,17 @@
         <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="4"/>
         <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}"/><Setter Property="FontSize" Value="12"/>
     </Style>
+    <Style x:Key="ToolToggle" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+            <Border x:Name="Surface" CornerRadius="5" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}"/></Trigger>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource BorderBrush}"/></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
 
     <Style x:Key="AppCheckBox" TargetType="CheckBox">
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>

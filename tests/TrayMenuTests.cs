@@ -28,7 +28,7 @@ internal static class TrayMenuTests
         using var menu = new TrayMenu(desktop);
         Forms.ToolStripMenuItem Item(string name) => (Forms.ToolStripMenuItem)menu.Items.Find(name, false).Single();
         check(Item("focus").Text == "专注计时", "tray focus entry matches the timer and desktop menu");
-        check(menu.Items.OfType<Forms.ToolStripMenuItem>().Select(i => i.Name).SequenceEqual(new[] { "manager", "focus", "showAll", "hideAll", "recallAll", "quiet", "exit" }), "tray restyle preserves all seven commands and ordering");
+        check(menu.Items.OfType<Forms.ToolStripMenuItem>().Select(i => i.Name).SequenceEqual(new[] { "manager", "focus", "capture", "pins", "showAll", "hideAll", "recallAll", "quiet", "exit" }), "tray adds capture and pins without losing existing commands");
         check(!menu.ShowImageMargin && !menu.ShowCheckMargin && menu.AutoClose, "tray menu removes legacy gutters but preserves native dismissal");
         using (var nativeMenu = new Forms.ContextMenuStrip { DropShadowEnabled = true })
             check(menu.DropShadowEnabled == nativeMenu.DropShadowEnabled, "tray shadow follows the native system policy");

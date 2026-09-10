@@ -54,6 +54,7 @@ public sealed partial class DesktopSession : IDisposable
         };
         _speech = new DesktopSpeech(this, clock);
         Companion.Notification += ShowNotification;
+        Companion.CompletionNoticeChanged += UpdateCompletionTray;
         Catalog.IsPetInUse = id => _windows.Values.Any(w => w.Package.Manifest.Id == id);
         if (shortcutRegistrar is not null) { _shortcuts = new GlobalShortcuts(shortcutRegistrar); _shortcuts.Initialize(Configuration.Shortcuts); }
     }
@@ -300,8 +301,10 @@ public sealed partial class DesktopSession : IDisposable
         _trayMenu = new TrayMenu(this);
         _icon = Environment.ProcessPath is { } path ? Drawing.Icon.ExtractAssociatedIcon(path) : null;
         _tray = new WinForms.NotifyIcon { Icon = _icon ?? Drawing.SystemIcons.Application, Text = "叶瞬光桌面宠物", ContextMenuStrip = _trayMenu, Visible = true };
-        _tray.DoubleClick += (_, _) => ToggleAll();
+        _tray.MouseClick += TrayClick;
+        _tray.DoubleClick += (_, _) => { if (Environment.TickCount64 > _ignoreTrayDoubleClickUntil && !_capturing) ToggleAll(); };
         _tray.BalloonTipClicked += (_, _) => OpenFocus();
+        UpdateCompletionTray();
     }
 
     private IntPtr HotkeyHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -310,7 +313,7 @@ public sealed partial class DesktopSession : IDisposable
         return IntPtr.Zero;
     }
 
-    private void ShowNotification(string title, string message) => _tray?.ShowBalloonTip(5000, title, message, WinForms.ToolTipIcon.None);
+    private void ShowNotification(string title, string message) { if (!_capturing) _tray?.ShowBalloonTip(5000, title, message, WinForms.ToolTipIcon.None); }
 
     public void Dispose() => DisposeCore(saveConfiguration: true);
     internal void DisposeAfterFailure() => DisposeCore(saveConfiguration: false);
@@ -325,6 +328,7 @@ public sealed partial class DesktopSession : IDisposable
             catch (Exception ex) { AppLogger.Error("Desktop shutdown cleanup failed.", ex); }
         }
         Cleanup(_speech.Dispose);
+        Cleanup(DisposeCapture);
         foreach (var window in Windows) Cleanup(window.PrepareForApplicationShutdown);
         if (saveConfiguration)
             Cleanup(() =>
@@ -352,6 +356,7 @@ public sealed partial class DesktopSession : IDisposable
         Cleanup(() => _tray?.Dispose());
         Cleanup(() => _trayMenu?.Dispose());
         Cleanup(() => _icon?.Dispose());
+        Cleanup(() => _noticeIcon?.Dispose());
         Changed = null;
         ExitRequested = null;
     }

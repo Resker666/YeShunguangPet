@@ -61,6 +61,8 @@ internal static class NativeMethods
     }
     internal static bool MoveWindowPixels(Window window, int left, int top) => SetWindowPos(new WindowInteropHelper(window).Handle,
         IntPtr.Zero, left, top, 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate);
+    internal static bool SetWindowBoundsPixels(Window window, CaptureRect bounds) => SetWindowPos(new WindowInteropHelper(window).Handle,
+        IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SwpNoZOrder | SwpNoActivate);
 
     internal static bool IsWindowNormal(Window window)
     {

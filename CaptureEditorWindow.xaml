@@ -1,0 +1,73 @@
+<ui:ThemedWindow x:Class="YeShunguangPet.CaptureEditorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="clr-namespace:YeShunguangPet" Title="截图" Width="1000" Height="720" MinWidth="720" MinHeight="480"
+    WindowStartupLocation="CenterScreen" PreviewKeyDown="Editor_KeyDown">
+    <ui:ThemedWindow.Resources>
+        <Style x:Key="InkSwatch" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}">
+            <Setter Property="Width" Value="30"/><Setter Property="Height" Value="30"/><Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+                <Grid><Ellipse x:Name="Ring" Stroke="Transparent" StrokeThickness="1"/>
+                    <Ellipse Margin="4" Fill="{TemplateBinding Background}" Stroke="{DynamicResource SecondaryTextBrush}" StrokeThickness="0.5"/>
+                    <TextBlock x:Name="Check" FontFamily="{StaticResource IconFont}" Text="&#xE73E;" Foreground="White" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden"/>
+                </Grid>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource AccentTextBrush}"/><Setter TargetName="Check" Property="Visibility" Value="Visible"/></Trigger>
+                    <Trigger Property="Tag" Value="#FFFFFF"><Setter TargetName="Check" Property="Foreground" Value="Black"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource TextBrush}"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </ui:ThemedWindow.Resources>
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,10">
+            <StackPanel>
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="CopyButton" Style="{StaticResource IconButton}" ToolTip="复制截图" AutomationProperties.Name="复制截图" Content="&#xE8C8;" Click="Copy_Click"/>
+                        <Button x:Name="SaveButton" Style="{StaticResource IconButton}" ToolTip="保存 PNG" AutomationProperties.Name="保存 PNG" Content="&#xE74E;" Click="Save_Click"/>
+                        <Button x:Name="PinButton" Style="{StaticResource IconButton}" ToolTip="贴到桌面" AutomationProperties.Name="贴到桌面" Content="&#xE718;" Click="Pin_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Tag="Crop" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="裁剪" AutomationProperties.Name="裁剪" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7A8;"/></RadioButton>
+                        <RadioButton Tag="Rectangle" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="矩形" AutomationProperties.Name="矩形" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE739;"/></RadioButton>
+                        <RadioButton x:Name="ArrowTool" Tag="Arrow" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="箭头" AutomationProperties.Name="箭头" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72A;"/></RadioButton>
+                        <RadioButton Tag="Pen" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="画笔" AutomationProperties.Name="画笔" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70F;"/></RadioButton>
+                        <RadioButton x:Name="TextTool" Tag="Text" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="文字" AutomationProperties.Name="文字" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D2;"/></RadioButton>
+                        <RadioButton Tag="Redact" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="实色遮挡" AutomationProperties.Name="实色遮挡" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72E;"/></RadioButton>
+                        <Button x:Name="UndoButton" Style="{StaticResource IconButton}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click" Margin="12,0,0,0"/>
+                        <Button x:Name="RedoButton" Style="{StaticResource IconButton}" Content="&#xE7A6;" ToolTip="重做" AutomationProperties.Name="重做" Click="Redo_Click"/>
+                    </StackPanel>
+                </DockPanel>
+                <WrapPanel Margin="0,8,0,0">
+                    <RadioButton x:Name="RedSwatch" GroupName="Ink" Style="{StaticResource InkSwatch}" Background="#D62F4B" Tag="#D62F4B" ToolTip="红色" AutomationProperties.Name="红色" Checked="Color_Changed"/>
+                    <RadioButton GroupName="Ink" Style="{StaticResource InkSwatch}" Background="#287A5C" Tag="#287A5C" ToolTip="绿色" AutomationProperties.Name="绿色" Checked="Color_Changed"/>
+                    <RadioButton GroupName="Ink" Style="{StaticResource InkSwatch}" Background="#396BB8" Tag="#396BB8" ToolTip="蓝色" AutomationProperties.Name="蓝色" Checked="Color_Changed"/>
+                    <RadioButton x:Name="WhiteSwatch" GroupName="Ink" Style="{StaticResource InkSwatch}" Background="#FFFFFF" Tag="#FFFFFF" ToolTip="白色" AutomationProperties.Name="白色" Checked="Color_Changed"/>
+                    <RadioButton GroupName="Ink" Style="{StaticResource InkSwatch}" Background="#111111" Tag="#111111" ToolTip="黑色" AutomationProperties.Name="黑色" Checked="Color_Changed"/>
+                    <TextBlock Text="线宽" Margin="14,0,4,0" VerticalAlignment="Center" FontSize="12"/>
+                    <Slider x:Name="LineWidth" Width="84" Minimum="1" Maximum="16" Value="4" IsSnapToTickEnabled="True" TickFrequency="1" ToolTip="{Binding Value, RelativeSource={RelativeSource Self}, StringFormat={}{0:0}px}" AutomationProperties.Name="线宽" ValueChanged="Options_Changed"/>
+                    <TextBlock Text="字号" Margin="12,0,4,0" VerticalAlignment="Center" FontSize="12"/>
+                    <Slider x:Name="TextSize" Width="84" Minimum="12" Maximum="64" Value="22" IsSnapToTickEnabled="True" TickFrequency="2" ToolTip="{Binding Value, RelativeSource={RelativeSource Self}, StringFormat={}{0:0}px}" AutomationProperties.Name="字号" ValueChanged="Options_Changed"/>
+                    <TextBox x:Name="LabelInput" Width="176" MaxLength="500" Margin="12,0,0,0" ToolTip="标注文字" AutomationProperties.Name="标注文字" TextChanged="Label_Changed"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+        <ScrollViewer x:Name="Viewport" Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource SubtleBrush}"
+                      SizeChanged="Viewport_Changed" PreviewMouseWheel="Viewport_MouseWheel">
+            <Grid x:Name="SurfaceHost" Margin="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </ScrollViewer>
+        <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,8">
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center"><TextBlock x:Name="SizeText" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/><TextBlock x:Name="StatusText" FontSize="12" TextWrapping="Wrap" MaxHeight="42" AutomationProperties.LiveSetting="Polite"/></StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Style="{StaticResource IconButton}" Content="&#xE71F;" ToolTip="缩小" AutomationProperties.Name="缩小" Click="ZoomOut_Click"/>
+                    <TextBlock x:Name="ZoomText" Width="50" TextAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
+                    <Button Style="{StaticResource IconButton}" Content="&#xE8A3;" ToolTip="放大" AutomationProperties.Name="放大" Click="ZoomIn_Click"/>
+                    <Button Style="{StaticResource IconButton}" Content="&#xE9A6;" ToolTip="适应窗口" AutomationProperties.Name="适应窗口" Click="Fit_Click"/>
+                    <Button Content="1:1" Width="44" Padding="0" ToolTip="实际像素" Click="Actual_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:ThemedWindow>

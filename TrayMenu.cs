@@ -12,6 +12,8 @@ public sealed class TrayMenu : ContextMenuStrip
     private readonly DesktopSession _desktop;
     private readonly SectionLabel _roles;
     private readonly ToolStripMenuItem _showAll, _hideAll, _recallAll, _quiet;
+    private readonly ToolStripMenuItem _pinsMenu, _showPins, _hidePins, _closePins;
+    private readonly ToolStripMenuItem _captureMenu;
     private Font? _menuFont, _detailFont, _glyphFont;
     private int _metricsDpi;
     private bool _ready;
@@ -29,6 +31,18 @@ public sealed class TrayMenu : ContextMenuStrip
         Items.Add(new SectionLabel("常用入口"));
         AddCommand("manager", "角色管理", desktop.OpenManager);
         AddCommand("focus", "专注计时", desktop.OpenFocus);
+        _captureMenu = new ToolStripMenuItem("截图") { Name = "capture", AutoSize = false };
+        Items.Add(_captureMenu); _captureMenu.DropDown.Renderer = new MenuRenderer(this);
+        AddSubCommand(_captureMenu, "区域截图", desktop.StartCapture).Tag = ShortcutAction.Capture;
+        AddSubCommand(_captureMenu, "当前屏幕", desktop.StartCurrentScreenCapture).Tag = ShortcutAction.CaptureCurrentScreen;
+        AddSubCommand(_captureMenu, "全部屏幕", desktop.StartAllScreensCapture).Tag = ShortcutAction.CaptureAllScreens;
+        _pinsMenu = new ToolStripMenuItem("贴图") { Name = "pins", AutoSize = false };
+        Items.Add(_pinsMenu);
+        _pinsMenu.DropDown.Renderer = new MenuRenderer(this);
+        AddSubCommand(_pinsMenu, "从剪贴板贴图", desktop.PastePin);
+        _showPins = AddSubCommand(_pinsMenu, "显示全部贴图", desktop.ShowPins);
+        _hidePins = AddSubCommand(_pinsMenu, "隐藏全部贴图", desktop.HidePins);
+        _closePins = AddSubCommand(_pinsMenu, "关闭全部贴图...", () => { if (MessageBox.Show("关闭全部贴图？未保存的贴图不会恢复。", "关闭贴图", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) desktop.ClosePins(); });
         Items.Add(new ToolStripSeparator());
         _roles = new SectionLabel("桌面角色");
         Items.Add(_roles);
@@ -63,6 +77,17 @@ public sealed class TrayMenu : ContextMenuStrip
         return item;
     }
 
+    private ToolStripMenuItem AddSubCommand(ToolStripMenuItem parent, string caption, Action command)
+    {
+        var item = new ToolStripMenuItem(caption) { AutoSize = false };
+        item.Click += (_, _) =>
+        {
+            parent.HideDropDown(); Close();
+            try { command(); } catch (Exception ex) { MessageBox.Show(ex.Message, "操作未完成", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+        };
+        parent.DropDownItems.Add(item); return item;
+    }
+
     private void RefreshState()
     {
         if (IsDisposed) return;
@@ -73,6 +98,9 @@ public sealed class TrayMenu : ContextMenuStrip
         _quiet.Checked = _desktop.Companion.Settings.DoNotDisturb;
         _recallAll.ShortcutKeyDisplayString = _desktop.ShortcutHint(ShortcutAction.RecallAll);
         ((ToolStripMenuItem)Items.Find("focus", false).Single()).ShortcutKeyDisplayString = _desktop.ShortcutHint(ShortcutAction.OpenFocus);
+        foreach (ToolStripMenuItem item in _captureMenu.DropDownItems) if (item.Tag is ShortcutAction action) item.ShortcutKeyDisplayString = _desktop.ShortcutHint(action);
+        _showPins.Enabled = _hidePins.Enabled = _closePins.Enabled = _desktop.PinCount > 0;
+        _pinsMenu.Text = _desktop.PinCount == 0 ? "贴图" : $"贴图 ({_desktop.PinCount})";
         Invalidate();
     }
 
@@ -88,6 +116,7 @@ public sealed class TrayMenu : ContextMenuStrip
         _hover = Read("HoverBrush");
         BackColor = _surface;
         ForeColor = _text;
+        foreach (var group in new[] { _captureMenu, _pinsMenu }) { group.DropDown.BackColor = _surface; group.DropDown.ForeColor = _text; }
         UpdateOutline();
         Invalidate();
     }
@@ -133,6 +162,12 @@ public sealed class TrayMenu : ContextMenuStrip
                 item.Size = new Size(width - Padding.Horizontal, Px(item is SectionLabel ? 28 : item is ToolStripSeparator ? 12 : 36));
             }
             Size = new Size(width, Padding.Vertical + Items.Cast<ToolStripItem>().Sum(item => item.Height));
+            foreach (var group in new[] { _captureMenu, _pinsMenu })
+            {
+                group.DropDown.Padding = new Padding(Px(6)); group.DropDown.AutoSize = false;
+                foreach (ToolStripItem child in group.DropDownItems) { child.Font = _menuFont; child.AutoSize = false; child.Margin = Padding.Empty; child.Size = new Size(width - Px(12), Px(36)); }
+                group.DropDown.Size = new Size(width, Px(12 + 36 * group.DropDownItems.Count));
+            }
         }
         finally { ResumeLayout(); }
         UpdateOutline();
@@ -191,9 +226,9 @@ public sealed class TrayMenu : ContextMenuStrip
         {
             var state = e.Graphics.Save();
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var path = Rounded(new RectangleF(0.5f, 0.5f, menu.Width - 1, menu.Height - 1), menu.Px(8));
+            using var path = Rounded(new RectangleF(0.5f, 0.5f, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1), menu.Px(8));
             using var pen = new Pen(menu._border);
-            if (SystemInformation.HighContrast) e.Graphics.DrawRectangle(pen, 0, 0, menu.Width - 1, menu.Height - 1);
+            if (SystemInformation.HighContrast) e.Graphics.DrawRectangle(pen, 0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
             else e.Graphics.DrawPath(pen, path);
             e.Graphics.Restore(state);
         }
@@ -203,7 +238,7 @@ public sealed class TrayMenu : ContextMenuStrip
             var state = e.Graphics.Save();
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             var left = menu.Px(12) - e.Item.Bounds.Left;
-            using var path = Rounded(new RectangleF(left, 0, menu.Width - menu.Px(24), e.Item.Height), menu.Px(5));
+            using var path = Rounded(new RectangleF(left, 0, (e.ToolStrip?.Width ?? menu.Width) - menu.Px(24), e.Item.Height), menu.Px(5));
             using var fill = new SolidBrush(SystemInformation.HighContrast ? SystemColors.Highlight : menu._hover);
             e.Graphics.FillPath(fill, path);
             e.Graphics.Restore(state);
@@ -211,7 +246,7 @@ public sealed class TrayMenu : ContextMenuStrip
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
             // Native menu items and labels use different layout origins.
-            var bounds = new Rectangle(menu.Px(20) - e.Item.Bounds.Left, 0, menu.Width - menu.Px(40), e.Item.Height);
+            var bounds = new Rectangle(menu.Px(20) - e.Item.Bounds.Left, 0, (e.ToolStrip?.Width ?? menu.Width) - menu.Px(40), e.Item.Height);
             if (e.Item is SectionLabel section)
             {
                 var detailWidth = string.IsNullOrEmpty(section.Detail) ? 0 : TextRenderer.MeasureText(e.Graphics, section.Detail, menu._detailFont, Size.Empty, TextFlags).Width + menu.Px(12);
@@ -224,7 +259,7 @@ public sealed class TrayMenu : ContextMenuStrip
             var textColor = selectedHighContrast ? SystemColors.HighlightText : item.Enabled ? menu._text : menu._secondary;
             var detailColor = selectedHighContrast ? SystemColors.HighlightText : menu._secondary;
             var shortcut = item.ShortcutKeyDisplayString;
-            var trailing = !string.IsNullOrEmpty(shortcut) ? TextRenderer.MeasureText(e.Graphics, shortcut, menu._detailFont, Size.Empty, TextFlags).Width + menu.Px(20) : item.Checked ? menu.Px(26) : 0;
+            var trailing = !string.IsNullOrEmpty(shortcut) ? TextRenderer.MeasureText(e.Graphics, shortcut, menu._detailFont, Size.Empty, TextFlags).Width + menu.Px(20) : item.Checked || item.HasDropDownItems ? menu.Px(26) : 0;
             TextRenderer.DrawText(e.Graphics, item.Text, menu._menuFont, bounds with { Width = bounds.Width - trailing }, textColor, TextFlags);
             if (!string.IsNullOrEmpty(shortcut)) TextRenderer.DrawText(e.Graphics, shortcut, menu._detailFont, bounds, detailColor, TextFlags | TextFormatFlags.Right);
             if (item.Checked) TextRenderer.DrawText(e.Graphics, "\uE73E", menu._glyphFont, bounds, textColor, TextFlags | TextFormatFlags.Right);

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -23,6 +24,10 @@ public sealed class CompanionRuntime : IDisposable
     public event Action? BreakReminderDue { add => _service.BreakReminderDue += value; remove => _service.BreakReminderDue -= value; }
     public event Action? DurationsChanged { add => _service.DurationsChanged += value; remove => _service.DurationsChanged -= value; }
     public int FocusWindowCount => _window is null ? 0 : 1;
+    public SessionPhase? PendingCompletion => _service.PendingCompletion;
+    public event Action? CompletionNoticeChanged { add => _service.CompletionNoticeChanged += value; remove => _service.CompletionNoticeChanged -= value; }
+    internal bool SuppressCompletionAcknowledgement { get; set; }
+    public void AcknowledgeCompletion() { if (!SuppressCompletionAcknowledgement) _service.AcknowledgeCompletion(); }
 
     public CompanionRuntime(PetSettings settings, TimeProvider? clock = null, StudyHistory? history = null, Action<PetSettings>? persistDurations = null,
         FocusWindowOptions? windowOptions = null, Action<FocusWindowOptions>? persistWindow = null)
@@ -53,6 +58,7 @@ public sealed class CompanionRuntime : IDisposable
             if (_window.WindowState == WindowState.Minimized) SystemCommands.RestoreWindow(_window);
             _window.Activate();
         }
+        AcknowledgeCompletion();
     }
 
     public void UpdateAvatar(string instanceId, PetPackage pet)
@@ -78,6 +84,10 @@ public sealed class CompanionRuntime : IDisposable
     }
 
     internal string? AvatarInstance => _avatarInstance;
+    internal IEnumerable<Window> CaptureWindows
+    {
+        get { if (_window is not null) yield return _window; if (_studyWindow is not null) yield return _studyWindow; }
+    }
     internal void ToggleFromShortcut()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

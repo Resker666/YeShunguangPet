@@ -49,6 +49,11 @@ public partial class FocusWindow : ThemedWindow
         Controller.Changed += RefreshDisplay;
         _displayTimer.Tick += (_, _) => RefreshDisplay();
         _avatarTimer.Tick += AvatarTimer_Tick;
+        if (_runtime is not null) _runtime.CompletionNoticeChanged += RefreshCompletionBadge;
+        Activated += (_, _) => { if (IsLoaded) _runtime?.AcknowledgeCompletion(); };
+        PreviewMouseDown += (_, _) => _runtime?.AcknowledgeCompletion();
+        PreviewKeyDown += (_, _) => _runtime?.AcknowledgeCompletion();
+        Loaded += (_, _) => RefreshCompletionBadge();
         Loaded += (_, _) => { _displayTimer.Start(); RefreshAvatar(); UpdateResponsiveLayout(); };
         StateChanged += (_, _) =>
         {
@@ -67,9 +72,12 @@ public partial class FocusWindow : ThemedWindow
             _session.Completed -= OnCompleted;
             Controller.Changed -= RefreshDisplay;
             Controller.Dispose();
+            if (_runtime is not null) _runtime.CompletionNoticeChanged -= RefreshCompletionBadge;
         };
         RefreshDisplay();
     }
+
+    private void RefreshCompletionBadge() => CompletionBadge.Apply(this, _runtime?.PendingCompletion is not null);
 
     public void UpdatePet(PetPackage pet)
     {

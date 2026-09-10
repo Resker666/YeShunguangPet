@@ -224,6 +224,15 @@ public partial class PetManagerWindow : ThemedWindow
     }
     private void Diagnostics_Click(object sender, RoutedEventArgs e) => Run(() => _desktop.OpenDiagnostics(this));
     private void Shortcuts_Click(object sender, RoutedEventArgs e) => Run(() => _desktop.OpenShortcutSettings(this));
+    private void Capture_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new PetContextMenu { PlacementTarget = CaptureNav, Placement = System.Windows.Controls.Primitives.PlacementMode.Right };
+        foreach (var (label, action) in new[] { ("区域截图", (Action)_desktop.StartCapture), ("当前屏幕", (Action)_desktop.StartCurrentScreenCapture), ("全部屏幕", (Action)_desktop.StartAllScreensCapture) })
+        {
+            var item = new MenuItem { Header = label }; item.Click += (_, _) => Dispatcher.BeginInvoke(action); menu.Items.Add(item);
+        }
+        menu.Closed += (_, _) => menu.Dispose(); menu.IsOpen = true;
+    }
     private void Quiet_Changed(object sender, RoutedEventArgs e) { if (_ready && !_refreshing) Run(() => _desktop.SetQuiet(QuietCheck.IsChecked == true)); }
     private void Notifications_Changed(object sender, RoutedEventArgs e)
     {

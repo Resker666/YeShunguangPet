@@ -152,6 +152,7 @@ internal static class UiTests
             finally { closeDialog.Stop(); }
             VerifyDiagnosticsWindow(check, desktop, renders);
             ShortcutUiTests.RunLive(check, catalog, renders);
+            CaptureUiTests.RunLive(check, catalog, renders);
             SpeechStudyUiTests.Run(check, catalog, renders);
             FocusDialTests.RunLive(check, catalog, renders);
             PetBehaviorTests.RunLive(check, catalog, renders);

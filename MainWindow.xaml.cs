@@ -569,6 +569,14 @@ public partial class MainWindow : Window
         (ContextMenu as PetContextMenu)?.Dispose();
         var menu = new PetContextMenu();
         menu.Items.Add(CreateShortcutMenuItem("专注计时", ShortcutAction.OpenFocus, (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow), "\uE916"));
+        if (_desktop is not null)
+        {
+            var capture = new MenuItem { Header = "截图", Icon = MenuIcon("\uE722") };
+            capture.Items.Add(CreateShortcutMenuItem("区域截图", ShortcutAction.Capture, (_, _) => Dispatcher.BeginInvoke(_desktop.StartCapture), "\uE7A8"));
+            capture.Items.Add(CreateShortcutMenuItem("当前屏幕", ShortcutAction.CaptureCurrentScreen, (_, _) => Dispatcher.BeginInvoke(_desktop.StartCurrentScreenCapture), "\uE7F4"));
+            capture.Items.Add(CreateShortcutMenuItem("全部屏幕", ShortcutAction.CaptureAllScreens, (_, _) => Dispatcher.BeginInvoke(_desktop.StartAllScreensCapture), "\uE9A6"));
+            menu.Items.Add(capture);
+        }
         menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE713"));
         menu.Items.Add(CreateMenuItem("查看角色介绍", (_, _) => Dispatcher.BeginInvoke(OpenAbout), icon: "\uE946"));
         if (_desktop is not null) menu.Items.Add(CreateMenuItem("角色管理", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE716"));
