@@ -59,10 +59,18 @@ internal static class UiTests
             check(timer.IsEnabled == UiTheme.MotionEnabled, "restoring control center resumes eligible previews");
             ((CheckBox)manager.FindName("TopmostCheck")).IsChecked = false;
             ((CheckBox)manager.FindName("EdgeCheck")).IsChecked = true;
-            Await(Task.Delay(300));
             var toggle = (CheckBox)manager.FindName("EdgeCheck");
+            toggle.ApplyTemplate();
             var thumb = (FrameworkElement)toggle.Template.FindName("SwitchThumb", toggle);
-            check(((TranslateTransform)thumb.RenderTransform).X == 14, "native checked switch thumb reaches the on position");
+            var thumbAtOnPosition = false;
+            for (var attempt = 0; attempt < 12; attempt++)
+            {
+                manager.UpdateLayout();
+                thumbAtOnPosition = ((TranslateTransform)thumb.RenderTransform).X == 14;
+                if (thumbAtOnPosition) break;
+                Await(Task.Delay(75));
+            }
+            check(thumbAtOnPosition, "native checked switch thumb reaches the on position");
             Render(manager, renders, "native-control-light.png", 984, 701);
             manager.Height = 590;
             Await(Task.Delay(80));

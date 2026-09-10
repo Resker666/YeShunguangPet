@@ -59,7 +59,10 @@ internal static class TrayMenuTests
                 menu.PerformLayout();
                 check(menu.Width == 288 * dpi / 96 && Item("quiet").Height == 36 * dpi / 96, $"tray dimensions scale consistently at {dpi} DPI");
                 var rows = menu.Items.Cast<Forms.ToolStripItem>().ToArray();
-                check(rows.Zip(rows.Skip(1), (a, b) => a.Bounds.Bottom <= b.Bounds.Top).All(x => x) && rows.All(i => i.Bounds.Right <= menu.Width && i.Bounds.Bottom <= menu.Height), $"tray rows do not overlap or clip at {dpi} DPI");
+                var ordered = rows.Zip(rows.Skip(1), (a, b) => a.Bounds.Bottom <= b.Bounds.Top).All(x => x);
+                var inside = rows.All(i => i.Bounds.Right <= menu.Width && i.Bounds.Bottom <= menu.Height);
+                var detail = $"menu={menu.Width}x{menu.Height}; " + string.Join(" | ", rows.Select(i => $"{i.GetType().Name}:{i.Bounds.Left},{i.Bounds.Top},{i.Bounds.Width},{i.Bounds.Height}"));
+                check(ordered && inside, $"tray rows do not overlap or clip at {dpi} DPI [{detail}]");
                 Render(menu, folder, $"tray-{theme}-{dpi}dpi.png");
             }
         }
