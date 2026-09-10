@@ -17,12 +17,14 @@ public partial class PetEditorWindow
 
     private sealed record EditorState(PetManifest Manifest, Dictionary<string, string> Inputs, string[] Durations,
         Dictionary<int, string> DurationHistory, Dictionary<PetState, AnimationDefinition> DisabledActions,
-        FrameLocation[] LookHistory, PetState Action, int Direction, int Mode, bool Enabled, bool Loop, bool LookEnabled);
+        FrameLocation[] LookHistory, PetState Action, int Direction, int Mode, bool Enabled, bool Loop, bool LookEnabled,
+        bool BehaviorEnabled, bool BehaviorInitialized, RuleInput[] Rules);
 
     private string CaptureEditorState() => JsonSerializer.Serialize(new EditorState(_document.Draft,
         DraftInputNames.ToDictionary(name => name, name => ((TextBox)FindName(name)).Text),
         _durations.Select(row => row.Text).ToArray(), _durationHistory, _disabledActions, _lookHistory,
-        _selectedState, _direction, ModeTabs.SelectedIndex, EnabledCheck.IsChecked == true, LoopCheck.IsChecked == true, LookEnabledCheck.IsChecked == true));
+        _selectedState, _direction, ModeTabs.SelectedIndex, EnabledCheck.IsChecked == true, LoopCheck.IsChecked == true, LookEnabledCheck.IsChecked == true,
+        BehaviorEnabledCheck.IsChecked == true, _behaviorInitialized, _behaviorRows.Select(row => new RuleInput(row.Condition, row.Action, row.Weight, row.Cooldown)).ToArray()));
 
     private void CommitEditorChange(string? group = null)
     {
@@ -61,6 +63,9 @@ public partial class PetEditorWindow
             _disabledActions.Clear(); foreach (var item in state.DisabledActions) _disabledActions.Add(item.Key, item.Value);
             _lookHistory = state.LookHistory;
             EnabledCheck.IsChecked = state.Enabled; LoopCheck.IsChecked = state.Loop; LookEnabledCheck.IsChecked = state.LookEnabled;
+            BehaviorEnabledCheck.IsChecked = state.BehaviorEnabled;
+            _behaviorInitialized = state.BehaviorInitialized;
+            ClearBehaviorRows(); foreach (var rule in state.Rules) AddBehaviorRow(rule);
             ModeTabs.SelectedIndex = state.Mode;
         }
         finally { _loading = false; }
@@ -90,6 +95,8 @@ public partial class PetEditorWindow
     {
         DurationGrid.CommitEdit(DataGridEditingUnit.Cell, true);
         DurationGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        RuleGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        RuleGrid.CommitEdit(DataGridEditingUnit.Row, true);
     }
 
     private void PausePreview()

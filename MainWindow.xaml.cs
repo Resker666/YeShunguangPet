@@ -104,6 +104,7 @@ public partial class MainWindow : Window
         {
             string? fallback = null;
             _pet ??= _petCatalog.LoadPreferred(_settings.SelectedPetId, out fallback);
+            _behavior.ConfigureRules(_pet.Manifest.Behavior);
             _imageLease ??= _pet.RetainImage();
             _settings.SelectedPetId = _pet.Manifest.Id;
             Title = _pet.Manifest.Name;
@@ -161,6 +162,8 @@ public partial class MainWindow : Window
         _roamTimer.Stop();
         _dockTimer.Stop();
         CancelPointerInteraction();
+        ObserveRuntimeState();
+        _runtimeMeters = null;
         CloseCompanion();
         ReleaseNativeResources();
         _frameCache.Clear();
@@ -227,6 +230,7 @@ public partial class MainWindow : Window
         _ambientTimer.Stop();
         _dockTimer.Stop();
         CancelPointerInteraction();
+        ObserveRuntimeState();
         CloseCompanion();
         ReleaseNativeResources();
     }
@@ -286,7 +290,7 @@ public partial class MainWindow : Window
         _frameIndex = 0;
 
         ShowFrame(_animation.Row, _animation.StartColumn + _frameIndex);
-        _frameTimer.Interval = CurrentFrameDuration();
+        SetFrameDelay(CurrentFrameDuration());
         RefreshActivityTimers();
 
         if (state == PetState.Idle && !_isRoaming)
@@ -304,6 +308,7 @@ public partial class MainWindow : Window
 
     private void FrameTimer_Tick(object? sender, EventArgs e)
     {
+        ObserveRuntimeTick(RuntimeTick.Frame);
         if (_isExiting || _isLookMode || !CanPlayDockAnimation)
         {
             _frameTimer.Stop();
@@ -326,10 +331,11 @@ public partial class MainWindow : Window
         ShowFrame(_animation.Row, _animation.StartColumn + _frameIndex);
         if (ActivityPlan.RunFrames)
         {
-            _frameTimer.Interval = TimerDelay(sample.UntilNextFrame);
+            SetFrameDelay(sample.UntilNextFrame);
             _frameTimer.Start();
         }
         else _frameTimer.Stop();
+        ObserveRuntimeState();
     }
 
     private TimeSpan CurrentFrameDuration()
@@ -340,14 +346,18 @@ public partial class MainWindow : Window
 
     private void AmbientTimer_Tick(object? sender, EventArgs e)
     {
+        ObserveRuntimeTick(RuntimeTick.Ambient);
         _ambientTimer.Stop();
         if (!ActivityPlan.Automatic) return;
-        var near = _settings.DesktopRoaming && _settings.PauseNearMouse && IsCursorNearPet();
+        var near = (_behavior.UsesPointerRules || _settings.DesktopRoaming && _settings.PauseNearMouse) && IsCursorNearPet();
         var action = _behavior.ChooseAutomatic(ActivityContext, _settings, BehaviorCapabilities, near);
         switch (action)
         {
             case AutomaticPetAction.Roam: StartRoaming(); break;
-            case AutomaticPetAction.Gesture: PlayAnimation(_behavior.ChooseGesture(_pet.RandomActions), restart: true); break;
+            case AutomaticPetAction.Gesture:
+                var gesture = _behavior.ChooseGesture(_pet.RandomActions, near);
+                if (gesture != PetState.Idle) PlayAnimation(gesture, restart: true);
+                break;
             case AutomaticPetAction.Look:
                 if (!TryShowLookAtCursor() && _isLookMode) PlayAnimation(PetState.Idle, restart: true);
                 break;
@@ -454,6 +464,7 @@ public partial class MainWindow : Window
 
     private void RoamTimer_Tick(object? sender, EventArgs e)
     {
+        ObserveRuntimeTick(RuntimeTick.Roam);
         if (!ActivityPlan.RunMotion)
         {
             StopRoaming(returnToIdle: true);
@@ -825,6 +836,7 @@ public partial class MainWindow : Window
     private void AdoptPackage(PetPackage package)
     {
         _frameTimer.Stop();
+        _behavior.ConfigureRules(package.Manifest.Behavior, _pet is null || _pet.Manifest.Id != package.Manifest.Id);
         var lease = package.RetainImage();
         _imageLease?.Dispose();
         _imageLease = lease;

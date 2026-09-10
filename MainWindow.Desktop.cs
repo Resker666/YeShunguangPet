@@ -134,7 +134,7 @@ public partial class MainWindow
             _behavior.Playback.Resume();
             if (!_frameTimer.IsEnabled)
             {
-                _frameTimer.Interval = TimerDelay(_behavior.Playback.Sample().UntilNextFrame);
+                SetFrameDelay(_behavior.Playback.Sample().UntilNextFrame);
                 _frameTimer.Start();
             }
         }
@@ -142,6 +142,7 @@ public partial class MainWindow
         ArmAmbient(_behavior.NextAmbientDelay(ActivityContext, _settings, BehaviorCapabilities));
         if (!plan.RunMotion) _roamTimer.Stop();
         if (!_loadedOnce || !IsVisible || _isExiting) _dockTimer.Stop();
+        ObserveRuntimeState();
     }
 
     private void ArmAmbient(TimeSpan? delay)

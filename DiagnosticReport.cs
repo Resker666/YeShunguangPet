@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace YeShunguangPet;
@@ -45,7 +46,7 @@ public sealed record DiagnosticReport(string InformationJson, string LogsText)
 {
     public static string ApplicationVersion => typeof(App).Assembly.GetName().Version?.ToString(3) ?? "unknown";
 
-    public static DiagnosticReport Capture(DesktopSession? desktop, LogSnapshot logs, Exception? error = null, string? errorId = null)
+    public static DiagnosticReport Capture(DesktopSession? desktop, LogSnapshot logs, Exception? error = null, string? errorId = null, RuntimeCapture? activity = null)
     {
         var privateValues = new List<string> { Environment.UserName, Environment.MachineName };
         if (desktop is not null)
@@ -99,7 +100,8 @@ public sealed record DiagnosticReport(string InformationJson, string LogsText)
                     w.HasDockTimer
                 }).ToArray()
             },
-            Error = error is null ? null : new { Id = errorId, Details = redactor.Clean(error.ToString()) }
+            Error = error is null ? null : new { Id = errorId, Details = redactor.Clean(error.ToString()) },
+            ActivitySampling = activity
         };
         var text = new StringBuilder();
         foreach (var excerpt in logs.Excerpts)
@@ -108,7 +110,7 @@ public sealed record DiagnosticReport(string InformationJson, string LogsText)
             text.AppendLine(redactor.Clean(excerpt.Text));
             if (text.Length > 1024 * 1024) { text.Length = 1024 * 1024; text.AppendLine("\n[truncated]"); break; }
         }
-        return new DiagnosticReport(JsonSerializer.Serialize(information, new JsonSerializerOptions { WriteIndented = true }), text.ToString());
+        return new DiagnosticReport(JsonSerializer.Serialize(information, new JsonSerializerOptions { WriteIndented = true, Converters = { new JsonStringEnumConverter() } }), text.ToString());
     }
 
     public void Export(string destination, bool overwrite = false)

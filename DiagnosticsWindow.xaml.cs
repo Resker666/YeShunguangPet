@@ -13,15 +13,17 @@ public partial class DiagnosticsWindow : ThemedWindow
     private readonly ResilientLog? _log;
     private DiagnosticReport? _report;
     private string? _logPath;
+    private LogSnapshot? _lastLogs;
     private bool _closed, _busy;
     public DiagnosticsWindow(DesktopSession? desktop, ResilientLog? log = null)
     {
         _desktop = desktop;
         _log = log;
         InitializeComponent();
+        InitializeSampling();
         VersionText.Text = "版本 " + DiagnosticReport.ApplicationVersion;
         Loaded += async (_, _) => await RefreshAsync();
-        Closed += (_, _) => _closed = true;
+        Closed += (_, _) => { _closed = true; CloseSampling(); };
     }
 
     internal async Task RefreshAsync()
@@ -39,7 +41,8 @@ public partial class DiagnosticsWindow : ThemedWindow
                 return _log.Capture();
             });
             if (_closed) return;
-            _report = DiagnosticReport.Capture(_desktop, logs);
+            _lastLogs = logs;
+            _report = DiagnosticReport.Capture(_desktop, logs, activity: SamplingCapture);
             _logPath = logs.ActivePath;
             LogStatusText.Text = logs.ActivePath is null ? "日志仅保存在内存中" : logs.ActiveLocation == 0 ? "日志写入正常" : "正在使用备用日志目录";
             LogPathText.Text = logs.ActivePath ?? "没有可写的日志文件";
@@ -64,6 +67,7 @@ public partial class DiagnosticsWindow : ThemedWindow
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_report is null || _busy) return;
+        if (_lastLogs is not null) _report = DiagnosticReport.Capture(_desktop, _lastLogs, activity: SamplingCapture);
         var picker = new SaveFileDialog { Title = "导出脱敏诊断包", Filter = "诊断包 (*.zip)|*.zip", DefaultExt = ".zip", AddExtension = true,
             FileName = $"YeShunguangPet-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.zip", OverwritePrompt = true };
         if (picker.ShowDialog(this) != true) return;

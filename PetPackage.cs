@@ -26,6 +26,8 @@ public sealed class PetManifest
     public List<FrameLocation> LookDirections { get; set; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SpeechLines? Speech { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PetBehaviorRules? Behavior { get; set; }
 }
 
 public sealed class AnimationDefinition
@@ -48,7 +50,8 @@ public sealed class PetPackage
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        Converters = { new JsonStringEnumConverter<PetState>(JsonNamingPolicy.CamelCase, false) }
+        Converters = { new JsonStringEnumConverter<PetState>(JsonNamingPolicy.CamelCase, false),
+            new JsonStringEnumConverter<BehaviorCondition>(JsonNamingPolicy.CamelCase, false) }
     };
 
     private readonly Dictionary<PetState, PetAnimation> _animations;
@@ -66,7 +69,8 @@ public sealed class PetPackage
         SpriteSheet = bitmap;
         _animations = manifest.Animations.ToDictionary(x => x.Key,
             x => new PetAnimation(x.Key, x.Value.Row, x.Value.StartColumn, x.Value.DurationsMs, x.Value.Loop));
-        RandomActions = new[] { PetState.Waving, PetState.Jumping }.Where(Supports).ToArray();
+        RandomActions = manifest.Behavior is null ? new[] { PetState.Waving, PetState.Jumping }.Where(Supports).ToArray()
+            : manifest.Behavior.Rules.Select(rule => rule.Action).Distinct().ToArray();
     }
 
     public bool Supports(PetState state) => _animations.ContainsKey(state);
@@ -192,6 +196,7 @@ public sealed class PetPackage
         if (m.SchemaVersion != 1) throw new InvalidDataException("不支持的皮肤 schemaVersion，当前支持 1。");
         ValidateId(m.Id);
         ValidateContent(m);
+        m.Behavior?.Validate(m);
     }
 
     internal static void ValidateId(string id)

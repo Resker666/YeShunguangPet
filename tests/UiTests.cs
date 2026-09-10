@@ -149,6 +149,7 @@ internal static class UiTests
             SpeechStudyUiTests.Run(check, catalog, renders);
             FocusDialTests.RunLive(check, catalog, renders);
             PetBehaviorTests.RunLive(check, catalog, renders);
+            RulesSamplingTests.RunLive(check, catalog, renders);
             EditorAdvancedTests.RunLive(check, catalog, renders);
             FocusLayoutTests.RunLive(check, catalog, renders);
             MiniMenuTests.RunLive(check, catalog, renders);

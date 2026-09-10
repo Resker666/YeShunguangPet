@@ -1,7 +1,7 @@
 <ui:ThemedWindow x:Class="YeShunguangPet.DiagnosticsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:YeShunguangPet"
-    Title="诊断与日志" Width="660" Height="580" MinWidth="510" MinHeight="450"
+    Title="诊断与日志" Width="800" Height="640" MinWidth="510" MinHeight="450"
     WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="24">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -16,6 +16,44 @@
         <TabControl x:Name="ReportTabs" Grid.Row="2">
             <TabItem Header="运行信息"><TextBox x:Name="InformationText" IsReadOnly="True" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Padding="8" AutomationProperties.Name="脱敏运行信息"/></TabItem>
             <TabItem Header="脱敏日志"><TextBox x:Name="LogsText" IsReadOnly="True" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Padding="8" AutomationProperties.Name="脱敏日志"/></TabItem>
+            <TabItem x:Name="SamplingTab" Header="活动采样">
+                <ui:SmoothScrollViewer x:Name="SamplingScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="130"/><RowDefinition Height="Auto"/><RowDefinition Height="170"/></Grid.RowDefinitions>
+                    <DockPanel LastChildFill="True" Margin="0,0,0,10">
+                        <Button x:Name="SampleButton" DockPanel.Dock="Left" Click="Sample_Click"><StackPanel Orientation="Horizontal"><TextBlock x:Name="SampleIcon" FontFamily="{StaticResource IconFont}" Text="&#xE768;" Margin="0,0,7,0"/><TextBlock x:Name="SampleText" Text="开始采样"/></StackPanel></Button>
+                        <Button x:Name="ClearSampleButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE74D;" IsEnabled="False" ToolTip="清除采样" AutomationProperties.Name="清除采样" Click="ClearSample_Click"/>
+                        <TextBlock x:Name="SampleStatus" Text="未采样" Margin="12,0,8,0" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    </DockPanel>
+                    <TextBlock Grid.Row="1" Text="角色状态" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <DataGrid Grid.Row="2" x:Name="RuntimeRoles" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" FontSize="12" MinHeight="50">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="32"/>
+                            <DataGridTextColumn Header="角色" Binding="{Binding Name}" Width="90"><DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis"/></Style></DataGridTextColumn.ElementStyle></DataGridTextColumn>
+                            <DataGridTextColumn Header="状态" Binding="{Binding State}" Width="85"/>
+                            <DataGridTextColumn Header="动作" Binding="{Binding Animation}" Width="75"/>
+                            <DataGridTextColumn Header="帧" Binding="{Binding Frame}" Width="35"/>
+                            <DataGridTextColumn Header="活动计时器" Binding="{Binding Timers}" Width="115"/>
+                            <DataGridTextColumn Header="回调(帧/其他)" Binding="{Binding Calls}" Width="105"/>
+                            <DataGridTextColumn Header="超期P95(ms)" Binding="{Binding P95}" Width="100"/>
+                            <DataGridTextColumn Header="上次决策" Binding="{Binding Decision}" Width="90"/>
+                            <DataGridTextColumn Header="规则" Binding="{Binding Rule}" Width="42"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="3" Text="近期变化" FontWeight="SemiBold" Margin="0,12,0,6"/>
+                    <DataGrid Grid.Row="4" x:Name="RuntimeEvents" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" FontSize="12" MinHeight="50">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="秒" Binding="{Binding Time}" Width="65"/>
+                            <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="32"/>
+                            <DataGridTextColumn Header="状态" Binding="{Binding State}" Width="90"/>
+                            <DataGridTextColumn Header="动作" Binding="{Binding Animation}" Width="85"/>
+                            <DataGridTextColumn Header="活动计时器" Binding="{Binding Timers}" Width="125"/>
+                            <DataGridTextColumn Header="上次决策" Binding="{Binding Decision}" Width="*" MinWidth="85"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+                </ui:SmoothScrollViewer>
+            </TabItem>
         </TabControl>
         <Grid Grid.Row="3" Margin="0,16,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <TextBlock x:Name="StatusText" TextWrapping="Wrap" MaxHeight="54" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,10"/>

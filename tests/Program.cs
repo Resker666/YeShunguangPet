@@ -149,6 +149,7 @@ internal static class Program
             FocusDialTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusControllerTests.Run((success, name) => Check(success, name));
             PetBehaviorTests.Run((success, name) => Check(success, name));
+            RulesSamplingTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusLayoutTests.Run((success, name) => Check(success, name), catalog, _root);
             MiniMenuTests.Run((success, name) => Check(success, name), catalog, _root);
 

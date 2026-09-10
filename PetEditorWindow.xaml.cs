@@ -43,6 +43,7 @@ public partial class PetEditorWindow : ThemedWindow
         Height = Math.Min(Height, SystemParameters.WorkArea.Height);
         ActionSelector.ItemsSource = Enum.GetValues<PetState>().Select(s => new ActionItem(s, SettingsWindow.ActionName(s))).ToArray();
         DurationGrid.ItemsSource = _durations;
+        RuleGrid.ItemsSource = _behaviorRows;
         DirectionSelector.ItemsSource = Enumerable.Range(0, 16).Select(i => $"{i}: {i * 22.5:0.#}°").ToArray();
         SheetView.Sheet = _document.SpriteSheet;
         SheetView.CellSelected += SelectCell;
@@ -58,6 +59,7 @@ public partial class PetEditorWindow : ThemedWindow
             StopSourceWatcher();
             SheetView.CellSelected -= SelectCell;
             ClearDurationRows();
+            ClearBehaviorRows(); RuleGrid.ItemsSource = null;
             DurationGrid.ItemsSource = ActionSelector.ItemsSource = DirectionSelector.ItemsSource = null;
             AnimationPreview.Source = null; SheetView.Sheet = null;
             _preview = null; _animation = null; _pendingSource = null;
@@ -96,6 +98,7 @@ public partial class PetEditorWindow : ThemedWindow
         DirectionSelector.SelectedIndex = _direction;
         LoadAction();
         LoadDirection();
+        LoadBehaviorRules();
         _loading = false;
     }
 
@@ -187,6 +190,7 @@ public partial class PetEditorWindow : ThemedWindow
             m.LookDirections[_direction] = new FrameLocation(Number(LookRowInput.Text, "注视行", 0, 63), Number(LookColumnInput.Text, "注视列", 0, 63));
         }
         else m.LookDirections.Clear();
+        CollectBehaviorRules();
         return true;
     }
 

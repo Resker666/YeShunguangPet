@@ -65,6 +65,7 @@ GitHub Issue 默认公开，不要上传个人桌面、密码、密钥、工作�
 | [开发与构建](docs/USER_GUIDE.md#开发与构建) | .NET SDK、本地测试、便携包及自动发布 |
 | [运行架构](docs/ARCHITECTURE.md) | 计时、角色行为、界面与生命周期边界 |
 | [角色性能测量](docs/ACTIVITY_PERFORMANCE.md) | 回调、帧间隔、CPU 与测量限制 |
+| [角色行为规则](docs/BEHAVIOR_RULES.md) | 自动动作条件、权重、冷却及安全边界 |
 | [质量门禁](docs/QUALITY_GATES.md) | 随机操作重放、截图基线、资源及性能预算 |
 | [更新记录](CHANGELOG.md) | 各版本新增与修复 |
 

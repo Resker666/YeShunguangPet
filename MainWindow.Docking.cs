@@ -58,6 +58,7 @@ public partial class MainWindow
 
     private void DockTimer_Tick(object? sender, EventArgs e)
     {
+        ObserveRuntimeTick(RuntimeTick.Dock);
         if (_dockLayout is null || _dockTransition is null) return;
         if (!IsVisible) return;
         var local = PointFromScreen(CursorScreenPosition());

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace YeShunguangPet;
 
@@ -17,6 +18,11 @@ public sealed class PetBehaviorController
     private long? _idleAt, _roamAt;
     private TimeSpan _idleDelay, _roamDelay;
     private long _motionAt;
+    private PetBehaviorRule[]? _rules;
+    private long?[] _rulePlayedAt = Array.Empty<long?>();
+    public bool UsesPointerRules => _rules?.Any(rule => rule.Condition != BehaviorCondition.Any) == true;
+    public RuleDecision LastRuleDecision { get; private set; }
+    public int LastRuleIndex { get; private set; } = -1;
     public SpritePlayback Playback { get; }
     public PetState Animation { get; private set; } = PetState.Idle;
     public bool SessionOwnsAnimation { get; private set; }
@@ -75,6 +81,34 @@ public sealed class PetBehaviorController
     public void BeginMenu() { if (Exited) return; StopRoaming(); IsMenuOpen = true; }
     public void EndMenu() => IsMenuOpen = false;
 
+    public void ConfigureRules(PetBehaviorRules? rules, bool forceReset = false)
+    {
+        if (Exited) return;
+        rules?.Validate();
+        var next = rules?.Rules.Select(rule => rule with { }).ToArray();
+        if (!forceReset && (next is null && _rules is null || next is not null && _rules is not null && next.SequenceEqual(_rules))) return;
+        _rules = next; _rulePlayedAt = new long?[next?.Length ?? 0];
+        LastRuleDecision = next is { Length: 0 } ? RuleDecision.Disabled : RuleDecision.None;
+        LastRuleIndex = -1; _idleAt = null;
+    }
+
+    private TimeSpan CooldownRemaining(int index) => _rulePlayedAt[index] is long last
+        ? MaxZero(TimeSpan.FromSeconds(_rules![index].CooldownSeconds) - _clock.GetElapsedTime(last)) : TimeSpan.Zero;
+    private bool Matches(int index, bool near) => _rules![index].Condition switch
+    {
+        BehaviorCondition.CursorNear => near, BehaviorCondition.CursorFar => !near, _ => true
+    };
+    private bool HasEligibleRule(bool near)
+    {
+        if (_rules is null) return true;
+        var ready = false;
+        for (var i = 0; i < _rules.Length; i++)
+            if (CooldownRemaining(i) == TimeSpan.Zero) { ready = true; if (Matches(i, near)) return true; }
+        LastRuleDecision = _rules.Length == 0 ? RuleDecision.Disabled : ready ? RuleDecision.Condition : RuleDecision.Cooldown;
+        LastRuleIndex = -1;
+        return false;
+    }
+
     public void ResetSchedule(PetSettings settings, PetBehaviorCapabilities capabilities)
     {
         _idleAt = _roamAt = null; EnsureSchedule(settings, capabilities);
@@ -82,7 +116,7 @@ public sealed class PetBehaviorController
     public void EnsureSchedule(PetSettings settings, PetBehaviorCapabilities capabilities)
     {
         if (Exited) return;
-        if (!settings.RandomIdleActions || !capabilities.RandomActions) _idleAt = null;
+        if (!settings.RandomIdleActions || !capabilities.RandomActions || _rules is { Length: 0 }) _idleAt = null;
         else if (!_idleAt.HasValue) { _idleAt = _clock.GetTimestamp(); _idleDelay = Delay(settings.IdleActionIntervalSeconds); }
         if (!settings.DesktopRoaming || !capabilities.Roam) _roamAt = null;
         else if (!_roamAt.HasValue) { _roamAt = _clock.GetTimestamp(); _roamDelay = Delay(settings.RoamIntervalSeconds); }
@@ -97,6 +131,12 @@ public sealed class PetBehaviorController
         EnsureSchedule(settings, capabilities);
         if (settings.LookAtMouse && capabilities.Look) return TimeSpan.FromMilliseconds(100);
         var idle = Remaining(_idleAt, _idleDelay); var roam = Remaining(_roamAt, _roamDelay);
+        if (_idleAt.HasValue && _rules is { Length: > 0 })
+        {
+            var cooldown = TimeSpan.MaxValue;
+            for (var i = 0; i < _rules.Length; i++) { var remaining = CooldownRemaining(i); if (remaining < cooldown) cooldown = remaining; }
+            if (cooldown > idle) idle = cooldown;
+        }
         var next = idle < roam ? idle : roam;
         if (next == TimeSpan.MaxValue) return null;
         // A due roam can be held by pointer proximity; do not spin while waiting for it to leave.
@@ -107,10 +147,28 @@ public sealed class PetBehaviorController
         if (!Evaluate(context, settings, capabilities).Automatic) return AutomaticPetAction.None;
         EnsureSchedule(settings, capabilities);
         if (_roamAt.HasValue && Remaining(_roamAt, _roamDelay) == TimeSpan.Zero && (!settings.PauseNearMouse || !cursorNear)) return AutomaticPetAction.Roam;
-        if (_idleAt.HasValue && Remaining(_idleAt, _idleDelay) == TimeSpan.Zero) { _idleAt = null; return AutomaticPetAction.Gesture; }
+        if (_idleAt.HasValue && Remaining(_idleAt, _idleDelay) == TimeSpan.Zero && HasEligibleRule(cursorNear)) { _idleAt = null; return AutomaticPetAction.Gesture; }
         return settings.LookAtMouse && capabilities.Look ? AutomaticPetAction.Look : AutomaticPetAction.None;
     }
-    public PetState ChooseGesture(PetState[] actions) => actions.Length == 0 ? PetState.Idle : actions[_random.Next(actions.Length)];
+    public PetState ChooseGesture(PetState[] actions, bool cursorNear = false)
+    {
+        if (Exited) return PetState.Idle;
+        if (_rules is null) { LastRuleDecision = RuleDecision.Legacy; LastRuleIndex = -1; return actions.Length == 0 ? PetState.Idle : actions[_random.Next(actions.Length)]; }
+        var total = 0;
+        for (var i = 0; i < _rules.Length; i++)
+            if (Matches(i, cursorNear) && CooldownRemaining(i) == TimeSpan.Zero && Array.IndexOf(actions, _rules[i].Action) >= 0) total += _rules[i].Weight;
+        if (total == 0) { if (HasEligibleRule(cursorNear)) LastRuleDecision = RuleDecision.Disabled; LastRuleIndex = -1; return PetState.Idle; }
+        var selected = _random.Next(total);
+        for (var i = 0; i < _rules.Length; i++)
+        {
+            if (!Matches(i, cursorNear) || CooldownRemaining(i) != TimeSpan.Zero || Array.IndexOf(actions, _rules[i].Action) < 0) continue;
+            selected -= _rules[i].Weight;
+            if (selected >= 0) continue;
+            _rulePlayedAt[i] = _clock.GetTimestamp(); LastRuleDecision = RuleDecision.Selected; LastRuleIndex = i;
+            return _rules[i].Action;
+        }
+        return PetState.Idle;
+    }
 
     public bool StartRoaming(double leftSpace, double rightSpace)
     {

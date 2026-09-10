@@ -19,6 +19,7 @@ public partial class MainWindow
         _clickTimer.Interval = TimeSpan.FromMilliseconds(WinForms.SystemInformation.DoubleClickTime);
         _clickTimer.Tick += (_, _) =>
         {
+            ObserveRuntimeTick(RuntimeTick.Click);
             _clickTimer.Stop();
             if (ActivityPlan.Click)
             {

@@ -21,6 +21,7 @@ public sealed class DesktopSession : IDisposable
     private TrayMenu? _trayMenu;
     private Drawing.Icon? _icon;
     private PetManagerWindow? _manager;
+    private DiagnosticsWindow? _diagnosticsWindow;
     private MainWindow? _settingsOwner;
     private bool _disposed;
     private bool _started;
@@ -252,9 +253,17 @@ public sealed class DesktopSession : IDisposable
     public void OpenDiagnostics(Window? owner = null)
     {
         if (_disposed) return;
-        var dialog = new DiagnosticsWindow(this);
-        if (owner is not null) dialog.Owner = owner;
-        dialog.ShowDialog();
+        if (_diagnosticsWindow is null)
+        {
+            _diagnosticsWindow = new DiagnosticsWindow(this) { WindowStartupLocation = WindowStartupLocation.CenterScreen };
+            _diagnosticsWindow.Closed += (_, _) => _diagnosticsWindow = null;
+            _diagnosticsWindow.Show();
+        }
+        else
+        {
+            if (_diagnosticsWindow.WindowState == WindowState.Minimized) _diagnosticsWindow.WindowState = WindowState.Normal;
+            _diagnosticsWindow.Activate();
+        }
     }
 
     public void OpenSpeechSettings(PetPackage pet, Window? owner = null)
@@ -324,6 +333,7 @@ public sealed class DesktopSession : IDisposable
                 _save(Configuration);
             });
         Cleanup(Companion.Dispose);
+        Cleanup(() => _diagnosticsWindow?.Close());
         Cleanup(() => _manager?.Close());
         foreach (var window in Windows.ToArray()) Cleanup(window.Close);
         _windows.Clear();
