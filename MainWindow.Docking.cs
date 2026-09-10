@@ -11,6 +11,9 @@ public partial class MainWindow
     private DockTransition? _dockTransition;
     private bool _initialDockRetraction;
     private bool _dockPositionDirty;
+    private DockLayout? _lastDockVisual;
+    private double _lastDockProgress = double.NaN;
+    private bool _lastDockCollapsed, _lastRetraction;
     private readonly DispatcherTimer _dockTimer = new() { Interval = TimeSpan.FromMilliseconds(30) };
     private readonly TranslateTransform _dockOffset = new();
     private bool IsEdgeDocked => _dockLayout is not null;
@@ -40,7 +43,7 @@ public partial class MainWindow
         CancelPointerInteraction();
         StopRoaming(returnToIdle: true);
         _dockLayout = layout;
-        _dockTransition = new DockTransition(collapse);
+        _dockTransition = new DockTransition(collapse, _clock);
         _initialDockRetraction = collapse;
         _settings.Left = layout.Expanded.Left;
         _settings.Top = layout.Expanded.Top;
@@ -76,6 +79,11 @@ public partial class MainWindow
         if (_dockLayout is null || _dockTransition is null) return;
         var collapsed = _dockTransition.IsCollapsed;
         if (collapsed || !_dockTransition.TargetCollapsed) _initialDockRetraction = false;
+        var progress = _dockTransition.Progress;
+        if (ReferenceEquals(_lastDockVisual, _dockLayout) && _lastDockProgress == progress &&
+            _lastDockCollapsed == collapsed && _lastRetraction == _initialDockRetraction) return;
+        _lastDockVisual = _dockLayout; _lastDockProgress = progress;
+        _lastDockCollapsed = collapsed; _lastRetraction = _initialDockRetraction;
         var viewport = _initialDockRetraction ? _dockLayout.RetractionViewport : _dockLayout.Expanded;
         SetDockBounds(collapsed ? _dockLayout.Handle : viewport);
         var offset = _initialDockRetraction
@@ -133,6 +141,7 @@ public partial class MainWindow
         var expanded = _dockLayout.Expanded;
         _dockTimer.Stop();
         _dockLayout = null;
+        _lastDockVisual = null;
         _dockTransition = null;
         _initialDockRetraction = false;
         _dockPositionDirty = false;

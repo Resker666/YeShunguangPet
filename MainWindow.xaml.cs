@@ -19,8 +19,6 @@ public partial class MainWindow : Window
     private const double ScaleStep = 0.1;
     private const double LookRadius = 520;
     private const double LookDeadZone = 42;
-    private const double MinRoamDistance = 96;
-    private const double MaxRoamDistance = 420;
 
     private const int SummonHotkeyId = 0x5911;
 
@@ -30,28 +28,29 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _ambientTimer;
     private readonly DispatcherTimer _roamTimer;
-    private readonly Random _random = new();
+    private readonly TimeProvider _clock;
+    private readonly PetBehaviorController _behavior;
+    public PetBehaviorController Behavior => _behavior;
 
     private PetPackage _pet = null!;
     private PetAnimation _animation = null!;
-    private PetState _state = PetState.Idle;
+    private PetState _state => _behavior.Animation;
     private int _frameIndex;
-    private int _lastLookDirection = -1;
-    private bool _isLookMode;
-    private bool _isDragging;
-    private bool _isMenuOpen;
-    private bool _isRoaming;
+    private bool _isLookMode => _behavior.IsLooking;
+    private bool _isDragging => _behavior.IsDragging;
+    private bool _isMenuOpen => _behavior.IsMenuOpen;
+    private bool _isRoaming => _behavior.IsRoaming;
     private bool _isExiting;
     private bool _sourceReady;
     private double _lastDragLeft;
-    private double _roamRemainingDistance;
-    private bool _roamPaused;
-    private int _roamDirection;
-    private DateTime _lastRoamTickUtc;
-    private DateTime _nextIdleActionUtc = DateTime.MaxValue;
-    private DateTime _nextRoamUtc = DateTime.MaxValue;
+    private long _ambientArmedAt;
     private HwndSource? _windowSource;
     private SettingsWindow? _settingsWindow;
+    private bool _openingSettings;
+    private bool _hasLookSample;
+    private Point _lookCursor;
+    private Rect _lookBounds;
+    private int _lookCachedDirection = -1;
 
     private MenuItem? _windowTopmostItem;
     private MenuItem? _windowClickThroughItem;
@@ -63,6 +62,9 @@ public partial class MainWindow : Window
 
     internal MainWindow(PetSettings settings, PetPackage? package, DesktopSession? desktop, string instanceId)
     {
+        _clock = desktop?.Clock ?? TimeProvider.System;
+        _behavior = new PetBehaviorController(_clock);
+        _sessionVisuals = new SessionVisuals(_clock);
         InitializeComponent();
         _settings = settings;
         _desktop = desktop;
@@ -70,7 +72,7 @@ public partial class MainWindow : Window
         _petCatalog = desktop?.Catalog ?? new PetCatalog();
         _pet = package!;
         _imageLease = package?.RetainImage();
-        _companion = desktop?.Companion ?? new CompanionRuntime(_settings, persistDurations: draft => draft.Save());
+        _companion = desktop?.Companion ?? new CompanionRuntime(_settings, _clock, persistDurations: draft => draft.Save());
         _focusSession = _companion.Session;
         _frameTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -152,6 +154,8 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _isExiting = true;
+        _behavior.Shutdown();
         _frameTimer.Stop();
         _ambientTimer.Stop();
         _roamTimer.Stop();
@@ -217,7 +221,7 @@ public partial class MainWindow : Window
         _isExiting = true;
         (ContextMenu as PetContextMenu)?.Dispose();
         _aboutWindow?.Close();
-        _isRoaming = false;
+        _behavior.Shutdown();
         _roamTimer.Stop();
         _frameTimer.Stop();
         _ambientTimer.Stop();
@@ -235,7 +239,10 @@ public partial class MainWindow : Window
         ref bool handled)
     {
         if (message is 0x007E or 0x001A or 0x02E0)
+        {
+            _hasLookSample = false;
             Dispatcher.BeginInvoke(OnDockDisplayChanged);
+        }
         if (message == NativeMethods.WmHotkey && wParam.ToInt32() == SummonHotkeyId)
         {
             RecallToPrimaryScreen();
@@ -268,18 +275,15 @@ public partial class MainWindow : Window
 
     private void PlayAnimation(PetState state, bool restart = false)
     {
+        if (_isExiting) return;
         if (!_pet.Supports(state)) state = PetState.Idle;
         if (!restart && !_isLookMode && _state == state)
         {
             return;
         }
-        _sessionOwnsAnimation = false;
-
-        _state = state;
         _animation = _pet.GetAnimation(state);
+        _behavior.Play(state, _animation.DurationsMs, _animation.Loop);
         _frameIndex = 0;
-        _isLookMode = false;
-        _lastLookDirection = -1;
 
         ShowFrame(_animation.Row, _animation.StartColumn + _frameIndex);
         _frameTimer.Interval = CurrentFrameDuration();
@@ -300,25 +304,32 @@ public partial class MainWindow : Window
 
     private void FrameTimer_Tick(object? sender, EventArgs e)
     {
-        if (_isLookMode || !CanPlayDockAnimation)
+        if (_isExiting || _isLookMode || !CanPlayDockAnimation)
         {
+            _frameTimer.Stop();
             return;
         }
 
-        if (!_animation.Loop && _frameIndex >= _animation.FrameCount - 1)
+        var sample = _behavior.Playback.Sample();
+        if (sample.Completed)
         {
             if (_sessionOwnsAnimation && _sessionVisuals.IsCompletionActive)
             {
                 PlayAnimation(_state, restart: true);
-                _sessionOwnsAnimation = true;
+                _behavior.SetSessionOwnership(true);
             }
             else PlayRestingAnimation();
             return;
         }
 
-        _frameIndex = (_frameIndex + 1) % _animation.FrameCount;
+        _frameIndex = sample.Frame;
         ShowFrame(_animation.Row, _animation.StartColumn + _frameIndex);
-        _frameTimer.Interval = CurrentFrameDuration();
+        if (ActivityPlan.RunFrames)
+        {
+            _frameTimer.Interval = TimerDelay(sample.UntilNextFrame);
+            _frameTimer.Start();
+        }
+        else _frameTimer.Stop();
     }
 
     private TimeSpan CurrentFrameDuration()
@@ -329,63 +340,40 @@ public partial class MainWindow : Window
 
     private void AmbientTimer_Tick(object? sender, EventArgs e)
     {
-        if (!IsVisible ||
-            _isDragging ||
-            _pointerDown ||
-            _clickTimer.IsEnabled ||
-            _isMenuOpen ||
-            _isRoaming ||
-            _settingsWindow is not null ||
-            IsEdgeDocked ||
-            _state != PetState.Idle ||
-            SuppressAutomaticBehavior)
+        _ambientTimer.Stop();
+        if (!ActivityPlan.Automatic) return;
+        var near = _settings.DesktopRoaming && _settings.PauseNearMouse && IsCursorNearPet();
+        var action = _behavior.ChooseAutomatic(ActivityContext, _settings, BehaviorCapabilities, near);
+        switch (action)
         {
-            return;
+            case AutomaticPetAction.Roam: StartRoaming(); break;
+            case AutomaticPetAction.Gesture: PlayAnimation(_behavior.ChooseGesture(_pet.RandomActions), restart: true); break;
+            case AutomaticPetAction.Look:
+                if (!TryShowLookAtCursor() && _isLookMode) PlayAnimation(PetState.Idle, restart: true);
+                break;
+            default:
+                if (_isLookMode) PlayAnimation(PetState.Idle, restart: true);
+                break;
         }
-
-        var now = DateTime.UtcNow;
-        if (_settings.DesktopRoaming && _pet.CanRoam && now >= _nextRoamUtc)
-        {
-            if (!_settings.PauseNearMouse || !IsCursorNearPet())
-            {
-                StartRoaming();
-                return;
-            }
-        }
-
-        if (_settings.RandomIdleActions && _pet.RandomActions.Length > 0 && now >= _nextIdleActionUtc)
-        {
-            _nextIdleActionUtc = DateTime.MaxValue;
-            var state = _pet.RandomActions[_random.Next(_pet.RandomActions.Length)];
-            PlayAnimation(state, restart: true);
-            return;
-        }
-
-        if (_settings.LookAtMouse && _pet.CanLook && TryShowLookAtCursor())
-        {
-            return;
-        }
-
-        if (_isLookMode)
-        {
-            PlayAnimation(PetState.Idle, restart: true);
-        }
+        RefreshActivityTimers();
     }
 
     private bool TryShowLookAtCursor()
     {
         var cursor = WinForms.Cursor.Position;
-        var center = PointToScreen(new Point(ActualWidth / 2, ActualHeight / 2));
-        var dx = cursor.X - center.X;
-        var dy = cursor.Y - center.Y;
-        var distance = Math.Sqrt(dx * dx + dy * dy);
-
-        if (distance < LookDeadZone || distance > LookRadius)
+        var point = new Point(cursor.X, cursor.Y);
+        var bounds = new Rect(Left, Top, ActualWidth, ActualHeight);
+        if (!_hasLookSample || _lookCursor != point || _lookBounds != bounds)
         {
-            return false;
+            var center = PointToScreen(new Point(ActualWidth / 2, ActualHeight / 2));
+            var dx = cursor.X - center.X;
+            var dy = cursor.Y - center.Y;
+            var distance = Math.Sqrt(dx * dx + dy * dy);
+            _lookCachedDirection = distance < LookDeadZone || distance > LookRadius ? -1 : ComputeLookDirection(dx, dy);
+            _lookCursor = point; _lookBounds = bounds; _hasLookSample = true;
         }
-
-        ShowLookDirection(ComputeLookDirection(dx, dy));
+        if (_lookCachedDirection < 0) return false;
+        ShowLookDirection(_lookCachedDirection);
         return true;
     }
 
@@ -402,13 +390,12 @@ public partial class MainWindow : Window
 
     private void ShowLookDirection(int directionIndex)
     {
-        if (_isLookMode && _lastLookDirection == directionIndex)
+        if (_isLookMode && _behavior.LookDirection == directionIndex)
         {
             return;
         }
 
-        _isLookMode = true;
-        _lastLookDirection = directionIndex;
+        _behavior.Look(directionIndex);
         _frameTimer.Stop();
 
         var frame = _pet.Manifest.LookDirections[directionIndex];
@@ -417,7 +404,8 @@ public partial class MainWindow : Window
 
     private void ShowFrame(int row, int column)
     {
-        SpriteImage.Source = GetFrame(row, column);
+        var frame = GetFrame(row, column);
+        if (!ReferenceEquals(SpriteImage.Source, frame)) SpriteImage.Source = frame;
     }
 
     private BitmapSource GetFrame(int row, int column)
@@ -435,42 +423,13 @@ public partial class MainWindow : Window
 
     private void ResetIdleBehaviorSchedule()
     {
-        var now = DateTime.UtcNow;
-        _nextIdleActionUtc = _settings.RandomIdleActions && _pet.RandomActions.Length > 0
-            ? now + RandomizedDelay(_settings.IdleActionIntervalSeconds)
-            : DateTime.MaxValue;
-        _nextRoamUtc = _settings.DesktopRoaming && _pet.CanRoam
-            ? now + RandomizedDelay(_settings.RoamIntervalSeconds)
-            : DateTime.MaxValue;
+        _ambientTimer.Stop();
+        _behavior.ResetSchedule(_settings, BehaviorCapabilities);
     }
 
     private void EnsureIdleBehaviorSchedule()
     {
-        var now = DateTime.UtcNow;
-
-        if (!_settings.RandomIdleActions || _pet.RandomActions.Length == 0)
-        {
-            _nextIdleActionUtc = DateTime.MaxValue;
-        }
-        else if (_nextIdleActionUtc == DateTime.MaxValue)
-        {
-            _nextIdleActionUtc = now + RandomizedDelay(_settings.IdleActionIntervalSeconds);
-        }
-
-        if (!_settings.DesktopRoaming || !_pet.CanRoam)
-        {
-            _nextRoamUtc = DateTime.MaxValue;
-        }
-        else if (_nextRoamUtc == DateTime.MaxValue)
-        {
-            _nextRoamUtc = now + RandomizedDelay(_settings.RoamIntervalSeconds);
-        }
-    }
-
-    private TimeSpan RandomizedDelay(double baseSeconds)
-    {
-        var factor = 0.75 + _random.NextDouble() * 0.5;
-        return TimeSpan.FromSeconds(baseSeconds * factor);
+        _behavior.EnsureSchedule(_settings, BehaviorCapabilities);
     }
 
     private void StartRoaming()
@@ -483,61 +442,39 @@ public partial class MainWindow : Window
 
         var leftSpace = Left - minimumLeft;
         var rightSpace = maximumLeft - Left;
-        if (leftSpace < 24 && rightSpace < 24)
+        if (!_behavior.StartRoaming(leftSpace, rightSpace))
         {
-            _nextRoamUtc = DateTime.MaxValue;
             EnsureIdleBehaviorSchedule();
             return;
         }
-
-        if (leftSpace >= MinRoamDistance && rightSpace >= MinRoamDistance)
-        {
-            _roamDirection = _random.Next(2) == 0 ? -1 : 1;
-        }
-        else
-        {
-            _roamDirection = rightSpace >= leftSpace ? 1 : -1;
-        }
-
-        _roamRemainingDistance = MinRoamDistance + _random.NextDouble() * (MaxRoamDistance - MinRoamDistance);
-        _roamPaused = false;
-        _lastRoamTickUtc = DateTime.UtcNow;
-        _isRoaming = true;
-        _nextRoamUtc = DateTime.MaxValue;
-        PlayAnimation(_roamDirection > 0 ? PetState.RunningRight : PetState.RunningLeft, restart: true);
+        PlayAnimation(_behavior.RoamDirection > 0 ? PetState.RunningRight : PetState.RunningLeft, restart: true);
+        _roamTimer.Interval = TimeSpan.FromMilliseconds(33);
         _roamTimer.Start();
     }
 
     private void RoamTimer_Tick(object? sender, EventArgs e)
     {
-        if (!_isRoaming || !_settings.DesktopRoaming || !IsVisible || SuppressAutomaticBehavior)
+        if (!ActivityPlan.RunMotion)
         {
             StopRoaming(returnToIdle: true);
             return;
         }
 
-        var now = DateTime.UtcNow;
-        var elapsedSeconds = Math.Clamp((now - _lastRoamTickUtc).TotalSeconds, 0, 0.1);
-        _lastRoamTickUtc = now;
-        if (_settings.PauseNearMouse && IsCursorNearPet(_roamPaused ? 20 : 0))
+        var paused = _behavior.RoamPaused;
+        var previousDirection = _behavior.RoamDirection;
+        var near = _settings.PauseNearMouse && IsCursorNearPet(paused ? 20 : 0);
+        var area = GetCurrentWorkAreaInDips();
+        var step = _behavior.AdvanceRoaming(Left, area.Left, area.Right - Width, _settings.RoamSpeed, near);
+        _roamTimer.Interval = TimeSpan.FromMilliseconds(near ? 100 : 33);
+        if (near)
         {
-            if (!_roamPaused)
-            {
-                _roamPaused = true;
-                PlayAnimation(PetState.Idle, restart: true);
-            }
+            if (!paused) PlayAnimation(PetState.Idle, restart: true);
             return;
         }
-        var area = GetCurrentWorkAreaInDips();
-        var step = DesktopBehavior.Move(Left, _roamDirection, _roamRemainingDistance,
-            _settings.RoamSpeed * elapsedSeconds, area.Left, area.Right - Width);
-        if (_roamPaused || step.Direction != _roamDirection)
+        if (paused || step.Direction != previousDirection)
             PlayAnimation(step.Direction > 0 ? PetState.RunningRight : PetState.RunningLeft, restart: true);
-        _roamPaused = false;
-        _roamDirection = step.Direction;
-        _roamRemainingDistance = step.Remaining;
         Left = step.Left;
-        if (_roamRemainingDistance <= 0)
+        if (step.Remaining <= 0)
         {
             StopRoaming(returnToIdle: true);
         }
@@ -550,8 +487,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _isRoaming = false;
-        _roamPaused = false;
+        _behavior.StopRoaming();
         _roamTimer.Stop();
         EnsureWindowInWorkArea();
         SaveWindowPosition();
@@ -608,7 +544,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _isDragging = false;
+        _behavior.EndDrag();
         if (DockAfterDrag()) return;
         EnsureWindowInWorkArea();
         SaveWindowPosition();
@@ -750,6 +686,7 @@ public partial class MainWindow : Window
         }
 
         if (_desktop is not null && !_desktop.BeginSettings(this)) return;
+        _openingSettings = true;
         PetSettings? result = null;
         PetPackage? selectedPackage = null;
         try
@@ -775,7 +712,9 @@ public partial class MainWindow : Window
         finally
         {
             _settingsWindow = null;
+            _openingSettings = false;
             _desktop?.EndSettings();
+            RefreshActivityTimers();
         }
 
         if (result is not null)
@@ -793,17 +732,19 @@ public partial class MainWindow : Window
         _desktop?.DismissSpeech(this);
         CancelPointerInteraction();
         ExpandDock(immediately: true);
-        _isMenuOpen = true;
         StopRoaming(returnToIdle: true);
+        _behavior.BeginMenu();
+        RefreshActivityTimers();
     }
 
     private void EndMenuInteraction()
     {
-        _isMenuOpen = false;
+        _behavior.EndMenu();
         if (_state == PetState.Idle)
         {
             EnsureIdleBehaviorSchedule();
         }
+        RefreshActivityTimers();
     }
 
     private void ApplySettings(PetSettings updated, PetPackage selectedPackage)
@@ -955,6 +896,7 @@ public partial class MainWindow : Window
         PersistSettings();
         ResetIdleBehaviorSchedule();
         UpdateMenuChecks();
+        RefreshActivityTimers();
     }
 
     private void SetDesktopRoaming(bool enabled)
@@ -968,6 +910,7 @@ public partial class MainWindow : Window
         PersistSettings();
         ResetIdleBehaviorSchedule();
         UpdateMenuChecks();
+        RefreshActivityTimers();
     }
 
     private void SetLaunchAtStartup(bool enabled)

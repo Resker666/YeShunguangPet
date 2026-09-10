@@ -132,14 +132,14 @@ internal static class CompanionTests
             type.GetField("_doublePress", flags)!.SetValue(window, false);
             mouseUp.Invoke(window, new object[] { window, args });
             var timer = (System.Windows.Threading.DispatcherTimer)type.GetField("_clickTimer", flags)!.GetValue(window)!;
-            check(timer.IsEnabled && (PetState)type.GetField("_state", flags)!.GetValue(window)! == PetState.Idle,
+            check(timer.IsEnabled && window.Behavior.Animation == PetState.Idle,
                 "single release waits for double-click window");
             type.GetMethod("CancelPointerInteraction", flags)!.Invoke(window, null);
             check(!timer.IsEnabled, "menu and drag cancellation clear pending click");
             type.GetField("_pointerDown", flags)!.SetValue(window, true);
             type.GetField("_doublePress", flags)!.SetValue(window, true);
             mouseUp.Invoke(window, new object[] { window, args });
-            check(!timer.IsEnabled && (PetState)type.GetField("_state", flags)!.GetValue(window)! == PetState.Jumping,
+            check(!timer.IsEnabled && window.Behavior.Animation == PetState.Jumping,
                 "double-click release triggers one jump");
         }
         finally

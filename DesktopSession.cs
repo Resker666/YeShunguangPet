@@ -28,6 +28,7 @@ public sealed class DesktopSession : IDisposable
     public DesktopConfiguration Configuration { get; }
     public CompanionRuntime Companion { get; }
     public PetCatalog Catalog { get; }
+    internal TimeProvider Clock { get; }
     public bool HotkeyRegistered { get; private set; }
     public IReadOnlyCollection<MainWindow> Windows => _windows.Values;
     public event Action? Changed;
@@ -41,6 +42,7 @@ public sealed class DesktopSession : IDisposable
         Catalog = catalog;
         _save = save;
         _nativeIntegration = nativeIntegration;
+        Clock = clock ?? TimeProvider.System;
         var globalSettings = new PetSettings();
         configuration.Companion.ApplyTo(globalSettings);
         Companion = new CompanionRuntime(globalSettings, clock, history, PersistCompanionDurations, configuration.FocusWindow, PersistFocusWindow);

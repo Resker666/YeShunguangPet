@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Windows;
@@ -113,7 +115,11 @@ internal static class SessionVisualTests
 
     private static void VerifyDesktopReturn(Action<bool, string> check, PetPackage pet)
     {
-        var window = new MainWindow();
+        var clock = new ManualClock();
+        using var desktop = new DesktopSession(DesktopConfiguration.Migrate(new PetSettings()),
+            new PetCatalog(Path.Combine(AppContext.BaseDirectory, "Pets"), Path.Combine(Path.GetTempPath(), "pet-session-" + Guid.NewGuid().ToString("N"))), _ => { }, false, clock);
+        desktop.Start(false);
+        var window = desktop.Windows.First();
         var type = typeof(MainWindow);
         try
         {
@@ -124,15 +130,16 @@ internal static class SessionVisualTests
             settings.DoNotDisturb = settings.QuietHoursEnabled = false;
             session.StartOrResume();
             type.GetMethod("PlayRestingAnimation", Private)!.Invoke(window, null);
-            check((PetState)type.GetField("_state", Private)!.GetValue(window)! == PetState.Running, "desktop resting state follows focus");
+            check(window.Behavior.Animation == PetState.Running, "desktop resting state follows focus");
             type.GetMethod("PlayAnimation", Private)!.Invoke(window, new object[] { PetState.Waving, true });
-            check(!(bool)type.GetField("_sessionOwnsAnimation", Private)!.GetValue(window)!, "manual gesture releases session ownership");
-            type.GetField("_frameIndex", Private)!.SetValue(window, pet.GetAnimation(PetState.Waving).FrameCount - 1);
+            check(!window.Behavior.SessionOwnsAnimation, "manual gesture releases session ownership");
+            window.Behavior.Playback.Resume();
+            clock.Advance(pet.GetAnimation(PetState.Waving).DurationsMs.Sum() / 1000.0);
             type.GetMethod("FrameTimer_Tick", Private)!.Invoke(window, new object?[] { null, EventArgs.Empty });
-            check((PetState)type.GetField("_state", Private)!.GetValue(window)! == PetState.Running, "manual gesture returns to focus work");
+            check(window.Behavior.Animation == PetState.Running, "manual gesture returns to focus work");
             session.Pause();
             type.GetMethod("PlayRestingAnimation", Private)!.Invoke(window, null);
-            check((PetState)type.GetField("_state", Private)!.GetValue(window)! == PetState.Idle, "desktop returns to idle after pause");
+            check(window.Behavior.Animation == PetState.Idle, "desktop returns to idle after pause");
         }
         finally
         {

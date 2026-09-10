@@ -8,10 +8,10 @@ public partial class MainWindow
     private readonly CompanionSession _focusSession;
     private bool _companionAttached;
     private bool _wasSuppressed;
-    private readonly SessionVisuals _sessionVisuals = new();
-    private bool _sessionOwnsAnimation;
+    private readonly SessionVisuals _sessionVisuals;
+    private bool _sessionOwnsAnimation => _behavior.SessionOwnsAnimation;
 
-    private bool IsQuietNow => DesktopBehavior.IsQuiet(_settings, DateTime.Now);
+    private bool IsQuietNow => _settings.DoNotDisturb || (_settings.QuietHoursEnabled && DesktopBehavior.IsQuiet(_settings, _clock.GetLocalNow().DateTime));
     private bool SuppressAutomaticBehavior => IsQuietNow || (_settings.PauseDuringFocus && _focusSession.IsFocusing);
 
     private void InitializeCompanion()
@@ -36,6 +36,7 @@ public partial class MainWindow
     {
         UpdateAutomaticSuppression();
         RefreshSessionAnimation();
+        RefreshActivityTimers();
     }
 
     private void OnSessionChanged()
@@ -48,18 +49,16 @@ public partial class MainWindow
     {
         var state = SessionVisuals.RestingState(_focusSession, _settings, _pet, IsQuietNow);
         PlayAnimation(state, restart: true);
-        _sessionOwnsAnimation = state != PetState.Idle;
+        _behavior.SetSessionOwnership(state != PetState.Idle);
     }
 
     private void RefreshSessionAnimation()
     {
-        var available = IsVisible && CanPlayDockAnimation && !_isDragging && !_pointerDown &&
-            !_clickTimer.IsEnabled && !_isMenuOpen && _settingsWindow is null && !_isRoaming &&
-            (_state == PetState.Idle || _sessionOwnsAnimation);
+        var available = ActivityPlan.SessionAnimation;
         var target = _sessionVisuals.Resolve(_focusSession, _settings, _pet, IsQuietNow, available);
         if (!target.HasValue || (target == PetState.Idle && !_sessionOwnsAnimation)) return;
         PlayAnimation(target.Value);
-        _sessionOwnsAnimation = target != PetState.Idle;
+        _behavior.SetSessionOwnership(target != PetState.Idle);
     }
 
     private void UpdateAutomaticSuppression()
@@ -79,8 +78,7 @@ public partial class MainWindow
 
     private void OnBreakReminder()
     {
-        if (!_settings.NotificationsEnabled || IsQuietNow || !IsVisible || !CanPlayDockAnimation ||
-            _isDragging || _pointerDown || _clickTimer.IsEnabled || _isMenuOpen || _settingsWindow is not null) return;
+        if (!ActivityPlan.Reminder) return;
         StopRoaming(returnToIdle: true);
         if (_state == PetState.Idle) PlayAnimation(PetState.Waving, restart: true);
     }

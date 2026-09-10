@@ -20,7 +20,12 @@ public partial class MainWindow
     public bool HasAmbientTimer => _ambientTimer.IsEnabled;
     public bool HasRoamingTimer => _roamTimer.IsEnabled;
     public bool HasDockTimer => _dockTimer.IsEnabled;
-    internal bool CanShowSpeech => _loadedOnce && IsVisible && !IsDocked && !_isDragging && !_pointerDown && !_isRoaming && !_isMenuOpen && _settingsWindow is null && !_isExiting;
+    private PetActivityContext ActivityContext => new(_loadedOnce, IsVisible, _pointerDown || _clickTimer.IsEnabled,
+        _settingsWindow is not null || _openingSettings, IsEdgeDocked, CanPlayDockAnimation, EffectiveClickThrough, IsQuietNow, _focusSession.IsFocusing);
+    private PetBehaviorCapabilities BehaviorCapabilities => new(_pet?.CanLook == true, _pet?.CanRoam == true,
+        _pet?.RandomActions.Length > 0, _animation is not null && (_animation.FrameCount > 1 || !_animation.Loop));
+    public PetActivityPlan ActivityPlan => _behavior.Evaluate(ActivityContext, _settings, BehaviorCapabilities);
+    internal bool CanShowSpeech => ActivityPlan.Speech;
 
     internal void CapturePosition()
     {
@@ -123,16 +128,31 @@ public partial class MainWindow
     private void RefreshActivityTimers()
     {
         if (_frameTimer is null || _ambientTimer is null || _roamTimer is null) return;
-        var visible = _loadedOnce && IsVisible && !_isExiting && _pet is not null;
-        SetTimer(_frameTimer, visible && CanPlayDockAnimation && !_isLookMode);
-        SetTimer(_ambientTimer, visible && !IsEdgeDocked && !_isRoaming && _state == PetState.Idle &&
-            ((_settings.LookAtMouse && _pet!.CanLook) || (_settings.RandomIdleActions && _pet!.RandomActions.Length > 0) || (_settings.DesktopRoaming && _pet!.CanRoam)));
-        if (!visible) { _roamTimer.Stop(); _dockTimer.Stop(); }
+        var plan = ActivityPlan;
+        if (plan.RunFrames)
+        {
+            _behavior.Playback.Resume();
+            if (!_frameTimer.IsEnabled)
+            {
+                _frameTimer.Interval = TimerDelay(_behavior.Playback.Sample().UntilNextFrame);
+                _frameTimer.Start();
+            }
+        }
+        else { _frameTimer.Stop(); _behavior.Playback.Pause(); }
+        ArmAmbient(_behavior.NextAmbientDelay(ActivityContext, _settings, BehaviorCapabilities));
+        if (!plan.RunMotion) _roamTimer.Stop();
+        if (!_loadedOnce || !IsVisible || _isExiting) _dockTimer.Stop();
     }
 
-    private static void SetTimer(DispatcherTimer timer, bool enabled)
+    private void ArmAmbient(TimeSpan? delay)
     {
-        if (enabled) timer.Start();
-        else timer.Stop();
+        if (!delay.HasValue) { _ambientTimer.Stop(); return; }
+        var next = TimerDelay(delay.Value);
+        var remaining = _ambientTimer.Interval - _clock.GetElapsedTime(_ambientArmedAt);
+        if (_ambientTimer.IsEnabled && remaining <= next + TimeSpan.FromMilliseconds(2)) return;
+        _ambientArmedAt = _clock.GetTimestamp();
+        _ambientTimer.Interval = next;
+        _ambientTimer.Start();
     }
+    private static TimeSpan TimerDelay(TimeSpan value) => TimeSpan.FromMilliseconds(Math.Clamp(Math.Ceiling(value.TotalMilliseconds), 1, int.MaxValue - 1));
 }

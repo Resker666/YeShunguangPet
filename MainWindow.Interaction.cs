@@ -20,12 +20,12 @@ public partial class MainWindow
         _clickTimer.Tick += (_, _) =>
         {
             _clickTimer.Stop();
-            if (IsVisible && CanPlayDockAnimation && _settings.ClickInteraction && !EffectiveClickThrough && !_isDragging &&
-                !_isMenuOpen && _settingsWindow is null)
+            if (ActivityPlan.Click)
             {
                 PlayAnimation(PetState.Waving, restart: true);
                 _desktop?.Speak(this, SpeechEvent.Click);
             }
+            RefreshActivityTimers();
         };
     }
 
@@ -40,6 +40,7 @@ public partial class MainWindow
         _doublePress = e.ClickCount == 2;
         _pressScreen = CursorScreenPosition();
         CaptureMouse();
+        RefreshActivityTimers();
         e.Handled = true;
     }
 
@@ -53,7 +54,7 @@ public partial class MainWindow
             SystemParameters.MinimumHorizontalDragDistance, SystemParameters.MinimumVerticalDragDistance)) return;
         _pointerDown = false;
         ReleaseMouseCapture();
-        _isDragging = true;
+        _behavior.BeginDrag();
         LeaveDock();
         ApplyEffectiveWindowOptions();
         _lastDragLeft = Left;
@@ -79,10 +80,11 @@ public partial class MainWindow
             else
                 _clickTimer.Start();
         }
+        RefreshActivityTimers();
         e.Handled = true;
     }
 
-    private void Window_LostMouseCapture(object sender, MouseEventArgs e) => _pointerDown = false;
+    private void Window_LostMouseCapture(object sender, MouseEventArgs e) { _pointerDown = false; RefreshActivityTimers(); }
 
     private void CancelPointerInteraction()
     {

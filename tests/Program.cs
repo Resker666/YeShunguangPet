@@ -148,6 +148,7 @@ internal static class Program
             SpeechStudyTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusDialTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusControllerTests.Run((success, name) => Check(success, name));
+            PetBehaviorTests.Run((success, name) => Check(success, name));
             FocusLayoutTests.Run((success, name) => Check(success, name), catalog, _root);
             MiniMenuTests.Run((success, name) => Check(success, name), catalog, _root);
 
@@ -311,7 +312,7 @@ internal static class Program
                 "runtime disables missing action menu items");
             Check(window.Title == custom.Manifest.Name, "runtime title changes with skin");
             animation.Invoke(window, new object[] { PetState.Waving, true });
-            Check((PetState)type.GetField("_state", PrivateInstance)!.GetValue(window)! == PetState.Idle, "unsupported recall action falls back");
+            Check(window.Behavior.Animation == PetState.Idle, "unsupported recall action falls back");
         }
         finally
         {
