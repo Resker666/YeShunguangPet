@@ -170,6 +170,15 @@ public sealed class TrayMenu : ContextMenuStrip
             }
         }
         finally { ResumeLayout(); }
+        PerformLayout();
+        var baseWidth = Px(288);
+        var requiredBottom = Items.Cast<ToolStripItem>().Select(item => item.Bounds.Bottom).DefaultIfEmpty(Padding.Top).Max();
+        var safeHeight = Math.Max(Size.Height, requiredBottom + Padding.Bottom + Px(2));
+        if (Width != baseWidth || safeHeight != Height)
+        {
+            Size = new Size(baseWidth, safeHeight);
+            PerformLayout();
+        }
         UpdateOutline();
     }
 
