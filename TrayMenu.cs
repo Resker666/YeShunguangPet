@@ -177,7 +177,6 @@ public sealed class TrayMenu : ContextMenuStrip
         if (Width != baseWidth || safeHeight != Height)
         {
             Size = new Size(baseWidth, safeHeight);
-            PerformLayout();
         }
         UpdateOutline();
     }
