@@ -56,7 +56,8 @@ public sealed partial class DesktopSession
             }
             await Task.Delay(120, _captureLifetime.Token);
             var frame = (readScreen ?? ScreenCapture.ReadDesktop)();
-            _selection = new CaptureSelection(frame, cursor, copy, savePath, image => stagedPin = PinCapture(image, show: false));
+            _selection = new CaptureSelection(frame, cursor, copy, savePath,
+                pinAt: (image, region) => stagedPin = PinCapture(image, show: false, anchor: region));
             if (interact is not null)
             {
                 _selection.Prepare(mode, origin ?? new Point(frame.Bounds.X, frame.Bounds.Y));
@@ -82,14 +83,14 @@ public sealed partial class DesktopSession
         }
         if (!_disposed && result?.Output == CaptureOutput.Pin && stagedPin is not null) stagedPin.Show();
     }
-    public CapturePinWindow PinCapture(BitmapSource image, bool show = true, Action<BitmapSource>? copy = null)
+    public CapturePinWindow PinCapture(BitmapSource image, bool show = true, Action<BitmapSource>? copy = null, CaptureRect? anchor = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         CaptureRaster.ValidateSize(image.PixelWidth, image.PixelHeight);
         if (_pins.Count >= 8 || _pins.Sum(p => (long)p.Snapshot.PixelWidth * p.Snapshot.PixelHeight) + (long)image.PixelWidth * image.PixelHeight > 48_000_000)
             throw new InvalidOperationException("贴图已达上限（8 张或合计 4800 万像素），请先关闭部分贴图。");
         if (!image.IsFrozen) image = CaptureRaster.Crop(image, new Int32Rect(0, 0, image.PixelWidth, image.PixelHeight));
-        var pin = new CapturePinWindow(image, ++_pinSequence, copy);
+        var pin = new CapturePinWindow(image, ++_pinSequence, copy, anchor);
         pin.Closed += (_, _) => { _pins.Remove(pin); Changed?.Invoke(); };
         _pins.Add(pin);
         try { if (show) pin.Show(); Changed?.Invoke(); return pin; }

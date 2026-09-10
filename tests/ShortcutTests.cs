@@ -33,8 +33,9 @@ internal static class ShortcutTests
     {
         var config = JsonSerializer.Deserialize<DesktopConfiguration>("{\"SchemaVersion\":2,\"Pets\":[]}")!; config.Validate();
         check(config.Shortcuts.RecallAll == new ShortcutGesture(3, 0x59) && config.Shortcuts.Active().Count() == 1, "old desktops retain only the original recall hotkey by default");
-        check(new ShortcutGesture(7, 0x7A).ToString() == "Ctrl+Alt+Shift+F11" && new ShortcutGesture(3, 0x20).ToString() == "Ctrl+Alt+Space", "shortcut formatting is deterministic and uses no localized parsing");
-        foreach (var gesture in new[] { new ShortcutGesture(0, 0x59), new(2, 0x59), new(8, 0x59), new(0x4003, 0x59), new(3, 0x7B), new(3, 0x2E), new(3, 0) })
+        check(new ShortcutGesture(7, 0x7A).ToString() == "Ctrl+Alt+Shift+F11" && new ShortcutGesture(3, 0x20).ToString() == "Ctrl+Alt+Space" && new ShortcutGesture(1, 0x41).ToString() == "Alt+A", "shortcut formatting supports WeChat-style combinations without localized parsing");
+        new ShortcutGesture(1, 0x41).Validate();
+        foreach (var gesture in new[] { new ShortcutGesture(0, 0x59), new(8, 0x59), new(0x4003, 0x59), new(3, 0x7B), new(3, 0x2E), new(3, 0) })
             check(Rejects(gesture.Validate), "unsafe or unsupported shortcut is rejected: " + gesture);
         var first = new ShortcutGesture(3, 0x59); var second = new ShortcutGesture(6, 0x46); var third = new ShortcutGesture(7, 0x4D);
         var options = new ShortcutOptions { OpenFocus = second };

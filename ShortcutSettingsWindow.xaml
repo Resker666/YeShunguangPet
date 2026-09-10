@@ -17,11 +17,11 @@
                                           Checked="Draft_Changed" Unchecked="Draft_Changed" ToolTip="启用快捷键"/>
                             </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,6" IsEnabled="{Binding IsChecked, ElementName=EnabledCheck}">
-                                <ComboBox x:Name="ModifierChoice" Width="180" ItemsSource="{Binding ModifierChoices}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Modifiers, Mode=TwoWay}"
-                                          SelectionChanged="Draft_Changed" AutomationProperties.Name="修饰键"/>
-                                <TextBlock Text="+" Margin="10,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                                <ComboBox x:Name="KeyChoice" Width="96" ItemsSource="{Binding KeyChoices}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Key, Mode=TwoWay}"
-                                          SelectionChanged="Draft_Changed" AutomationProperties.Name="按键"/>
+                                <TextBox x:Name="GestureBox" Width="190" Height="34" Padding="10,0" VerticalContentAlignment="Center"
+                                         Text="{Binding GestureText}" IsReadOnly="True" PreviewKeyDown="Gesture_KeyDown"
+                                         ToolTip="点击后直接按下快捷键组合，例如 Alt+A" AutomationProperties.Name="快捷键输入框"/>
+                                <Button x:Name="ClearGestureButton" Width="34" Height="34" Margin="8,0,0,0" Style="{StaticResource IconButton}"
+                                        Content="&#xE711;" ToolTip="清除快捷键" AutomationProperties.Name="清除快捷键" Click="ClearGesture_Click"/>
                             </StackPanel>
                             <TextBlock Text="{Binding AppliedStatus}" Style="{StaticResource SecondaryLabel}" TextWrapping="Wrap"/>
                         </StackPanel>

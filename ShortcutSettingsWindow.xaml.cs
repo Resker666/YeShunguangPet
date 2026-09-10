@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Interop;
 
 namespace YeShunguangPet;
 
@@ -29,9 +31,44 @@ public partial class ShortcutSettingsWindow : ThemedWindow
     }
     private void Draft_Changed(object sender, RoutedEventArgs e)
     {
+        MarkDraftChanged();
+    }
+    private void MarkDraftChanged(string message = "有未保存的更改")
+    {
         if (_loading || _desktop is null || !IsLoaded) return;
         StatusText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "SecondaryTextBrush");
-        StatusText.Text = "有未保存的更改";
+        StatusText.Text = message;
+    }
+    private void Gesture_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ShortcutRow row }) return;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.LeftAlt or Key.RightAlt or Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift)
+        {
+            e.Handled = true;
+            return;
+        }
+        var modifiers = (uint)(Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift));
+        var virtualKey = (uint)KeyInterop.VirtualKeyFromKey(key);
+        if (modifiers == 0)
+        {
+            MarkDraftChanged("请至少按一个 Ctrl、Alt 或 Shift，再按字母、数字或功能键");
+            e.Handled = true;
+            return;
+        }
+        if (!ShortcutGesture.IsKeyAllowed(virtualKey))
+        {
+            MarkDraftChanged("暂不支持这个按键，请使用字母、数字、空格或 F1-F12");
+            e.Handled = true;
+            return;
+        }
+        row.Modifiers = modifiers; row.Key = virtualKey;
+        MarkDraftChanged(); e.Handled = true;
+    }
+    private void ClearGesture_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is ShortcutRow row) row.Enabled = false;
+        MarkDraftChanged();
     }
     private void Defaults_Click(object sender, RoutedEventArgs e) { LoadRows(new ShortcutOptions()); Draft_Changed(sender, e); }
     private bool SaveOptions()
@@ -54,7 +91,6 @@ public partial class ShortcutSettingsWindow : ThemedWindow
     }
     private void Save_Click(object sender, RoutedEventArgs e) { if (SaveOptions()) DialogResult = true; }
 
-    public sealed record Choice(uint Value, string Label);
     public sealed class ShortcutRow : INotifyPropertyChanged
     {
         private bool _enabled;
@@ -65,11 +101,8 @@ public partial class ShortcutSettingsWindow : ThemedWindow
         public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
         public uint Modifiers { get => _modifiers; set => Set(ref _modifiers, value); }
         public uint Key { get => _key; set => Set(ref _key, value); }
+        public string GestureText => Enabled ? new ShortcutGesture(Modifiers, Key).ToString() : "未设置";
         public string AppliedStatus { get; }
-        public IReadOnlyList<Choice> ModifierChoices { get; } = new[] {
-            new Choice(3, "Ctrl + Alt"), new Choice(6, "Ctrl + Shift"), new Choice(5, "Alt + Shift"), new Choice(7, "Ctrl + Alt + Shift") };
-        public IReadOnlyList<Choice> KeyChoices { get; } = Enumerable.Range(0, 256).Where(k => ShortcutGesture.IsKeyAllowed((uint)k))
-            .Select(k => new Choice((uint)k, new ShortcutGesture(3, (uint)k).KeyLabel)).ToArray();
         public ShortcutRow(ShortcutAction action, ShortcutGesture? gesture, string status)
         {
             Action = action; Enabled = gesture is not null; Modifiers = gesture?.Modifiers ?? 3;
@@ -80,6 +113,7 @@ public partial class ShortcutSettingsWindow : ThemedWindow
         {
             if (EqualityComparer<T>.Default.Equals(field, value)) return;
             field = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            if (name is nameof(Enabled) or nameof(Modifiers) or nameof(Key)) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GestureText)));
         }
     }
 }

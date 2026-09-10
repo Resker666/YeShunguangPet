@@ -17,11 +17,12 @@ public sealed class CapturePinWindow : ThemedWindow
     private readonly Border _tools;
     private readonly ToggleButton _pin;
     private readonly ContextMenu _menu;
+    private readonly CaptureRect? _anchor;
     private double _zoom = 1;
     public double Zoom => _zoom;
-    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null)
+    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null)
     {
-        Snapshot = image; _copy = copy ?? Clipboard.SetImage;
+        Snapshot = image; _copy = copy ?? Clipboard.SetImage; _anchor = anchor;
         Title = $"贴图 {number}"; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; ShowInTaskbar = false; Topmost = true; ShowActivated = false; Background = Brushes.Transparent;
         var grid = new Grid();
@@ -66,7 +67,12 @@ public sealed class CapturePinWindow : ThemedWindow
             else if (e.Key is Key.D0 or Key.NumPad0) ResetZoom(); else return;
             e.Handled = true;
         };
-        Loaded += (_, _) => { ResetZoom(); NativeMethods.EnsureWindowInWorkArea(this); };
+        Loaded += (_, _) =>
+        {
+            ResetZoom();
+            if (_anchor is { } anchor) NativeMethods.MoveWindowPixels(this, anchor.X, anchor.Y);
+            NativeMethods.EnsureWindowInWorkArea(this);
+        };
         Closed += (_, _) => { _menu.IsOpen = false; (_menu as IDisposable)?.Dispose(); ContextMenu = null; _image.Source = null; };
         Width = Math.Max(96, Math.Min(image.PixelWidth, 800)); Height = Math.Max(48, Width * image.PixelHeight / image.PixelWidth);
     }

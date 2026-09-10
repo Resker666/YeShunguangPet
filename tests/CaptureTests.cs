@@ -102,7 +102,7 @@ internal static class CaptureTests
         var monitor = new CaptureRect(-1000, 0, 1000, 700);
         foreach (var area in new[] { new CaptureRect(-900, 40, 300, 180), new CaptureRect(-400, 570, 390, 120), monitor })
         {
-            var toolbar = CaptureRegion.PlaceToolbar(area, monitor, new Size(436, 80));
+            var toolbar = CaptureRegion.PlaceToolbar(area, monitor, new Size(640, 100));
             check(monitor.ToRect().Contains(toolbar), "floating toolbar stays on its monitor near every screen edge");
         }
         var doc = new CaptureDocument(image); doc.SetSelection(new Int32Rect(100, 100, 100, 100), initial: true);
@@ -111,8 +111,9 @@ internal static class CaptureTests
         check(Pixel(doc.Flatten(), 10, 10).SequenceEqual(Pixel(image, 60, 60)) && Pixel(doc.Flatten(), 70, 70)[0] == 0, "expanded region reveals original pixels while annotations remain anchored to the desktop");
         doc.Undo(); check(doc.Crop.Width == 100 && doc.Marks.Count == 1, "selection adjustment is undoable without removing marks");
         var frame = new CaptureFrame(image, bounds, new[] { new CaptureRect(-300, -200, 300, 360), new CaptureRect(0, -200, 300, 360) });
-        using var current = new CaptureSelection(frame); current.Prepare(CaptureMode.CurrentScreen, new Point(30, 0)); current.Complete(CaptureOutput.Pin);
-        check(current.Result.Result?.Image?.PixelWidth == 300 && current.Selection == frame.Monitors[1], "current-screen mode selects exactly the cursor monitor without edge omissions");
+        CaptureRect? currentAnchor = null;
+        using var current = new CaptureSelection(frame, pinAt: (_, region) => currentAnchor = region); current.Prepare(CaptureMode.CurrentScreen, new Point(30, 0)); current.Complete(CaptureOutput.Pin);
+        check(current.Result.Result?.Image?.PixelWidth == 300 && current.Selection == frame.Monitors[1] && currentAnchor == frame.Monitors[1], "current-screen mode selects exactly the cursor monitor and passes its anchor to pin output");
         using var all = new CaptureSelection(frame); all.Prepare(CaptureMode.AllScreens, new Point()); all.Complete(CaptureOutput.Pin);
         check(all.Selection == bounds && all.Result.Result?.Image?.PixelWidth == 600 && all.Result.Result.Image.PixelHeight == 360, "all-screens mode includes the complete virtual desktop bounds");
         using var blockedPin = new CaptureSelection(frame, pin: _ => throw new InvalidOperationException("pin limit"));

@@ -13,8 +13,8 @@ public sealed record ShortcutGesture(uint Modifiers, uint Key)
     public static bool IsKeyAllowed(uint key) => key is >= 0x30 and <= 0x39 or >= 0x41 and <= 0x5A or >= 0x70 and <= 0x7A or 0x20;
     public void Validate()
     {
-        if (Modifiers is not (3 or 5 or 6 or 7) || !IsKeyAllowed(Key))
-            throw new InvalidDataException("快捷键需使用至少两个 Ctrl/Alt/Shift 修饰键，以及字母、数字、空格或 F1-F11。");
+        if (Modifiers is < 1 or > 7 || !IsKeyAllowed(Key))
+            throw new InvalidDataException("快捷键需使用 Ctrl、Alt 或 Shift 修饰键，以及字母、数字、空格或 F1-F12。");
     }
     [JsonIgnore] public string KeyLabel => Key == 0x20 ? "Space" : Key is >= 0x70 and <= 0x7A ? $"F{Key - 0x6F}" : ((char)Key).ToString();
     public override string ToString() => string.Join("+", new[] { (Modifiers & 2) != 0 ? "Ctrl" : null,

@@ -10,7 +10,7 @@ public partial class CaptureToolbarWindow : ThemedWindow
 {
     private readonly CaptureSelection _capture;
     private bool _refreshing;
-    internal double CommandHeight => CommandRow.ActualHeight + 14;
+    internal double CommandHeight => CommandRow.ActualHeight + 20;
     internal double OptionsHeight => ToolOptions.Visibility == Visibility.Visible ? ToolOptions.ActualHeight + 6 : 0;
     public CaptureToolbarWindow(CaptureSelection capture)
     {

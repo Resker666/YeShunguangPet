@@ -24,6 +24,7 @@ public sealed class CaptureSelection : IDisposable
     private readonly Func<Point> _cursor;
     private readonly Action<BitmapSource> _copy;
     private readonly Action<BitmapSource>? _pin;
+    private readonly Action<BitmapSource, CaptureRect>? _pinAt;
     private readonly Func<Window, string?>? _savePath;
     private readonly List<Window> _windows = new();
     private readonly TaskCompletionSource<CaptureResult?> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -48,10 +49,10 @@ public sealed class CaptureSelection : IDisposable
     public bool HasSelection => Selection.HasArea;
     public bool IsDragging => _region.IsDragging || _painting;
 
-    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null)
+    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null)
     {
         if (frame.Monitors.Count == 0 || frame.Image.PixelWidth != frame.Bounds.Width || frame.Image.PixelHeight != frame.Bounds.Height) throw new ArgumentException("Invalid capture frame.");
-        _frame = frame; _cursor = cursorPosition ?? ScreenCapture.CursorPosition; _copy = copy ?? Clipboard.SetImage; _savePath = savePath; _pin = pin;
+        _frame = frame; _cursor = cursorPosition ?? ScreenCapture.CursorPosition; _copy = copy ?? Clipboard.SetImage; _savePath = savePath; _pin = pin; _pinAt = pinAt;
         _region = new CaptureRegion(frame.Bounds); Document = new CaptureDocument(frame.Image); _annotation = new CaptureSurface(Document);
         Document.Changed += OnDocumentChanged; _annotation.Error += ShowError;
     }
@@ -183,7 +184,7 @@ public sealed class CaptureSelection : IDisposable
                 if (path is null) { _toolbar?.Activate(); return false; }
                 CaptureRaster.SavePng(image, path);
             }
-            else if (output == CaptureOutput.Pin) _pin?.Invoke(image);
+            else if (output == CaptureOutput.Pin) { _pinAt?.Invoke(image, Selection); _pin?.Invoke(image); }
             else throw new ArgumentOutOfRangeException(nameof(output));
             Finish(new CaptureResult(output, Selection, output == CaptureOutput.Pin ? image : null)); return true;
         }
@@ -211,7 +212,7 @@ public sealed class CaptureSelection : IDisposable
         {
             if (!_frame.Monitors[_toolbarMonitor].ToRect().IntersectsWith(Selection.ToRect())) _toolbarMonitor = MonitorAt(new Point(Selection.Right - 1, Selection.Bottom - 1));
             var monitor = _frame.Monitors[_toolbarMonitor]; var dpi = VisualTreeHelper.GetDpi(_toolbar);
-            _toolbar.Width = Math.Min(436, Math.Max(80, (monitor.Width - 16) / dpi.DpiScaleX));
+            _toolbar.Width = Math.Min(640, Math.Max(80, (monitor.Width - 16) / dpi.DpiScaleX));
             _toolbar.UpdateLayout();
             var size = new Size(_toolbar.ActualWidth * dpi.DpiScaleX, _toolbar.ActualHeight * dpi.DpiScaleY);
             if (size.Width < 1 || size.Height < 1) return;
