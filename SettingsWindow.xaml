@@ -224,7 +224,7 @@
                 </ui:SmoothScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="CompanionTab" Header="全局陪伴">
+            <TabItem x:Name="CompanionTab" Header="专注与休息">
                 <ui:SmoothScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
                         <DockPanel LastChildFill="False">
@@ -238,7 +238,7 @@
                         </DockPanel>
                         <Slider x:Name="BreakMinutesSlider" Minimum="1" Maximum="60" TickFrequency="1" IsSnapToTickEnabled="True" />
                         <CheckBox x:Name="PauseDuringFocusCheckBox" Content="专注时暂停随机动作与走动" />
-                        <CheckBox x:Name="SessionAnimationCheckBox" Content="学习状态动作联动" />
+                        <CheckBox x:Name="SessionAnimationCheckBox" Content="专注与休息动作联动" />
                         <Separator Margin="0,8" />
                         <CheckBox x:Name="BreakRemindersCheckBox" Content="定时休息提醒" />
                         <DockPanel LastChildFill="False">

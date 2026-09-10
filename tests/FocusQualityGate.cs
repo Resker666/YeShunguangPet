@@ -45,7 +45,7 @@ internal static class FocusQualityGate
             {
                 VerifyVisualComparator(check);
                 report["visuals"] = FocusVisualGate.Run(source, output);
-                check(true, "six normalized timer screenshots match pre-refactor baselines");
+                check(true, "six normalized timer screenshots match reviewed focus baselines");
                 report["lifecycle"] = Lifecycle(check, pet, soakSeconds, output);
             }
             finally { keeper.Close(); app.Shutdown(); }

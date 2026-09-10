@@ -76,7 +76,8 @@ public partial class FocusWindow : ThemedWindow
         _pet = pet;
         _frames.Clear();
         _avatarAnimation = null;
-        PetName.Text = pet.Manifest.Name;
+        PetImage.ToolTip = pet.Manifest.Name;
+        System.Windows.Automation.AutomationProperties.SetName(PetImage, pet.Manifest.Name);
         RefreshAvatar();
     }
 
@@ -252,7 +253,7 @@ public partial class FocusWindow : ThemedWindow
         if (_runtime is not null)
         {
             var today = _runtime.History.Totals(_runtime.Today);
-            TodaySummary.Text = (_compactLayout ? string.Empty : $"今日 {today.Minutes} 分钟 · ") + (_runtime.History.LastError is null ? "学习记录" : "记录未保存");
+            TodaySummary.Text = (_compactLayout ? string.Empty : $"今日 {today.Minutes} 分钟 · ") + (_runtime.History.LastError is null ? "专注记录" : "记录未保存");
             HistoryButton.ToolTip = _runtime.History.LastError;
         }
         RefreshAvatar();

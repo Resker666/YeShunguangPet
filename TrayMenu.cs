@@ -28,7 +28,7 @@ public sealed class TrayMenu : ContextMenuStrip
         AccessibleName = "桌面宠物托盘菜单";
         Items.Add(new SectionLabel("常用入口"));
         AddCommand("manager", "角色管理", desktop.OpenManager);
-        AddCommand("focus", "学习陪伴", desktop.OpenFocus);
+        AddCommand("focus", "专注计时", desktop.OpenFocus);
         Items.Add(new ToolStripSeparator());
         _roles = new SectionLabel("桌面角色");
         Items.Add(_roles);

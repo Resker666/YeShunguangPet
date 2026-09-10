@@ -88,7 +88,7 @@ public partial class MainWindow
         BeginMenuInteraction();
         try
         {
-            if (AppDialog.Show(this, $"关闭“{_pet.Manifest.Name}”？\n皮肤文件和学习计时会保留。", "关闭角色", MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.OK)
+            if (AppDialog.Show(this, $"关闭“{_pet.Manifest.Name}”？\n皮肤文件和专注计时会保留。", "关闭角色", MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.OK)
                 _desktop.Remove(this);
         }
         catch (Exception ex) { MessageBox.Show(ex.Message, "无法关闭角色", MessageBoxButton.OK, MessageBoxImage.Information); }

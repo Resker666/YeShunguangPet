@@ -72,6 +72,7 @@ internal static class SpeechStudyUiTests
             try
             {
                 ShowOffscreen(stats);
+                check(stats.Title == "专注记录", "existing completion history opens with the neutral focus-record title");
                 check(((ListView)stats.FindName("RecordList")).Items.Count == 7, "study window lists persisted completion snapshots");
                 ((ComboBox)stats.FindName("RangeChoice")).SelectedIndex = 1;
                 check(((ListView)stats.FindName("RecordList")).Items.Count == 1, "today filter uses recorded local completion dates");

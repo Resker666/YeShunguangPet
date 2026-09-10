@@ -32,7 +32,7 @@ public sealed class StudyHistory
     {
         _path = path is null ? null : Path.GetFullPath(path);
         try { _document = Read(); }
-        catch (Exception ex) { _loadFailed = true; LastError = "学习记录无法读取，原文件未修改：" + ex.Message; AppLogger.Error("Could not load study history.", ex); }
+        catch (Exception ex) { _loadFailed = true; LastError = "专注记录无法读取，原文件未修改：" + ex.Message; AppLogger.Error("Could not load study history.", ex); }
     }
 
     public bool Record(FocusCompletion completion)
@@ -48,7 +48,7 @@ public sealed class StudyHistory
         if (_document.Records.Any(r => r.Id == completion.Id)) return false;
         if (_document.Records.Count >= MaxRecords)
         {
-            LastError = "学习记录已达到容量上限，本次记录未加入。";
+            LastError = "专注记录已达到容量上限，本次记录未加入。";
             Changed?.Invoke();
             return false;
         }
@@ -62,7 +62,7 @@ public sealed class StudyHistory
     public void SetGoal(int minutes)
     {
         if (minutes is < 1 or > 720) throw new InvalidDataException("每日目标需为 1-720 分钟。");
-        if (_loadFailed) throw new InvalidDataException("请先恢复学习记录文件，再修改目标。");
+        if (_loadFailed) throw new InvalidDataException("请先恢复专注记录文件，再修改目标。");
         var previous = _document.DailyGoalMinutes;
         _document.DailyGoalMinutes = minutes;
         _dirty = true;
@@ -91,7 +91,7 @@ public sealed class StudyHistory
                 _dirty = pending.Count > 0;
                 LastError = null;
             }
-            catch (Exception ex) { LastError = "学习记录仍无法读取：" + ex.Message; Changed?.Invoke(); return false; }
+            catch (Exception ex) { LastError = "专注记录仍无法读取：" + ex.Message; Changed?.Invoke(); return false; }
         }
         var success = Flush();
         Changed?.Invoke();
@@ -108,7 +108,7 @@ public sealed class StudyHistory
         {
             Validate(_document);
             var bytes = JsonSerializer.SerializeToUtf8Bytes(_document, JsonOptions);
-            if (bytes.Length > MaxBytes) throw new InvalidDataException("学习记录超出容量限制。");
+            if (bytes.Length > MaxBytes) throw new InvalidDataException("专注记录超出容量限制。");
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
             File.WriteAllBytes(temporary, bytes);
             if (File.Exists(_path)) File.Replace(temporary, _path, _path + ".bak");
@@ -117,7 +117,7 @@ public sealed class StudyHistory
             LastError = null;
             return true;
         }
-        catch (Exception ex) { LastError = "学习记录未保存，新增记录仅保留在本次运行中：" + ex.Message; AppLogger.Error("Could not persist study history.", ex); return false; }
+        catch (Exception ex) { LastError = "专注记录未保存，新增记录仅保留在本次运行中：" + ex.Message; AppLogger.Error("Could not persist study history.", ex); return false; }
         finally { try { if (File.Exists(temporary)) File.Delete(temporary); } catch (Exception ex) { AppLogger.Error("Could not clean study history staging file.", ex); } }
     }
 
@@ -135,23 +135,23 @@ public sealed class StudyHistory
     {
         if (_path is null || !File.Exists(_path)) return new Document();
         using var stream = File.OpenRead(_path);
-        if (stream.Length > MaxBytes) throw new InvalidDataException("学习记录文件超出容量限制。");
+        if (stream.Length > MaxBytes) throw new InvalidDataException("专注记录文件超出容量限制。");
         var bytes = new byte[(int)stream.Length];
         stream.ReadExactly(bytes);
         if (bytes.AsSpan().StartsWith(new byte[] { 239, 187, 191 })) bytes = bytes[3..];
         using var json = JsonDocument.Parse(bytes);
         if (!json.RootElement.TryGetProperty("SchemaVersion", out var version) || !version.TryGetInt32(out var n) || n != 1)
-            throw new InvalidDataException("学习记录版本不受支持。");
-        var document = JsonSerializer.Deserialize<Document>(bytes, JsonOptions) ?? throw new InvalidDataException("学习记录为空。");
+            throw new InvalidDataException("专注记录版本不受支持。");
+        var document = JsonSerializer.Deserialize<Document>(bytes, JsonOptions) ?? throw new InvalidDataException("专注记录为空。");
         Validate(document);
         return document;
     }
     private static void Validate(Document document)
     {
         if (document.SchemaVersion != 1 || document.DailyGoalMinutes is < 1 or > 720 || document.Records is null || document.Records.Count > MaxRecords)
-            throw new InvalidDataException("学习记录内容无效。");
+            throw new InvalidDataException("专注记录内容无效。");
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var record in document.Records) { ValidateRecord(record); if (!ids.Add(record.Id)) throw new InvalidDataException("学习记录编号重复。"); }
+        foreach (var record in document.Records) { ValidateRecord(record); if (!ids.Add(record.Id)) throw new InvalidDataException("专注记录编号重复。"); }
     }
     private static void ValidateRecord(FocusCompletion record)
     {

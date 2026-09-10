@@ -124,6 +124,12 @@ internal static class FocusLayoutTests
                 window.ShowActivated = window.ShowInTaskbar = false;
                 window.Show(); Wait(100);
                 check(window.ResizeMode == ResizeMode.CanResize, "focus window retains native resizing and maximization");
+                check(window.Title == "专注计时" && window.FindName("PetName") is null, "full timer uses a neutral title without a repeated character name");
+                check(window.FontFamily.Source == "Segoe UI, Microsoft YaHei UI" && Control<TextBox>(window, "MinutesInput").FontWeight == FontWeights.Normal &&
+                      Control<TextBlock>(window, "TimeText").FontWeight == FontWeights.Normal, "full and mini timer typography use the same regular-weight system font family");
+                check(Equals(Control<Image>(window, "PetImage").ToolTip, desktop.Windows.First().Package.Manifest.Name) &&
+                      System.Windows.Automation.AutomationProperties.GetName(Control<Image>(window, "PetImage")) == desktop.Windows.First().Package.Manifest.Name,
+                    "full timer keeps character identity in avatar tooltip and accessibility name");
                 foreach (var size in new[] { new Size(320, 460), new Size(400, 560), new Size(600, 720) })
                 {
                     desktop.Companion.Session.Reset();
@@ -134,6 +140,7 @@ internal static class FocusLayoutTests
                     var dial = Control<DurationDial>(window, "Dial");
                     var frame = Control<Grid>(window, "DialFrame");
                     check(scroll.ScrollableWidth == 0 && scroll.ScrollableHeight == 0, "responsive timer fits without scrolling at " + name);
+                    check(Control<Image>(window, "PetImage").ActualWidth <= 28 && Control<TextBlock>(window, "TodaySummary").Text.EndsWith("专注记录"), "subtle avatar and neutral history label survive layout changes at " + name);
                     check(Math.Abs(dial.ActualWidth - dial.ActualHeight) < 1 && dial.ActualWidth is >= 188 and <= 312, "dial remains circular and bounded at " + name);
                     foreach (var controlName in new[] { "ToggleButton", "ResetButton", "SkipButton", "HistoryButton", "Presets", "DialFrame" })
                         check(IsInside(Control<FrameworkElement>(window, controlName), scroll), controlName + " remains inside the visible client area at " + name);
@@ -158,7 +165,7 @@ internal static class FocusLayoutTests
                 }
                 foreach (var name in new[] { "Dial", "DialFrame", "MinutesInput", "TimeText", "ToggleText", "Preset1", "TodaySummary", "FocusMode" })
                     check(!(bool)Call(window, "IsWindowDragTarget", Control<DependencyObject>(window, name))!, "window dragging excludes " + name);
-                check((bool)Call(window, "IsWindowDragTarget", Control<DependencyObject>(window, "PetName"))! &&
+                check((bool)Call(window, "IsWindowDragTarget", Control<DependencyObject>(window, "PetImage"))! &&
                       (bool)Call(window, "IsWindowDragTarget", Control<DependencyObject>(window, "ContentRoot"))!, "header and noninteractive blank areas can move the window");
                 desktop.Companion.Session.Reset();
                 window.Controller.BeginMinuteEdit();

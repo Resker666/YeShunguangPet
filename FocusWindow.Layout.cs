@@ -83,15 +83,15 @@ public partial class FocusWindow
             FocusScroll.HorizontalScrollBarVisibility = width < 272 + xPadding * 2 ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
             var errors = (DurationError.Text.Length > 0 ? 38 : 0) + (WindowError.Text.Length > 0 ? 38 : 0);
             ContentRoot.Height = Math.Max((_compactLayout ? 392 : 439) - (CanEdit ? 0 : 36) + errors, Math.Min(660, height - yPadding * 2));
-            HeaderRow.Height = _compactLayout ? 32 : 46;
-            PetImage.Width = _compactLayout ? 30 : 40;
-            PetImage.Height = _compactLayout ? 32 : 44;
+            HeaderRow.Height = _compactLayout ? 32 : 36;
+            PetImage.Width = _compactLayout ? 24 : 28;
+            PetImage.Height = _compactLayout ? 28 : 32;
             SessionsText.Visibility = _compactLayout ? Visibility.Collapsed : Visibility.Visible;
             DurationText.Visibility = _compactLayout ? Visibility.Collapsed : Visibility.Visible;
             if (compactChanged && _runtime is not null)
             {
                 var today = _runtime.History.Totals(_runtime.Today);
-                TodaySummary.Text = (_compactLayout ? string.Empty : $"今日 {today.Minutes} 分钟 · ") + (_runtime.History.LastError is null ? "学习记录" : "记录未保存");
+                TodaySummary.Text = (_compactLayout ? string.Empty : $"今日 {today.Minutes} 分钟 · ") + (_runtime.History.LastError is null ? "专注记录" : "记录未保存");
             }
             UpdateDialSize();
         }

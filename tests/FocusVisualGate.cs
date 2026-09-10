@@ -111,7 +111,7 @@ internal static class FocusVisualGate
         var root = (FrameworkElement)window.Content;
         // Compare client content at fixed 96-DPI dimensions, independent of native titlebar metrics.
         root.Width = mode == "full" ? 384 : mode == "compact" ? 304 : 320;
-        root.Height = mode == "full" ? 521 : mode == "compact" ? 421 : 128;
+        root.Height = mode == "full" ? 521 : mode == "compact" ? 421 : 104;
         root.Measure(new Size(root.Width, root.Height));
         root.Arrange(new Rect(0, 0, root.Width, root.Height));
         root.UpdateLayout();

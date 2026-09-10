@@ -108,7 +108,15 @@ public partial class FocusWindow
 
     private void RefreshMiniStatus()
     {
-        MiniPhaseText.Text = WindowError.Text.Length > 0 ? "设置未保存" : PhaseText.Text;
+        MiniTitleText.Text = _session.Phase == SessionPhase.Focus ? "专注" : "休息";
+        MiniPhaseText.Text = WindowError.Text.Length > 0 ? "设置未保存" : _session.Status switch
+        {
+            SessionStatus.Ready => "准备",
+            SessionStatus.Running => "进行中",
+            SessionStatus.Paused => "已暂停",
+            _ => "已完成"
+        };
+        System.Windows.Automation.AutomationProperties.SetName(MiniPhaseText, WindowError.Text.Length > 0 ? "设置未保存" : PhaseText.Text);
         MiniPhaseText.ToolTip = WindowError.Text.Length > 0 ? WindowError.Text : null;
         MiniProgress.Value = _session.Status == SessionStatus.Ready ? 0 : Math.Clamp(_session.Remaining.TotalSeconds / _session.Duration.TotalSeconds, 0, 1);
     }

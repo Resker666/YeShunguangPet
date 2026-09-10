@@ -568,7 +568,7 @@ public partial class MainWindow : Window
     {
         (ContextMenu as PetContextMenu)?.Dispose();
         var menu = new PetContextMenu();
-        menu.Items.Add(CreateMenuItem("学习陪伴", (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow), icon: "\uE916"));
+        menu.Items.Add(CreateMenuItem("专注计时", (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow), icon: "\uE916"));
         menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE713"));
         menu.Items.Add(CreateMenuItem("查看角色介绍", (_, _) => Dispatcher.BeginInvoke(OpenAbout), icon: "\uE946"));
         if (_desktop is not null) menu.Items.Add(CreateMenuItem("角色管理", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE716"));

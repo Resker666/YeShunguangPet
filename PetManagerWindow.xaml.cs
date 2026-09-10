@@ -182,7 +182,7 @@ public partial class PetManagerWindow : ThemedWindow
 
     private void Remove(PetCard card)
     {
-        if (AppDialog.Show(this, $"关闭“{card.Name}”？皮肤文件和学习计时都会保留。", "关闭角色", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        if (AppDialog.Show(this, $"关闭“{card.Name}”？皮肤文件和专注计时都会保留。", "关闭角色", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
         Run(() => { _pendingSaves.Remove(card.Window); _desktop.Remove(card.Window); });
     }
     private void More_Click(object sender, RoutedEventArgs e)

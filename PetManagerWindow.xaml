@@ -23,7 +23,7 @@
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Top" Margin="10,0,0,26"><TextBlock Text="桌面宠物" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="控制中心" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5,0,0"/></StackPanel>
                 <StackPanel DockPanel.Dock="Bottom">
-                    <Button HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Click="Focus_Click" Margin="0,0,0,4"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7BE;" Margin="0,0,10,0"/><TextBlock Text="学习陪伴"/></StackPanel></Button>
+                    <Button x:Name="FocusNav" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Click="Focus_Click" Margin="0,0,0,4"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7BE;" Margin="0,0,10,0"/><TextBlock Text="专注计时"/></StackPanel></Button>
                     <Button HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Click="RecallAll_Click"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE80F;" Margin="0,0,10,0"/><TextBlock Text="召回全部"/></StackPanel></Button>
                     <Separator/>
                     <CheckBox x:Name="QuietCheck" Content="勿扰" Margin="8,0" Checked="Quiet_Changed" Unchecked="Quiet_Changed"/>
@@ -86,8 +86,8 @@
                             <CheckBox x:Name="StartupCheck" Content="开机启动" Margin="0,0,0,12" Checked="Startup_Changed" Unchecked="Startup_Changed"/>
                             <CheckBox x:Name="NotificationsCheck" Content="桌面通知与完成动作" Checked="Notifications_Changed" Unchecked="Notifications_Changed"/>
                             <Separator Margin="0,24,0,18"/>
-                            <Button Style="{StaticResource LinkButton}" Content="全局陪伴设置" HorizontalAlignment="Left" Click="CompanionSettings_Click"/>
-                            <Button Style="{StaticResource LinkButton}" Content="学习记录" HorizontalAlignment="Left" Click="History_Click"/>
+                            <Button x:Name="FocusSettingsLink" Style="{StaticResource LinkButton}" Content="专注与休息设置" HorizontalAlignment="Left" Click="CompanionSettings_Click"/>
+                            <Button x:Name="FocusHistoryLink" Style="{StaticResource LinkButton}" Content="专注记录" HorizontalAlignment="Left" Click="History_Click"/>
                             <Button Style="{StaticResource LinkButton}" Content="角色台词" HorizontalAlignment="Left" Click="Speech_Click"/>
                             <Button x:Name="DiagnosticsButton" Style="{StaticResource LinkButton}" Content="诊断与日志" HorizontalAlignment="Left" Click="Diagnostics_Click"/>
                         </StackPanel>
