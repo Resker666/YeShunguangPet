@@ -161,7 +161,10 @@ public sealed class TrayMenu : ContextMenuStrip
                 item.Margin = Padding.Empty;
                 item.Size = new Size(width - Padding.Horizontal, Px(item is SectionLabel ? 28 : item is ToolStripSeparator ? 12 : 36));
             }
-            Size = new Size(width, Padding.Vertical + Items.Cast<ToolStripItem>().Sum(item => item.Height));
+            var contentHeight = Items.Cast<ToolStripItem>().Sum(item => item.Height);
+            var minimumHeight = Padding.Vertical + contentHeight + Px(4);
+            MinimumSize = new Size(width, minimumHeight);
+            Size = new Size(width, minimumHeight);
             foreach (var group in new[] { _captureMenu, _pinsMenu })
             {
                 group.DropDown.Padding = new Padding(Px(6)); group.DropDown.AutoSize = false;
