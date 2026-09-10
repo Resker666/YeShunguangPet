@@ -74,6 +74,16 @@ internal static class NativeMethods
         return hwnd != IntPtr.Zero && RegisterHotKey(hwnd, id, modifiers, virtualKey);
     }
 
+    internal static bool IsWindowInputEnabled(Window window)
+    {
+        var handle = new WindowInteropHelper(window).Handle;
+        return handle == IntPtr.Zero || IsWindowEnabled(handle);
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowEnabled(IntPtr hwnd);
+
     public static void UnregisterGlobalHotKey(Window window, int id)
     {
         var hwnd = new WindowInteropHelper(window).Handle;

@@ -78,6 +78,19 @@ public sealed class CompanionRuntime : IDisposable
     }
 
     internal string? AvatarInstance => _avatarInstance;
+    internal void ToggleFromShortcut()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_window is not null) { _window.ToggleFromShortcut(); return; }
+        using var controller = new FocusPanelController(Session, Settings, SetDurations);
+        if (!controller.Toggle()) throw new InvalidOperationException(controller.Error);
+    }
+    internal void ToggleMiniFromShortcut(bool ensureMini = false)
+    {
+        if (_disposed || _window is null) return;
+        if (!_window.SetMiniMode(ensureMini || !_window.IsMiniMode)) throw new InvalidOperationException("无法切换面板，请检查分钟输入和窗口设置。");
+        _window.Activate();
+    }
     internal bool IsDisposed => _disposed;
     internal void FlushDurationEdits() => _window?.CommitPendingDurations();
     internal void FlushWindowPlacement() => _window?.SaveWindowPlacement();

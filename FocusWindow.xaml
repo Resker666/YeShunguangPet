@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:YeShunguangPet"
         Title="专注计时" Width="400" Height="560" MinWidth="320" MinHeight="460"
-        FontFamily="Segoe UI, Microsoft YaHei UI" TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
+        FontFamily="{DynamicResource AppFont}" TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
         ResizeMode="CanResize" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}">
     <ui:ThemedWindow.Resources>

@@ -9,7 +9,7 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         Background="{DynamicResource SurfaceBrush}"
-        FontFamily="Segoe UI Variable, Segoe UI, Microsoft YaHei UI">
+        FontFamily="{DynamicResource AppFont}">
     <ui:ThemedWindow.Resources>
         <Style TargetType="Button" BasedOn="{StaticResource AppButton}">
             <Setter Property="MinHeight" Value="32" />
@@ -145,12 +145,14 @@
                             <StackPanel>
                                 <TextBlock Text="召回快捷键" FontWeight="SemiBold" />
                                 <TextBlock x:Name="HotkeyStatusText"
+                                           TextWrapping="Wrap"
                                            Margin="0,4,0,0"
                                            Foreground="{DynamicResource SecondaryTextBrush}" />
                             </StackPanel>
-                            <Button Grid.Column="1"
-                                    Content="立即召回"
-                                    Click="Recall_Click" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                                <Button x:Name="ShortcutsButton" Style="{StaticResource IconButton}" ToolTip="配置快捷键" AutomationProperties.Name="配置快捷键" Click="Shortcuts_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE765;"/></Button>
+                                <Button Content="立即召回" Margin="8,0,0,0" Click="Recall_Click"/>
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </ui:SmoothScrollViewer>

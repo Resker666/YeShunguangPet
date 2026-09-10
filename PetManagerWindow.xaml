@@ -15,7 +15,7 @@
                 </ControlTemplate.Triggers>
             </ControlTemplate></Setter.Value></Setter>
         </Style>
-        <Style x:Key="SectionTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,0,0,14"/></Style>
+        <Style x:Key="SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource SectionHeading}"/>
     </ui:ThemedWindow.Resources>
     <Grid>
         <Grid.ColumnDefinitions><ColumnDefinition Width="164"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -40,7 +40,7 @@
                 <Grid Margin="0,0,6,0">
                     <StackPanel x:Name="RolesPage">
                         <Grid Margin="0,0,0,24"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel><TextBlock Text="桌面角色" FontSize="24" FontWeight="SemiBold"/><TextBlock x:Name="CountText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,7,0,0"/></StackPanel>
+                            <StackPanel><TextBlock Text="桌面角色" Style="{StaticResource PageHeading}"/><TextBlock x:Name="CountText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,7,0,0"/></StackPanel>
                             <Button x:Name="AddButton" Grid.Column="1" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Click="Add_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" Margin="0,0,8,0"/><TextBlock Text="添加角色"/></StackPanel></Button>
                         </Grid>
                         <Grid>
@@ -74,7 +74,7 @@
                         </ContentControl>
                     </StackPanel>
                     <StackPanel x:Name="SettingsPage" Visibility="Collapsed">
-                        <TextBlock Text="设置" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,24"/>
+                        <TextBlock Text="设置" Style="{StaticResource PageHeading}" Margin="0,0,0,24"/>
                         <Border Background="{DynamicResource SidebarBrush}" CornerRadius="6" Padding="3" HorizontalAlignment="Left" Margin="0,0,0,28"><StackPanel Orientation="Horizontal"><RadioButton x:Name="AppScope" Content="应用" GroupName="Scope" Style="{StaticResource SegmentButton}" Checked="Scope_Changed"/><RadioButton x:Name="RoleScope" Content="当前角色" GroupName="Scope" Style="{StaticResource SegmentButton}" Checked="Scope_Changed"/></StackPanel></Border>
                         <StackPanel x:Name="AppSettingsPanel">
                             <TextBlock Text="外观" Style="{StaticResource SectionTitle}"/>
@@ -88,6 +88,7 @@
                             <Separator Margin="0,24,0,18"/>
                             <Button x:Name="FocusSettingsLink" Style="{StaticResource LinkButton}" Content="专注与休息设置" HorizontalAlignment="Left" Click="CompanionSettings_Click"/>
                             <Button x:Name="FocusHistoryLink" Style="{StaticResource LinkButton}" Content="专注记录" HorizontalAlignment="Left" Click="History_Click"/>
+                            <Button x:Name="ShortcutsButton" Style="{StaticResource LinkButton}" Content="快捷键" HorizontalAlignment="Left" Click="Shortcuts_Click"/>
                             <Button Style="{StaticResource LinkButton}" Content="角色台词" HorizontalAlignment="Left" Click="Speech_Click"/>
                             <Button x:Name="DiagnosticsButton" Style="{StaticResource LinkButton}" Content="诊断与日志" HorizontalAlignment="Left" Click="Diagnostics_Click"/>
                         </StackPanel>

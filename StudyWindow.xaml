@@ -4,11 +4,11 @@
     Title="专注记录" Width="760" Height="680" MinWidth="640" MinHeight="550" WindowStartupLocation="CenterOwner">
     <Grid Margin="24">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <DockPanel Margin="0,0,0,22"><TextBlock Text="专注记录" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="DateText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/></DockPanel>
+        <DockPanel Margin="0,0,0,22"><TextBlock Text="专注记录" Style="{StaticResource PageHeading}"/><TextBlock x:Name="DateText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/></DockPanel>
         <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <StackPanel><TextBlock Text="今日专注" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/><TextBlock x:Name="TodayText" FontSize="28" Margin="0,7,0,0"/></StackPanel>
-            <StackPanel Grid.Column="1"><TextBlock Text="今日完成" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/><TextBlock x:Name="CountText" FontSize="28" Margin="0,7,0,0"/></StackPanel>
-            <StackPanel Grid.Column="2"><TextBlock Text="近 7 天" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/><TextBlock x:Name="WeekText" FontSize="28" Margin="0,7,0,0"/></StackPanel>
+            <StackPanel><TextBlock Text="今日专注" Style="{StaticResource SecondaryLabel}"/><TextBlock x:Name="TodayText" Style="{StaticResource MetricText}" Margin="0,7,0,0"/></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="今日完成" Style="{StaticResource SecondaryLabel}"/><TextBlock x:Name="CountText" Style="{StaticResource MetricText}" Margin="0,7,0,0"/></StackPanel>
+            <StackPanel Grid.Column="2"><TextBlock Text="近 7 天" Style="{StaticResource SecondaryLabel}"/><TextBlock x:Name="WeekText" Style="{StaticResource MetricText}" Margin="0,7,0,0"/></StackPanel>
         </Grid>
         <StackPanel Grid.Row="2" Margin="0,20,0,14">
             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

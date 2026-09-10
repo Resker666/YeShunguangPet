@@ -155,6 +155,12 @@ public partial class FocusWindow : ThemedWindow
         Controller.Toggle();
     }
 
+    internal void ToggleFromShortcut()
+    {
+        _saveTimer.Stop();
+        if (!Controller.Toggle()) throw new InvalidOperationException(Controller.Error.Length > 0 ? Controller.Error : "当前无法切换计时状态。");
+    }
+
     private void Reset_Click(object sender, RoutedEventArgs e) => Controller.Reset();
     private void Skip_Click(object sender, RoutedEventArgs e) => Controller.SkipBreak();
     private void History_Click(object sender, RoutedEventArgs e) => _runtime?.OpenHistory(this);

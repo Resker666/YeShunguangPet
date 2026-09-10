@@ -112,6 +112,7 @@ public sealed class DesktopConfiguration
     public AppearanceOptions Appearance { get; set; } = new();
     public SpeechOptions Speech { get; set; } = new();
     public FocusWindowOptions FocusWindow { get; set; } = new();
+    public ShortcutOptions Shortcuts { get; set; } = new();
     public List<PetInstanceOptions> Pets { get; set; } = new();
 
     public static DesktopConfiguration Migrate(PetSettings legacy)
@@ -133,6 +134,8 @@ public sealed class DesktopConfiguration
         Speech.Normalize();
         FocusWindow ??= new FocusWindowOptions();
         FocusWindow.Normalize();
+        Shortcuts ??= new ShortcutOptions();
+        Shortcuts.Validate();
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var global = new PetSettings();
         Companion.ApplyTo(global);

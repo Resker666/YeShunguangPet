@@ -69,7 +69,11 @@ public partial class SettingsWindow : ThemedWindow
         UpdateValueLabels();
         _previewTimer.Tick += PreviewTimer_Tick;
         Closed += (_, _) => _previewTimer.Stop();
-        Loaded += (_, _) => SpeechButton.IsEnabled = Owner is MainWindow main && main.CanEditSpeech;
+        Loaded += (_, _) =>
+        {
+            SpeechButton.IsEnabled = ShortcutsButton.IsEnabled = Owner is MainWindow main && main.CanEditSpeech;
+            if (Owner is MainWindow owner) HotkeyStatusText.Text = owner.RecallShortcutDescription;
+        };
         SettingsTabs.SelectionChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.Source, SettingsTabs)) return;
@@ -80,6 +84,12 @@ public partial class SettingsWindow : ThemedWindow
     }
 
     public PetSettings? Result { get; private set; }
+    private void Shortcuts_Click(object sender, RoutedEventArgs e)
+    {
+        if (Owner is not MainWindow main) return;
+        main.OpenShortcutSettings(this);
+        HotkeyStatusText.Text = main.RecallShortcutDescription;
+    }
     internal void SelectCompanionTab() => SettingsTabs.SelectedItem = CompanionTab;
     public PetPackage? SelectedPackage { get; private set; }
 

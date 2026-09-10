@@ -35,7 +35,6 @@ public sealed class TrayMenu : ContextMenuStrip
         _showAll = AddCommand("showAll", "显示全部", desktop.ShowAll);
         _hideAll = AddCommand("hideAll", "隐藏全部", desktop.HideAll);
         _recallAll = AddCommand("recallAll", "召回全部", desktop.RecallAll);
-        _recallAll.ShortcutKeyDisplayString = "Ctrl+Alt+Y";
         _quiet = AddCommand("quiet", "勿扰模式", () => desktop.SetQuiet(!desktop.Companion.Settings.DoNotDisturb));
         Items.Add(new ToolStripSeparator());
         AddCommand("exit", "退出程序", desktop.RequestExit);
@@ -72,6 +71,8 @@ public sealed class TrayMenu : ContextMenuStrip
         _roles.AccessibleName = $"桌面角色，{count} 个角色";
         _showAll.Enabled = _hideAll.Enabled = _recallAll.Enabled = count > 0;
         _quiet.Checked = _desktop.Companion.Settings.DoNotDisturb;
+        _recallAll.ShortcutKeyDisplayString = _desktop.ShortcutHint(ShortcutAction.RecallAll);
+        ((ToolStripMenuItem)Items.Find("focus", false).Single()).ShortcutKeyDisplayString = _desktop.ShortcutHint(ShortcutAction.OpenFocus);
         Invalidate();
     }
 

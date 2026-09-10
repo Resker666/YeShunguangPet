@@ -162,8 +162,9 @@ public class ThemedWindow : Window
     public ThemedWindow()
     {
         UiTheme.Register(this);
-        FontFamily = new FontFamily("Segoe UI Variable, Segoe UI, Microsoft YaHei UI");
+        SetResourceReference(FontFamilyProperty, "AppFont");
         FontSize = 14;
+        TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
         SetResourceReference(BackgroundProperty, "SurfaceBrush");
         SetResourceReference(ForegroundProperty, "TextBrush");
         UseLayoutRounding = true;

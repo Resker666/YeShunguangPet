@@ -5,7 +5,7 @@
         Title="添加角色" Width="450" Height="430" MinWidth="380" MinHeight="340"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <TextBlock Text="添加角色" FontSize="22" FontWeight="Medium" Margin="0,0,0,18"/>
+        <TextBlock Text="添加角色" Style="{StaticResource PageHeading}" Margin="0,0,0,18"/>
         <ListBox Grid.Row="1" x:Name="Choices" HorizontalContentAlignment="Stretch" SelectionChanged="Selection_Changed">
             <ListBox.ItemTemplate><DataTemplate><Grid Margin="2,3"><Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Image Source="{Binding Thumbnail}" Width="48" Height="60" Stretch="Uniform"/>

@@ -568,7 +568,7 @@ public partial class MainWindow : Window
     {
         (ContextMenu as PetContextMenu)?.Dispose();
         var menu = new PetContextMenu();
-        menu.Items.Add(CreateMenuItem("专注计时", (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow), icon: "\uE916"));
+        menu.Items.Add(CreateShortcutMenuItem("专注计时", ShortcutAction.OpenFocus, (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow), "\uE916"));
         menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE713"));
         menu.Items.Add(CreateMenuItem("查看角色介绍", (_, _) => Dispatcher.BeginInvoke(OpenAbout), icon: "\uE946"));
         if (_desktop is not null) menu.Items.Add(CreateMenuItem("角色管理", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE716"));
@@ -587,7 +587,7 @@ public partial class MainWindow : Window
         display.Items.Add(CreateMenuItem("放大", (_, _) => ChangeScale(ScaleStep), icon: "\uE8A3"));
         display.Items.Add(CreateMenuItem("缩小", (_, _) => ChangeScale(-ScaleStep), icon: "\uE71F"));
         display.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("召回主屏幕", (_, _) => RecallToPrimaryScreen(), "Ctrl+Alt+Y", "\uE80F"));
+        menu.Items.Add(CreateShortcutMenuItem("召回主屏幕", ShortcutAction.RecallAll, (_, _) => RecallToPrimaryScreen(), "\uE80F"));
 
         _windowTopmostItem = CreateCheckMenuItem("总在最前", _settings.Topmost, (_, _) =>
         {
@@ -645,12 +645,19 @@ public partial class MainWindow : Window
         }
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateMenuItem("退出程序", (_, _) => ExitApplication(), icon: "\uE7E8"));
-        menu.Opened += (_, _) => BeginMenuInteraction();
+        menu.Opened += (_, _) => { UpdateMenuChecks(); BeginMenuInteraction(); };
         menu.Closed += (_, _) => EndMenuInteraction();
         ContextMenu = menu;
     }
 
     private static TextBlock MenuIcon(string glyph) => new() { Text = glyph, FontFamily = new System.Windows.Media.FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 14, VerticalAlignment = VerticalAlignment.Center };
+
+    private MenuItem CreateShortcutMenuItem(string title, ShortcutAction action, RoutedEventHandler click, string icon)
+    {
+        var item = CreateMenuItem(title, click, _desktop?.ShortcutHint(action), icon);
+        item.Tag = action;
+        return item;
+    }
 
     private static MenuItem CreateMenuItem(string header, RoutedEventHandler click, string? gesture = null, string? icon = null)
     {
@@ -945,6 +952,9 @@ public partial class MainWindow : Window
 
     private void UpdateMenuChecks()
     {
+        if (ContextMenu is not null)
+            foreach (var item in PetContextMenu.Descendants(ContextMenu))
+                if (item.Tag is ShortcutAction action) item.InputGestureText = _desktop?.ShortcutHint(action) ?? string.Empty;
         if (ContextMenu is not null)
             foreach (var item in PetContextMenu.Descendants(ContextMenu))
                 if (item.Tag is PetState state) item.IsEnabled = _pet.Supports(state);

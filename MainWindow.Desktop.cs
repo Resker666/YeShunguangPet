@@ -45,6 +45,8 @@ public partial class MainWindow
     public void ConfigureInstance() => OpenSettings();
     public void ConfigureCompanionSettings() => OpenSettingsCore(companionTab: true);
     internal bool CanEditSpeech => _desktop is not null;
+    internal string RecallShortcutDescription => _desktop is null ? "未注册" : $"{_desktop.ShortcutHint(ShortcutAction.RecallAll)} {_desktop.ShortcutStatus(ShortcutAction.RecallAll)}".Trim();
+    internal void OpenShortcutSettings(Window owner) => _desktop?.OpenShortcutSettings(owner);
     internal void OpenSpeechSettings(Window owner, PetPackage pet) => _desktop?.OpenSpeechSettings(pet, owner);
     internal void OpenDiagnostics(Window owner)
     {

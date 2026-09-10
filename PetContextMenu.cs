@@ -20,6 +20,8 @@ public sealed class PetContextMenu : ContextMenu, IDisposable
         Resources[typeof(Separator)] = Resources["PetMenuSeparator"];
         Resources[MenuItem.SeparatorStyleKey] = Resources["PetMenuSeparator"];
         SetResourceReference(StyleProperty, "PetContextMenuStyle");
+        SetResourceReference(FontFamilyProperty, "AppFont");
+        TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
         ApplyAppearance();
         Opened += (_, _) =>
         {

@@ -151,6 +151,7 @@ internal static class UiTests
             }
             finally { closeDialog.Stop(); }
             VerifyDiagnosticsWindow(check, desktop, renders);
+            ShortcutUiTests.RunLive(check, catalog, renders);
             SpeechStudyUiTests.Run(check, catalog, renders);
             FocusDialTests.RunLive(check, catalog, renders);
             PetBehaviorTests.RunLive(check, catalog, renders);
@@ -348,6 +349,8 @@ internal static class UiTests
                 {
                     Layout(window, (int)window.Width - 16, (int)window.Height - 39);
                     check(((SolidColorBrush)window.FindResource("SurfaceBrush")).Color.R == (theme == "dark" ? 32 : 255), $"{window.GetType().Name} inherits {theme} theme");
+                    check(window.FontFamily.Source == "Segoe UI, Microsoft YaHei UI" && TextOptions.GetTextFormattingMode(window) == TextFormattingMode.Display,
+                        $"{window.GetType().Name} shares application typography in {theme}");
                     if (renders is not null) Render(window, renders, $"{window.GetType().Name}-{theme}.png", (int)window.Width - 16, (int)window.Height - 39);
                 }
                 var input = (TextBox)editor.FindName("NameInput");

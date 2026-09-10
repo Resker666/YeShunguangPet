@@ -4,7 +4,7 @@
         xmlns:ui="clr-namespace:YeShunguangPet"
         xmlns:local="clr-namespace:YeShunguangPet"
         Title="皮肤动作配置" Width="1020" Height="760" MinWidth="800" MinHeight="560"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI Variable, Segoe UI, Microsoft YaHei UI"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource AppFont}"
         PreviewKeyDown="Editor_KeyDown" PreviewLostKeyboardFocus="Editor_LostFocus">
     <ui:ThemedWindow.Resources>
         <Style TargetType="Button" BasedOn="{StaticResource AppButton}"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,4"/><Setter Property="Margin" Value="6,0,0,0"/></Style>

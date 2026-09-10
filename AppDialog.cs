@@ -12,7 +12,9 @@ public static class AppDialog
         var dialog = new ThemedWindow { Owner = owner, Title = title, Width = 420, SizeToContent = SizeToContent.Height,
             ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, ShowInTaskbar = false };
         var content = new StackPanel { Margin = new Thickness(24) };
-        content.Children.Add(new TextBlock { Text = title, FontSize = 20, FontWeight = FontWeights.Medium, Margin = new Thickness(0, 0, 0, 12), TextWrapping = TextWrapping.Wrap });
+        var heading = new TextBlock { Text = title };
+        heading.SetResourceReference(FrameworkElement.StyleProperty, "DialogHeading");
+        content.Children.Add(heading);
         var text = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = 13 };
         text.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryTextBrush");
         content.Children.Add(new ScrollViewer { Content = text, MaxHeight = Math.Max(120, SystemParameters.WorkArea.Height - 260), VerticalScrollBarVisibility = ScrollBarVisibility.Auto });

@@ -16,10 +16,17 @@
     <SolidColorBrush x:Key="DangerBrush" Color="#B2263E"/>
     <SolidColorBrush x:Key="SwitchOffBrush" Color="#D9DDE3"/>
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+    <FontFamily x:Key="AppFont">Segoe UI, Microsoft YaHei UI</FontFamily>
+    <Style x:Key="PageHeading" TargetType="TextBlock"><Setter Property="FontSize" Value="22"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+    <Style x:Key="SectionHeading" TargetType="TextBlock"><Setter Property="FontSize" Value="15"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,0,0,12"/></Style>
+    <Style x:Key="DialogHeading" TargetType="TextBlock" BasedOn="{StaticResource PageHeading}"><Setter Property="FontSize" Value="20"/><Setter Property="Margin" Value="0,0,0,12"/></Style>
+    <Style x:Key="SecondaryLabel" TargetType="TextBlock"><Setter Property="FontSize" Value="12"/><Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/></Style>
+    <Style x:Key="MetricText" TargetType="TextBlock"><Setter Property="FontSize" Value="26"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="Typography.NumeralAlignment" Value="Tabular"/></Style>
 
     <Style x:Key="AppButton" TargetType="Button">
         <Setter Property="MinHeight" Value="34"/><Setter Property="Padding" Value="13,6"/>
-        <Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="FontFamily" Value="{DynamicResource AppFont}"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Background" Value="{DynamicResource SubtleBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="1"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -28,10 +35,12 @@
             <Grid><Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6"/>
                 <Border x:Name="HoverLayer" Background="{TemplateBinding Foreground}" CornerRadius="6" Opacity="0" IsHitTestVisible="False"/>
                 <Border x:Name="PressLayer" Background="{TemplateBinding Foreground}" CornerRadius="6" Opacity="0" IsHitTestVisible="False"/>
+                <Border x:Name="FocusOutline" BorderBrush="{DynamicResource AccentTextBrush}" BorderThickness="1" CornerRadius="6" Visibility="Collapsed" IsHitTestVisible="False"/>
                 <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True"/>
             </Grid>
             <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42"/></Trigger>
                 <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusOutline" Property="Visibility" Value="Visible"/></Trigger>
             </ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
@@ -46,11 +55,13 @@
         <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
     </Style>
     <Style x:Key="LinkButton" TargetType="Button" BasedOn="{StaticResource AppButton}">
+        <Setter Property="MinHeight" Value="30"/>
         <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="4"/>
         <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}"/><Setter Property="FontSize" Value="12"/>
     </Style>
 
     <Style x:Key="AppCheckBox" TargetType="CheckBox">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="FontSize" Value="13"/>
         <Setter Property="MinHeight" Value="30"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="ui:UiMotion.Feedback" Value="True"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
@@ -70,6 +81,7 @@
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="SegmentButton" TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/><Setter Property="Padding" Value="12,6"/>
         <Setter Property="MinHeight" Value="32"/><Setter Property="FontSize" Value="12"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
@@ -110,6 +122,7 @@
     </Style>
 
     <Style x:Key="AppTextBox" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFont}"/><Setter Property="FontSize" Value="13"/>
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="9,5"/>
         <Setter Property="MinHeight" Value="32"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
@@ -130,6 +143,7 @@
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="AppComboBox" TargetType="ComboBox">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFont}"/><Setter Property="FontSize" Value="13"/>
         <Setter Property="MinHeight" Value="34"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="Padding" Value="10,6"/><Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
@@ -151,15 +165,16 @@
     </Style>
 
     <Style x:Key="AppSlider" TargetType="Slider">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="MinHeight" Value="26"/><Setter Property="Focusable" Value="True"/><Setter Property="IsMoveToPointEnabled" Value="True"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
-            <Grid Margin="5,0"><Border Height="4" CornerRadius="2" Background="{DynamicResource BorderBrush}"/>
+            <Grid Margin="5,0"><Border x:Name="SliderFocus" BorderBrush="{DynamicResource AccentTextBrush}" BorderThickness="1" CornerRadius="5" Visibility="Collapsed" IsHitTestVisible="False"/><Border Height="4" CornerRadius="2" Background="{DynamicResource BorderBrush}"/>
                 <Track x:Name="PART_Track" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" Value="{TemplateBinding Value}" IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
                     <Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="4" Background="{DynamicResource AccentBrush}" CornerRadius="2"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
                     <Track.Thumb><Thumb Width="15" Height="15"><Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse Fill="{DynamicResource SurfaceBrush}" Stroke="{DynamicResource SecondaryTextBrush}" StrokeThickness="0.6"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
                     <Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
                 </Track>
-            </Grid><ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42"/></Trigger></ControlTemplate.Triggers>
+            </Grid><ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42"/></Trigger><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="SliderFocus" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="ProgressBar"><Setter Property="Background" Value="{DynamicResource BorderBrush}"/><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/><Setter Property="BorderThickness" Value="0"/>
@@ -186,8 +201,8 @@
     </Style>
     <Style TargetType="ListView"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="BorderThickness" Value="0"/><Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel"/><Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/></Style>
     <Style TargetType="ListViewItem"><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="Padding" Value="8,10"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListViewItem"><Border x:Name="Row" Background="Transparent" BorderThickness="0,0,0,1" BorderBrush="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}"><GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}" Content="{TemplateBinding Content}"/></Border>
-            <ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource AccentSoftBrush}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter TargetName="Row" Property="BorderThickness" Value="0,0,0,1"/></Trigger></ControlTemplate.Triggers>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListViewItem"><Border x:Name="Row" Background="Transparent" BorderThickness="1" BorderBrush="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}"><GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}" Content="{TemplateBinding Content}"/></Border>
+            <ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource AccentSoftBrush}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource BorderBrush}"/></Trigger><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger></ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="GridViewColumnHeader"><Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/><Setter Property="FontSize" Value="12"/><Setter Property="Padding" Value="8,9"/>
@@ -218,9 +233,10 @@
         </Grid></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="ToolTip"><Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="Padding" Value="10,7"/><Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontFamily" Value="{DynamicResource AppFont}"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip"><Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter>
     </Style>
-    <Style TargetType="ContextMenu"><Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="Padding" Value="5"/></Style>
+    <Style TargetType="ContextMenu"><Setter Property="FontFamily" Value="{DynamicResource AppFont}"/><Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="Padding" Value="5"/></Style>
     <Style TargetType="MenuItem"><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="Padding" Value="12,8"/>
         <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="{DynamicResource HoverBrush}"/></Trigger></Style.Triggers>
     </Style>

@@ -152,6 +152,7 @@ internal static class Program
             RulesSamplingTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusLayoutTests.Run((success, name) => Check(success, name), catalog, _root);
             MiniMenuTests.Run((success, name) => Check(success, name), catalog, _root);
+            ShortcutTests.Run((success, name) => Check(success, name), catalog, _root);
 
             var importedJson = File.ReadAllText(imported.ManifestPath);
             void Bad(Action<JsonObject> edit, string name)

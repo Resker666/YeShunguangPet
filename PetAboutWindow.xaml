@@ -5,7 +5,7 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
                 <Image x:Name="CharacterImage" Width="104" Height="114" Stretch="Uniform" HorizontalAlignment="Left"/>
-                <TextBlock x:Name="CharacterName" FontSize="22" FontWeight="Medium" TextWrapping="Wrap" Margin="0,12,0,8"/>
+                <TextBlock x:Name="CharacterName" Style="{StaticResource PageHeading}" Margin="0,12,0,8"/>
                 <TextBlock x:Name="CharacterDescription" TextWrapping="Wrap" FontSize="13"/>
                 <TextBlock x:Name="CharacterDetails" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,16,0,0"/>
             </StackPanel>

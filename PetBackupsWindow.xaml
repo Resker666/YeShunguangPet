@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:YeShunguangPet"
         Title="皮肤备份与恢复" Width="900" Height="570" MinWidth="740" MinHeight="450"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI Variable, Segoe UI, Microsoft YaHei UI">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource AppFont}">
     <ui:ThemedWindow.Resources>
         <Style TargetType="Button" BasedOn="{StaticResource AppButton}"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,4"/><Setter Property="Margin" Value="6,0,0,0"/></Style>
     </ui:ThemedWindow.Resources>

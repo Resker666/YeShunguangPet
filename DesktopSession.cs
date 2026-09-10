@@ -10,7 +10,7 @@ using WinForms = System.Windows.Forms;
 
 namespace YeShunguangPet;
 
-public sealed class DesktopSession : IDisposable
+public sealed partial class DesktopSession : IDisposable
 {
     private readonly Dictionary<string, MainWindow> _windows = new();
     private readonly Action<DesktopConfiguration> _save;
@@ -30,12 +30,12 @@ public sealed class DesktopSession : IDisposable
     public CompanionRuntime Companion { get; }
     public PetCatalog Catalog { get; }
     internal TimeProvider Clock { get; }
-    public bool HotkeyRegistered { get; private set; }
+    public bool HotkeyRegistered => _shortcuts?.IsRegistered(ShortcutAction.RecallAll) == true;
     public IReadOnlyCollection<MainWindow> Windows => _windows.Values;
     public event Action? Changed;
     public event Action? ExitRequested;
 
-    public DesktopSession(DesktopConfiguration configuration, PetCatalog catalog, Action<DesktopConfiguration> save, bool nativeIntegration = true, TimeProvider? clock = null, StudyHistory? history = null)
+    public DesktopSession(DesktopConfiguration configuration, PetCatalog catalog, Action<DesktopConfiguration> save, bool nativeIntegration = true, TimeProvider? clock = null, StudyHistory? history = null, IShortcutRegistrar? shortcutRegistrar = null)
     {
         configuration.Validate();
         Configuration = configuration;
@@ -55,6 +55,7 @@ public sealed class DesktopSession : IDisposable
         _speech = new DesktopSpeech(this, clock);
         Companion.Notification += ShowNotification;
         Catalog.IsPetInUse = id => _windows.Values.Any(w => w.Package.Manifest.Id == id);
+        if (shortcutRegistrar is not null) { _shortcuts = new GlobalShortcuts(shortcutRegistrar); _shortcuts.Initialize(Configuration.Shortcuts); }
     }
 
     public void Start(bool showWindows = true)
@@ -289,7 +290,13 @@ public sealed class DesktopSession : IDisposable
         var handle = new WindowInteropHelper(_hotkeyWindow).EnsureHandle();
         _source = HwndSource.FromHwnd(handle);
         _source?.AddHook(HotkeyHook);
-        HotkeyRegistered = NativeMethods.RegisterGlobalHotKey(_hotkeyWindow, 0x5911, 0x4003, 0x59);
+        if (_shortcuts is null)
+        {
+            _shortcuts = new GlobalShortcuts(new NativeShortcutRegistrar(_hotkeyWindow));
+            _shortcuts.Initialize(Configuration.Shortcuts);
+            foreach (var action in Enum.GetValues<ShortcutAction>())
+                if (_shortcuts.Failure(action) is { } failure) AppLogger.Info(failure);
+        }
         _trayMenu = new TrayMenu(this);
         _icon = Environment.ProcessPath is { } path ? Drawing.Icon.ExtractAssociatedIcon(path) : null;
         _tray = new WinForms.NotifyIcon { Icon = _icon ?? Drawing.SystemIcons.Application, Text = "叶瞬光桌面宠物", ContextMenuStrip = _trayMenu, Visible = true };
@@ -299,7 +306,7 @@ public sealed class DesktopSession : IDisposable
 
     private IntPtr HotkeyHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (message == NativeMethods.WmHotkey && wParam.ToInt32() == 0x5911) { RecallAll(); handled = true; }
+        if (message == NativeMethods.WmHotkey) handled = QueueShortcut(wParam.ToInt32(), lParam);
         return IntPtr.Zero;
     }
 
@@ -333,13 +340,13 @@ public sealed class DesktopSession : IDisposable
                 _save(Configuration);
             });
         Cleanup(Companion.Dispose);
+        Cleanup(() => _shortcutDialog?.Close());
         Cleanup(() => _diagnosticsWindow?.Close());
         Cleanup(() => _manager?.Close());
         foreach (var window in Windows.ToArray()) Cleanup(window.Close);
         _windows.Clear();
         Catalog.IsPetInUse = null;
-        if (_hotkeyWindow is not null && HotkeyRegistered) Cleanup(() => NativeMethods.UnregisterGlobalHotKey(_hotkeyWindow, 0x5911));
-        HotkeyRegistered = false;
+        Cleanup(() => _shortcuts?.Dispose());
         Cleanup(() => _source?.RemoveHook(HotkeyHook));
         Cleanup(() => _hotkeyWindow?.Close());
         Cleanup(() => _tray?.Dispose());
