@@ -18,7 +18,7 @@
                             </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,6" IsEnabled="{Binding IsChecked, ElementName=EnabledCheck}">
                                 <TextBox x:Name="GestureBox" Width="190" Height="34" Padding="10,0" VerticalContentAlignment="Center"
-                                         Text="{Binding GestureText}" IsReadOnly="True" PreviewKeyDown="Gesture_KeyDown"
+                                         Text="{Binding GestureText, Mode=OneWay}" IsReadOnly="True" PreviewKeyDown="Gesture_KeyDown"
                                          ToolTip="点击后直接按下快捷键组合，例如 Alt+A" AutomationProperties.Name="快捷键输入框"/>
                                 <Button x:Name="ClearGestureButton" Width="34" Height="34" Margin="8,0,0,0" Style="{StaticResource IconButton}"
                                         Content="&#xE711;" ToolTip="清除快捷键" AutomationProperties.Name="清除快捷键" Click="ClearGesture_Click"/>
