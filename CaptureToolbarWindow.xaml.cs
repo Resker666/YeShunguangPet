@@ -20,15 +20,17 @@ public partial class CaptureToolbarWindow : ThemedWindow
     public void Refresh()
     {
         _refreshing = true;
-        foreach (var button in new[] { SelectTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, RedactTool })
+        foreach (var button in new[] { SelectTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool })
             button.IsChecked = (string)button.Tag == (_capture.Tool ?? CaptureTool.Crop).ToString();
         var color = _capture.Tool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text;
-        ToolOptions.Visibility = color ? Visibility.Visible : Visibility.Collapsed;
+        var mosaic = _capture.Tool == CaptureTool.Mosaic;
+        ToolOptions.Visibility = color || mosaic ? Visibility.Visible : Visibility.Collapsed;
         FontOptions.Visibility = _capture.Tool == CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
         StrokeOptions.Visibility = color && _capture.Tool != CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
+        MosaicOptions.Visibility = mosaic ? Visibility.Visible : Visibility.Collapsed;
         UndoButton.IsEnabled = _capture.Document.CanUndo; RedoButton.IsEnabled = _capture.Document.CanRedo;
         ErrorText.Text = _capture.Error; ErrorText.Visibility = string.IsNullOrEmpty(_capture.Error) ? Visibility.Collapsed : Visibility.Visible;
-        LineWidth.Value = _capture.StrokeWidth; TextSize.Value = _capture.TextSize;
+        LineWidth.Value = _capture.StrokeWidth; TextSize.Value = _capture.TextSize; MosaicStrength.Value = _capture.MosaicBlockSize;
         _refreshing = false;
     }
     private void Tool_Click(object sender, RoutedEventArgs e)
@@ -42,8 +44,8 @@ public partial class CaptureToolbarWindow : ThemedWindow
     }
     private void Size_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_refreshing || LineWidth is null || TextSize is null) return;
-        _capture.StrokeWidth = LineWidth.Value; _capture.TextSize = TextSize.Value;
+        if (_refreshing || LineWidth is null || TextSize is null || MosaicStrength is null) return;
+        _capture.StrokeWidth = LineWidth.Value; _capture.TextSize = TextSize.Value; _capture.MosaicBlockSize = MosaicStrength.Value;
     }
     private void Undo_Click(object sender, RoutedEventArgs e) => _capture.Undo();
     private void Redo_Click(object sender, RoutedEventArgs e) => _capture.Redo();

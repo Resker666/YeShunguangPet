@@ -43,6 +43,7 @@ public sealed class CaptureSelection : IDisposable
     public Color InkColor { get => _annotation.InkColor; set => _annotation.InkColor = value; }
     public double StrokeWidth { get => _annotation.StrokeWidth; set => _annotation.StrokeWidth = value; }
     public double TextSize { get => _annotation.TextSize; set => _annotation.TextSize = value; }
+    public double MosaicBlockSize { get => _annotation.MosaicBlockSize; set => _annotation.MosaicBlockSize = value; }
     public string Error { get; private set; } = string.Empty;
     public Task<CaptureResult?> Result => _result.Task;
     public CaptureRect Selection => _region.Selection;

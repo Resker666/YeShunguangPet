@@ -10,7 +10,7 @@ using System.Windows.Media.Imaging;
 
 namespace YeShunguangPet;
 
-public enum CaptureTool { Crop, Rectangle, Arrow, Pen, Text, Redact, Ellipse }
+public enum CaptureTool { Crop, Rectangle, Arrow, Pen, Text, Redact, Ellipse, Mosaic }
 
 public sealed class CaptureMark
 {
@@ -28,8 +28,9 @@ public sealed class CaptureMark
     private readonly FormattedText? _text;
     public CaptureMark(CaptureTool tool, Point start, Point end, Color color, double width, string text = "", double fontSize = 22, IEnumerable<Point>? points = null)
     {
+        var maxWidth = tool == CaptureTool.Mosaic ? 32 : 16;
         if (!Enum.IsDefined(tool) || tool == CaptureTool.Crop || !double.IsFinite(start.X + start.Y + end.X + end.Y) ||
-            !double.IsFinite(width) || width is < 1 or > 16 || !double.IsFinite(fontSize) || fontSize is < 12 or > 64 || text.Length > 500)
+            !double.IsFinite(width) || width is < 1 || width > maxWidth || !double.IsFinite(fontSize) || fontSize is < 12 or > 64 || text.Length > 500)
             throw new ArgumentException("标注参数无效。");
         Tool = tool; Start = start; End = end; Color = Color.FromRgb(color.R, color.G, color.B); Width = width; Text = text; FontSize = fontSize;
         _brush = new SolidColorBrush(Color); _brush.Freeze();
@@ -45,7 +46,7 @@ public sealed class CaptureMark
             { DrawingAttributes = new DrawingAttributes { Color = Color, Width = width, Height = width, IgnorePressure = true, FitToCurve = false } };
         }
     }
-    public void Draw(DrawingContext context)
+    public void Draw(DrawingContext context, BitmapSource? source = null)
     {
         var pen = _pen;
         var rectangle = new Rect(Start, End);
@@ -56,6 +57,8 @@ public sealed class CaptureMark
             case CaptureTool.Redact:
                 var left = Math.Floor(rectangle.Left); var top = Math.Floor(rectangle.Top);
                 context.DrawRectangle(Brushes.Black, null, new Rect(left, top, Math.Ceiling(rectangle.Right) - left, Math.Ceiling(rectangle.Bottom) - top)); break;
+            case CaptureTool.Mosaic:
+                DrawMosaic(context, source, rectangle); break;
             case CaptureTool.Pen: _stroke!.Draw(context); break;
             case CaptureTool.Text:
                 context.DrawText(_text!, Start); break;
@@ -67,6 +70,32 @@ public sealed class CaptureMark
                 context.DrawLine(pen, End, End - direction * length + normal * length * 0.5);
                 context.DrawLine(pen, End, End - direction * length - normal * length * 0.5); break;
         }
+    }
+    private void DrawMosaic(DrawingContext context, BitmapSource? source, Rect rectangle)
+    {
+        if (source is null)
+        {
+            context.DrawRectangle(new SolidColorBrush(Color.FromArgb(90, 120, 120, 120)), null, rectangle);
+            return;
+        }
+        var left = Math.Clamp((int)Math.Floor(rectangle.Left), 0, source.PixelWidth - 1);
+        var top = Math.Clamp((int)Math.Floor(rectangle.Top), 0, source.PixelHeight - 1);
+        var right = Math.Clamp((int)Math.Ceiling(rectangle.Right), left + 1, source.PixelWidth);
+        var bottom = Math.Clamp((int)Math.Ceiling(rectangle.Bottom), top + 1, source.PixelHeight);
+        var width = right - left; var height = bottom - top;
+        var block = Math.Clamp((int)Math.Round(Width), 2, 32);
+        var smallWidth = Math.Max(1, (int)Math.Ceiling(width / (double)block));
+        var smallHeight = Math.Max(1, (int)Math.Ceiling(height / (double)block));
+        var crop = new CroppedBitmap(source, new Int32Rect(left, top, width, height));
+        var visual = new DrawingVisual();
+        RenderOptions.SetBitmapScalingMode(visual, BitmapScalingMode.HighQuality);
+        using (var drawing = visual.RenderOpen()) drawing.DrawImage(crop, new Rect(0, 0, smallWidth, smallHeight));
+        var mosaic = new RenderTargetBitmap(smallWidth, smallHeight, 96, 96, PixelFormats.Pbgra32);
+        mosaic.Render(visual); mosaic.Freeze();
+        var brush = new ImageBrush(mosaic) { Stretch = Stretch.Fill };
+        RenderOptions.SetBitmapScalingMode(brush, BitmapScalingMode.NearestNeighbor);
+        brush.Freeze();
+        context.DrawRectangle(brush, null, new Rect(left, top, width, height));
     }
 }
 
@@ -121,7 +150,7 @@ public sealed class CaptureDocument
     }
     public void DrawMarks(DrawingContext context)
     {
-        foreach (var mark in _history[_index].Marks) mark.Draw(context);
+        foreach (var mark in _history[_index].Marks) mark.Draw(context, Image);
     }
     public BitmapSource Flatten()
     {

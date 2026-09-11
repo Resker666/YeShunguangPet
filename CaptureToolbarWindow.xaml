@@ -6,6 +6,7 @@
     <ui:ThemedWindow.Resources>
         <Style x:Key="Tool" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}"><Setter Property="Width" Value="40"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/><Setter Property="Padding" Value="0"/></Style>
         <Style x:Key="Command" TargetType="Button" BasedOn="{StaticResource IconButton}"><Setter Property="Width" Value="40"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/></Style>
+        <Style x:Key="ToolGroup" TargetType="Border"><Setter Property="Background" Value="{DynamicResource SubtleBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,0,6,0"/></Style>
         <Style x:Key="InkSwatch" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}">
             <Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="MinHeight" Value="26"/>
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
@@ -38,23 +39,38 @@
                     <Slider x:Name="TextSize" Width="92" Minimum="12" Maximum="64" Value="22" IsSnapToTickEnabled="True" TickFrequency="2" AutomationProperties.Name="字号" ValueChanged="Size_Changed"/>
                     <TextBlock Text="{Binding Value, ElementName=TextSize, StringFormat={}{0:0}px}" FontSize="12" Width="32" VerticalAlignment="Center"/>
                 </StackPanel>
+                <StackPanel x:Name="MosaicOptions" Orientation="Horizontal" Margin="10,0,0,0" Visibility="Collapsed">
+                    <TextBlock Text="马赛克" FontSize="12" VerticalAlignment="Center"/>
+                    <Slider x:Name="MosaicStrength" Width="110" Minimum="4" Maximum="24" Value="8" IsSnapToTickEnabled="True" TickFrequency="2" AutomationProperties.Name="马赛克强度" ValueChanged="Size_Changed"/>
+                    <TextBlock Text="{Binding Value, ElementName=MosaicStrength, StringFormat={}{0:0}px}" FontSize="12" Width="36" VerticalAlignment="Center"/>
+                </StackPanel>
             </WrapPanel>
             <WrapPanel x:Name="CommandRow" HorizontalAlignment="Center">
-                <RadioButton x:Name="SelectTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Crop" ToolTip="调整选区" AutomationProperties.Name="调整选区" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7A8;"/></RadioButton>
-                <RadioButton x:Name="RectangleTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Rectangle" ToolTip="矩形" AutomationProperties.Name="矩形" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE739;"/></RadioButton>
-                <RadioButton x:Name="EllipseTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Ellipse" ToolTip="椭圆" AutomationProperties.Name="椭圆" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xEA3A;"/></RadioButton>
-                <RadioButton x:Name="ArrowTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Arrow" ToolTip="箭头" AutomationProperties.Name="箭头" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72A;"/></RadioButton>
-                <RadioButton x:Name="PenTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Pen" ToolTip="画笔" AutomationProperties.Name="画笔" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70F;"/></RadioButton>
-                <RadioButton x:Name="TextTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Text" ToolTip="文字" AutomationProperties.Name="文字" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D2;"/></RadioButton>
-                <RadioButton x:Name="RedactTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Redact" ToolTip="实色遮挡" AutomationProperties.Name="实色遮挡" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72E;"/></RadioButton>
-                <Border Width="1" Height="28" Background="{DynamicResource BorderBrush}" Margin="10,0"/>
-                <Button x:Name="UndoButton" Style="{StaticResource Command}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click"/>
-                <Button x:Name="RedoButton" Style="{StaticResource Command}" Content="&#xE7A6;" ToolTip="重做" AutomationProperties.Name="重做" Click="Redo_Click"/>
-                <Border Width="1" Height="28" Background="{DynamicResource BorderBrush}" Margin="10,0"/>
-                <Button x:Name="SaveButton" Style="{StaticResource Command}" Content="&#xE74E;" ToolTip="保存 PNG" AutomationProperties.Name="保存 PNG" Click="Save_Click"/>
-                <Button x:Name="PinButton" Style="{StaticResource Command}" Content="&#xE718;" ToolTip="贴到桌面" AutomationProperties.Name="贴到桌面" Click="Pin_Click"/>
-                <Button x:Name="CancelButton" Style="{StaticResource Command}" Content="&#xE711;" Foreground="{DynamicResource DangerBrush}" ToolTip="取消截图" AutomationProperties.Name="取消截图" Click="Cancel_Click"/>
-                <Button x:Name="DoneButton" Style="{StaticResource Command}" Content="&#xE73E;" Foreground="#239D62" ToolTip="完成并复制" AutomationProperties.Name="完成并复制" Click="Done_Click"/>
+                <Border Style="{StaticResource ToolGroup}">
+                    <WrapPanel>
+                        <RadioButton x:Name="SelectTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Crop" ToolTip="调整选区" AutomationProperties.Name="调整选区" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7A8;"/></RadioButton>
+                        <RadioButton x:Name="RectangleTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Rectangle" ToolTip="矩形" AutomationProperties.Name="矩形" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE739;"/></RadioButton>
+                        <RadioButton x:Name="EllipseTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Ellipse" ToolTip="椭圆" AutomationProperties.Name="椭圆" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xEA3A;"/></RadioButton>
+                        <RadioButton x:Name="ArrowTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Arrow" ToolTip="箭头" AutomationProperties.Name="箭头" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72A;"/></RadioButton>
+                        <RadioButton x:Name="PenTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Pen" ToolTip="画笔" AutomationProperties.Name="画笔" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70F;"/></RadioButton>
+                        <RadioButton x:Name="TextTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Text" ToolTip="文字" AutomationProperties.Name="文字" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D2;"/></RadioButton>
+                        <RadioButton x:Name="MosaicTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Mosaic" ToolTip="马赛克遮挡" AutomationProperties.Name="马赛克遮挡" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72E;"/></RadioButton>
+                    </WrapPanel>
+                </Border>
+                <Border Style="{StaticResource ToolGroup}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="UndoButton" Style="{StaticResource Command}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click"/>
+                        <Button x:Name="RedoButton" Style="{StaticResource Command}" Content="&#xE7A6;" ToolTip="重做" AutomationProperties.Name="重做" Click="Redo_Click"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ToolGroup}" Margin="0">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="SaveButton" Style="{StaticResource Command}" Content="&#xE74E;" ToolTip="保存 PNG" AutomationProperties.Name="保存 PNG" Click="Save_Click"/>
+                        <Button x:Name="PinButton" Style="{StaticResource Command}" Content="&#xE718;" ToolTip="贴到桌面" AutomationProperties.Name="贴到桌面" Click="Pin_Click"/>
+                        <Button x:Name="CancelButton" Style="{StaticResource Command}" Content="&#xE711;" Foreground="{DynamicResource DangerBrush}" ToolTip="取消截图" AutomationProperties.Name="取消截图" Click="Cancel_Click"/>
+                        <Button x:Name="DoneButton" Style="{StaticResource Command}" Content="&#xE73E;" Foreground="#239D62" ToolTip="完成并复制" AutomationProperties.Name="完成并复制" Click="Done_Click"/>
+                    </StackPanel>
+                </Border>
             </WrapPanel>
             <TextBlock x:Name="ErrorText" TextWrapping="Wrap" MaxHeight="48" FontSize="12" Foreground="{DynamicResource DangerBrush}" Visibility="Collapsed" Margin="4,6,4,0" AutomationProperties.LiveSetting="Polite"/>
         </StackPanel>

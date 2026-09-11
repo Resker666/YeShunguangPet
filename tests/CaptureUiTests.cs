@@ -35,12 +35,12 @@ internal static class CaptureUiTests
                 surface.Tool = CaptureTool.Rectangle; surface.BeginAnnotation(new Point(280, 80)); surface.EndAnnotation(new Point(500, 220));
                 surface.Tool = CaptureTool.Pen; surface.BeginAnnotation(new Point(60, 220)); surface.MoveAnnotation(new Point(100, 280)); surface.EndAnnotation(new Point(220, 230));
                 surface.Tool = CaptureTool.Text; surface.LabelText = "Capture fixture"; surface.BeginAnnotation(new Point(80, 30));
-                surface.Tool = CaptureTool.Redact; surface.BeginAnnotation(new Point(300.7, 110.7)); surface.EndAnnotation(new Point(440.2, 155.2));
-                check(CaptureTests.Pixel(editor.Document.Flatten(), 300, 110).SequenceEqual(new byte[] { 0, 0, 0, 255 }), "fractional redaction boundaries expand to fully opaque physical pixels");
+                surface.Tool = CaptureTool.Mosaic; surface.MosaicBlockSize = 8; surface.BeginAnnotation(new Point(300.7, 110.7)); surface.EndAnnotation(new Point(440.2, 155.2));
+                check(!CaptureTests.Pixel(editor.Document.Flatten(), 320, 120).SequenceEqual(CaptureTests.Pixel(fixture, 320, 120)), "fractional mosaic boundaries preserve a rasterized block effect");
                 foreach (var size in new[] { new Size(1000, 720), new Size(720, 480) })
                 {
                     editor.Width = size.Width; editor.Height = size.Height; Wait(80);
-                    foreach (var name in new[] { "CopyButton", "SaveButton", "PinButton", "UndoButton", "RedoButton", "LabelInput", "TextSize", "LineWidth" })
+                    foreach (var name in new[] { "CopyButton", "SaveButton", "PinButton", "UndoButton", "RedoButton", "LabelInput", "TextSize", "LineWidth", "MosaicStrength" })
                         check(Inside(Find<FrameworkElement>(editor, name), (FrameworkElement)editor.Content), $"capture {name} stays inside {size} {theme}");
                     check(surface.ActualWidth > 0 && editor.Document.Flatten().PixelWidth == 600, "editor zoom and resize never alter output dimensions");
                     Render(editor, renders, $"capture-editor-{size.Width}-{theme}.png");

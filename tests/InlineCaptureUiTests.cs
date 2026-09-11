@@ -52,8 +52,8 @@ internal static class InlineCaptureUiTests
             input.Text = "原地标注"; capture.CommitText();
             check(capture.Document.Marks.Any(m => m.Text == "原地标注") && overlays.Select(w => ((Canvas)((Grid)w.Content).Children[1]).Children.Count).Sum() == 0, "committing text removes the temporary input and preserves its raster annotation");
             capture.SetTool(CaptureTool.Ellipse); capture.Begin(new Point(bounds.X + 420, bounds.Y + 280)); capture.End(new Point(bounds.X + 700, bounds.Y + 430));
-            capture.SetTool(CaptureTool.Redact); capture.Begin(new Point(bounds.X + 600, bounds.Y + 120)); capture.End(new Point(bounds.X + 780, bounds.Y + 165));
-            check(!Find<FrameworkElement>(toolbar, "ToolOptions").IsVisible, "opaque redaction does not expose irrelevant color or width controls");
+            capture.SetTool(CaptureTool.Mosaic); capture.MosaicBlockSize = 8; capture.Begin(new Point(bounds.X + 600, bounds.Y + 120)); capture.End(new Point(bounds.X + 780, bounds.Y + 165));
+            check(Find<FrameworkElement>(toolbar, "ToolOptions").IsVisible && Find<FrameworkElement>(toolbar, "MosaicOptions").IsVisible && !Find<FrameworkElement>(toolbar, "StrokeOptions").IsVisible, "mosaic exposes only its strength control");
             capture.SetTool(null);
             var before = capture.Selection;
             capture.Begin(new Point(before.Right, before.Bottom)); capture.End(new Point(before.Right + 25, before.Bottom + 25));

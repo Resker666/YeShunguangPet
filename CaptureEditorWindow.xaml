@@ -34,7 +34,7 @@
                         <RadioButton x:Name="ArrowTool" Tag="Arrow" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="箭头" AutomationProperties.Name="箭头" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72A;"/></RadioButton>
                         <RadioButton Tag="Pen" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="画笔" AutomationProperties.Name="画笔" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70F;"/></RadioButton>
                         <RadioButton x:Name="TextTool" Tag="Text" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="文字" AutomationProperties.Name="文字" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D2;"/></RadioButton>
-                        <RadioButton Tag="Redact" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="实色遮挡" AutomationProperties.Name="实色遮挡" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72E;"/></RadioButton>
+                        <RadioButton Tag="Mosaic" GroupName="Tool" Style="{StaticResource SegmentButton}" ToolTip="马赛克遮挡" AutomationProperties.Name="马赛克遮挡" Checked="Tool_Changed"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72E;"/></RadioButton>
                         <Button x:Name="UndoButton" Style="{StaticResource IconButton}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click" Margin="12,0,0,0"/>
                         <Button x:Name="RedoButton" Style="{StaticResource IconButton}" Content="&#xE7A6;" ToolTip="重做" AutomationProperties.Name="重做" Click="Redo_Click"/>
                     </StackPanel>
@@ -47,6 +47,8 @@
                     <RadioButton GroupName="Ink" Style="{StaticResource InkSwatch}" Background="#111111" Tag="#111111" ToolTip="黑色" AutomationProperties.Name="黑色" Checked="Color_Changed"/>
                     <TextBlock Text="线宽" Margin="14,0,4,0" VerticalAlignment="Center" FontSize="12"/>
                     <Slider x:Name="LineWidth" Width="84" Minimum="1" Maximum="16" Value="4" IsSnapToTickEnabled="True" TickFrequency="1" ToolTip="{Binding Value, RelativeSource={RelativeSource Self}, StringFormat={}{0:0}px}" AutomationProperties.Name="线宽" ValueChanged="Options_Changed"/>
+                    <TextBlock Text="马赛克" Margin="12,0,4,0" VerticalAlignment="Center" FontSize="12"/>
+                    <Slider x:Name="MosaicStrength" Width="84" Minimum="4" Maximum="24" Value="8" IsSnapToTickEnabled="True" TickFrequency="2" ToolTip="{Binding Value, RelativeSource={RelativeSource Self}, StringFormat={}{0:0}px}" AutomationProperties.Name="马赛克强度" ValueChanged="Options_Changed"/>
                     <TextBlock Text="字号" Margin="12,0,4,0" VerticalAlignment="Center" FontSize="12"/>
                     <Slider x:Name="TextSize" Width="84" Minimum="12" Maximum="64" Value="22" IsSnapToTickEnabled="True" TickFrequency="2" ToolTip="{Binding Value, RelativeSource={RelativeSource Self}, StringFormat={}{0:0}px}" AutomationProperties.Name="字号" ValueChanged="Options_Changed"/>
                     <TextBox x:Name="LabelInput" Width="176" MaxLength="500" Margin="12,0,0,0" ToolTip="标注文字" AutomationProperties.Name="标注文字" TextChanged="Label_Changed"/>

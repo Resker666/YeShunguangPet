@@ -57,9 +57,10 @@ public partial class CaptureEditorWindow : ThemedWindow
         Surface.CancelGesture(); Surface.Tool = Enum.Parse<CaptureTool>(tag); StatusText.Text = string.Empty;
         LabelInput.IsEnabled = Surface.Tool == CaptureTool.Text; TextSize.IsEnabled = Surface.Tool == CaptureTool.Text;
         LineWidth.IsEnabled = Surface.Tool is CaptureTool.Arrow or CaptureTool.Rectangle or CaptureTool.Pen;
+        MosaicStrength.IsEnabled = Surface.Tool == CaptureTool.Mosaic;
     }
     private void Color_Changed(object sender, RoutedEventArgs e) { if (Surface is not null && (sender as RadioButton)?.Tag is string color) Surface.InkColor = (Color)ColorConverter.ConvertFromString(color); }
-    private void Options_Changed(object sender, RoutedPropertyChangedEventArgs<double> e) { if (Surface is not null) { Surface.StrokeWidth = LineWidth.Value; Surface.TextSize = TextSize.Value; } }
+    private void Options_Changed(object sender, RoutedPropertyChangedEventArgs<double> e) { if (Surface is not null) { Surface.StrokeWidth = LineWidth.Value; Surface.TextSize = TextSize.Value; Surface.MosaicBlockSize = MosaicStrength.Value; } }
     private void Label_Changed(object sender, TextChangedEventArgs e) { if (Surface is not null) Surface.LabelText = LabelInput.Text; }
     private void SetZoom(double value)
     {

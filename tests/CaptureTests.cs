@@ -46,13 +46,13 @@ internal static class CaptureTests
         }
         var document = new CaptureDocument(image);
         check(Pixel(document.Flatten(), 17, 29).SequenceEqual(Pixel(image, 17, 29)), "unannotated export preserves screenshot pixels");
-        document.Add(new CaptureMark(CaptureTool.Redact, new Point(20, 30), new Point(180, 110), Colors.Red, 4));
+        document.Add(new CaptureMark(CaptureTool.Mosaic, new Point(20, 30), new Point(180, 110), Colors.Red, 8));
         var masked = document.Flatten();
-        check(Pixel(masked, 80, 60).SequenceEqual(new byte[] { 0, 0, 0, 255 }) && Pixel(masked, 200, 150).SequenceEqual(Pixel(image, 200, 150)), "redaction exports opaque black pixels while leaving other pixels intact");
-        check(Pixel(image, 80, 60)[0] != 0, "annotation cannot change the immutable source screenshot");
+        check(!Pixel(masked, 80, 60).SequenceEqual(Pixel(image, 80, 60)) && Pixel(masked, 200, 150).SequenceEqual(Pixel(image, 200, 150)), "mosaic exports altered blocks while leaving other pixels intact");
+        check(Pixel(image, 80, 60)[0] != 0, "mosaic annotation cannot change the immutable source screenshot");
         document.SetCrop(new Int32Rect(40, 40, 200, 150));
         var flattened = document.Flatten();
-        check(flattened.PixelWidth == 200 && flattened.PixelHeight == 150 && Pixel(flattened, 40, 20).SequenceEqual(new byte[] { 0, 0, 0, 255 }), "crop and redaction are flattened together without hidden original layers");
+        check(flattened.PixelWidth == 200 && flattened.PixelHeight == 150 && !Pixel(flattened, 40, 20).SequenceEqual(Pixel(image, 80, 60)), "crop and mosaic are flattened together without hidden original layers");
         document.Undo(); check(document.Crop.Width == 600 && document.Marks.Count == 1, "undo crop restores geometry without losing annotations");
         document.Undo(); check(document.Marks.Count == 0 && Pixel(document.Flatten(), 80, 60).SequenceEqual(Pixel(image, 80, 60)), "undo mark restores the editable source");
         document.Redo(); check(document.Marks.Count == 1, "redo restores a complete annotation");
@@ -67,7 +67,7 @@ internal static class CaptureTests
         using (var stream = File.OpenRead(output))
         {
             var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-            check(decoder.Frames.Count == 1 && decoder.Frames[0].PixelWidth == 600 && Pixel(decoder.Frames[0], 80, 60).SequenceEqual(new byte[] { 0, 0, 0, 255 }), "PNG export contains one flattened raster with effective redaction");
+            check(decoder.Frames.Count == 1 && decoder.Frames[0].PixelWidth == 600 && !Pixel(decoder.Frames[0], 80, 60).SequenceEqual(Pixel(image, 80, 60)), "PNG export contains one flattened raster with effective mosaic");
         }
         check(Rejects(() => CaptureRaster.SavePng(image, Path.Combine(temporary, "not-png.jpg"))) && !Directory.GetFiles(temporary, "capture-export.png.*.tmp").Any(), "export enforces PNG and leaves no staging files");
         var history = new CaptureDocument(Fixture(32, 32));
@@ -106,9 +106,9 @@ internal static class CaptureTests
             check(monitor.ToRect().Contains(toolbar), "floating toolbar stays on its monitor near every screen edge");
         }
         var doc = new CaptureDocument(image); doc.SetSelection(new Int32Rect(100, 100, 100, 100), initial: true);
-        doc.Add(new CaptureMark(CaptureTool.Redact, new Point(110, 110), new Point(130, 130), Colors.Black, 2));
+        doc.Add(new CaptureMark(CaptureTool.Mosaic, new Point(110, 110), new Point(130, 130), Colors.Black, 8));
         doc.SetSelection(new Int32Rect(50, 50, 250, 200));
-        check(Pixel(doc.Flatten(), 10, 10).SequenceEqual(Pixel(image, 60, 60)) && Pixel(doc.Flatten(), 70, 70)[0] == 0, "expanded region reveals original pixels while annotations remain anchored to the desktop");
+        check(Pixel(doc.Flatten(), 10, 10).SequenceEqual(Pixel(image, 60, 60)) && !Pixel(doc.Flatten(), 70, 70).SequenceEqual(Pixel(image, 60, 60)), "expanded region preserves mosaic marks while annotations remain anchored to the desktop");
         doc.Undo(); check(doc.Crop.Width == 100 && doc.Marks.Count == 1, "selection adjustment is undoable without removing marks");
         var frame = new CaptureFrame(image, bounds, new[] { new CaptureRect(-300, -200, 300, 360), new CaptureRect(0, -200, 300, 360) });
         CaptureRect? currentAnchor = null;

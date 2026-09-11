@@ -14,6 +14,7 @@ public sealed class CaptureSurface : FrameworkElement
     public Color InkColor { get; set; } = Colors.Crimson;
     public double StrokeWidth { get; set; } = 4;
     public double TextSize { get; set; } = 22;
+    public double MosaicBlockSize { get; set; } = 8;
     public string LabelText { get; set; } = string.Empty;
     public event Action<string>? Error;
     private Point _start, _end;
@@ -85,7 +86,7 @@ public sealed class CaptureSurface : FrameworkElement
                 if (selection.HasArea) Try(() => Document.SetCrop(new Int32Rect(selection.X, selection.Y, selection.Width, selection.Height)));
             }
             else if (Tool == CaptureTool.Pen || (_end - _start).Length >= 1)
-                Try(() => Document.Add(new CaptureMark(Tool, _start, _end, InkColor, StrokeWidth, points: points)));
+                Try(() => Document.Add(new CaptureMark(Tool, _start, _end, InkColor, Tool == CaptureTool.Mosaic ? MosaicBlockSize : StrokeWidth, points: points)));
         }
         finally { _finishing = false; CancelGesture(); }
     }
@@ -115,7 +116,7 @@ public sealed class CaptureSurface : FrameworkElement
         {
             if (Tool == CaptureTool.Crop) dc.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.White, 1), new Rect(_start, _end));
             else if (_inkPreview is not null) _inkPreview.Draw(dc);
-            else new CaptureMark(Tool, _start, _end, InkColor, StrokeWidth).Draw(dc);
+            else new CaptureMark(Tool, _start, _end, InkColor, Tool == CaptureTool.Mosaic ? MosaicBlockSize : StrokeWidth).Draw(dc, Document.Image);
         }
     }
 }
