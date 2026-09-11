@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -49,6 +50,7 @@ public sealed record DiagnosticReport(string InformationJson, string LogsText)
     public static DiagnosticReport Capture(DesktopSession? desktop, LogSnapshot logs, Exception? error = null, string? errorId = null, RuntimeCapture? activity = null)
     {
         var privateValues = new List<string> { Environment.UserName, Environment.MachineName };
+        using var process = Process.GetCurrentProcess();
         if (desktop is not null)
             privateValues.AddRange(desktop.Windows.SelectMany(w => new[] { w.Package.Manifest.Name, w.Package.Manifest.Id, w.Package.Manifest.Description }));
         var redactor = new DiagnosticRedactor(privateValues);
@@ -63,6 +65,15 @@ public sealed record DiagnosticReport(string InformationJson, string LogsText)
                 OperatingSystem = RuntimeInformation.OSDescription,
                 Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
                 Environment.Is64BitProcess
+            },
+            Resources = new
+            {
+                ManagedMemoryBytes = GC.GetTotalMemory(forceFullCollection: false),
+                PrivateMemoryBytes = process.PrivateMemorySize64,
+                SpriteImageLeases = PetPackage.ActiveImageLeases,
+                ActiveRoles = desktop?.Windows.Count ?? 0,
+                ActivePins = desktop?.PinCount ?? 0,
+                CaptureActive = desktop?.IsCapturing ?? false
             },
             Logging = new
             {

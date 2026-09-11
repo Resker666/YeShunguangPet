@@ -42,8 +42,9 @@ internal static class DesktopTests
         store.Save(reloaded);
         check(store.Load().Pets.Count == 0, "zero roles persist without recreating default role");
         File.WriteAllText(statePath, "{broken");
-        Bad(() => store.Load(), check, "invalid v2 config is not silently replaced with legacy");
-        check(File.ReadAllText(statePath) == "{broken", "invalid configuration remains untouched");
+        var recovered = store.Load();
+        check(recovered.Pets.Count == 2 && File.ReadAllText(statePath) == "{broken", "corrupt v2 config recovers the last known-good backup without overwriting the original");
+        File.Delete(store.BackupPath);
         File.WriteAllText(statePath, "{}");
         Bad(() => store.Load(), check, "v2 file requires explicit schema version");
         state = DesktopConfiguration.Migrate(legacy);

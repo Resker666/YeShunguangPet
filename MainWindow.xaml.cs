@@ -24,7 +24,6 @@ public partial class MainWindow : Window
 
     private readonly PetSettings _settings;
     private readonly PetCatalog _petCatalog;
-    private readonly Dictionary<(int Row, int Column), BitmapSource> _frameCache = new();
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _ambientTimer;
     private readonly DispatcherTimer _roamTimer;
@@ -166,7 +165,6 @@ public partial class MainWindow : Window
         _runtimeMeters = null;
         CloseCompanion();
         ReleaseNativeResources();
-        _frameCache.Clear();
         SpriteImage.Source = null;
         _imageLease?.Dispose();
         _imageLease = null;
@@ -420,15 +418,7 @@ public partial class MainWindow : Window
 
     private BitmapSource GetFrame(int row, int column)
     {
-        var key = (row, column);
-        if (_frameCache.TryGetValue(key, out var cached))
-        {
-            return cached;
-        }
-
-        var frame = _pet.GetFrame(row, column);
-        _frameCache[key] = frame;
-        return frame;
+        return _pet.GetFrame(row, column);
     }
 
     private void ResetIdleBehaviorSchedule()
@@ -856,7 +846,6 @@ public partial class MainWindow : Window
         _imageLease?.Dispose();
         _imageLease = lease;
         _pet = package;
-        _frameCache.Clear();
         _settings.SelectedPetId = package.Manifest.Id;
         Title = package.Manifest.Name;
         _companion.UpdateAvatar(InstanceId, package);

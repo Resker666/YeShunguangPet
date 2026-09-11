@@ -162,7 +162,9 @@ internal static class DiagnosticsTests
             var log = new ResilientLog(Array.Empty<string>());
             log.Write("ERROR", "diagnostic failure");
             var report = DiagnosticReport.Capture(desktop, log.Capture());
+            using var reportJson = JsonDocument.Parse(report.InformationJson);
             check(!report.InformationJson.Contains("InstanceId") && !report.InformationJson.Contains("PetId") && !report.InformationJson.Contains("Left") && !report.InformationJson.Contains("1680"), "runtime snapshot omits role identity and screen coordinates");
+            check(reportJson.RootElement.GetProperty("Resources").GetProperty("SpriteImageLeases").GetInt32() > 0, "diagnostics include bounded resource usage without private configuration");
             typeof(DesktopSession).GetMethod("DisposeAfterFailure", Private)!.Invoke(desktop, null);
             check(File.ReadAllBytes(configPath).SequenceEqual(saved) && store.Load().Pets[0].Scale == 1, "fatal cleanup never overwrites last saved configuration with crashing state");
             check(desktop.Windows.Count == 0 && !instance.HasAnimationTimer && !instance.HasAmbientTimer && PetPackage.ActiveImageLeases == 0, "fatal cleanup releases all role activity and image leases");
@@ -183,11 +185,11 @@ internal static class DiagnosticsTests
         using (var upgraded = new DesktopSession(migrated, catalog, upgradeStore.Save, nativeIntegration: false)) upgraded.Start(false);
         check(upgradeStore.Load().Pets[0].Scale == 1.4 && upgradeStore.Load().Companion.FocusMinutes == 38 && File.ReadAllBytes(oldPath).SequenceEqual(oldBytes), "legacy upgrade retains behavior and original v1 file end to end");
         File.WriteAllText(configPath, "{broken");
-        var rejected = false;
-        try { store.Load(); } catch (InvalidDataException) { rejected = true; }
-        check(rejected && File.ReadAllText(configPath) == "{broken", "corrupt configuration cannot silently trigger destructive fresh-start defaults");
+        var recovered = store.Load();
+        check(recovered.Pets.Count == 1 && File.ReadAllText(configPath) == "{broken", "corrupt configuration recovers the last known-good backup without rewriting the original");
+        File.Delete(store.BackupPath);
         File.WriteAllText(configPath, "{\"SchemaVersion\":999}");
-        rejected = false;
+        var rejected = false;
         try { store.Load(); } catch (InvalidDataException) { rejected = true; }
         check(rejected && File.ReadAllText(configPath).Contains("999"), "unsupported future configuration remains untouched");
     }

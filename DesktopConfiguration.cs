@@ -154,6 +154,7 @@ public sealed class DesktopSettingsStore
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
     public string Path { get; }
+    public string BackupPath => Path + ".bak";
     private readonly string _legacyPath;
 
     public DesktopSettingsStore(string? path = null, string? legacyPath = null)
@@ -164,25 +165,54 @@ public sealed class DesktopSettingsStore
 
     public DesktopConfiguration Load()
     {
-        try
+        if (File.Exists(Path) || File.Exists(BackupPath))
         {
-            DesktopConfiguration configuration;
+            Exception? primaryError = null;
             if (File.Exists(Path))
             {
-                var bytes = Read(Path);
-                using var document = JsonDocument.Parse(bytes);
-                if (document.RootElement.ValueKind != JsonValueKind.Object ||
-                    !document.RootElement.TryGetProperty(nameof(DesktopConfiguration.SchemaVersion), out var version) ||
-                    version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 2)
-                    throw new InvalidDataException("桌面配置缺少有效版本号，原文件未被修改。");
-                configuration = JsonSerializer.Deserialize<DesktopConfiguration>(bytes) ?? throw new InvalidDataException("桌面配置为空。");
+                try { return LoadFile(Path); }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
+                {
+                    primaryError = ex;
+                    AppLogger.Info("Primary desktop configuration could not be loaded; trying the last known-good backup.");
+                }
             }
-            else configuration = DesktopConfiguration.Migrate(File.Exists(_legacyPath)
+            if (File.Exists(BackupPath))
+            {
+                try
+                {
+                    var recovered = LoadFile(BackupPath);
+                    AppLogger.Info("Desktop configuration recovered from the backup file.");
+                    return recovered;
+                }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
+                {
+                    throw new InvalidDataException("桌面配置和备份均无法使用，原文件未被修改。", primaryError ?? ex);
+                }
+            }
+            throw new InvalidDataException("桌面配置无法使用，且没有可恢复的备份。原文件未被修改。", primaryError);
+        }
+        try
+        {
+            var configuration = DesktopConfiguration.Migrate(File.Exists(_legacyPath)
                 ? JsonSerializer.Deserialize<PetSettings>(Read(_legacyPath)) ?? throw new InvalidDataException("旧配置为空。") : new PetSettings());
             configuration.Validate();
             return configuration;
         }
         catch (JsonException ex) { throw new InvalidDataException("配置无法解析，请恢复配置备份。原文件未修改。", ex); }
+    }
+
+    private static DesktopConfiguration LoadFile(string path)
+    {
+        var bytes = Read(path);
+        using var document = JsonDocument.Parse(bytes);
+        if (document.RootElement.ValueKind != JsonValueKind.Object ||
+            !document.RootElement.TryGetProperty(nameof(DesktopConfiguration.SchemaVersion), out var version) ||
+            version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 2)
+            throw new InvalidDataException("桌面配置缺少有效版本号，原文件未被修改。");
+        var configuration = JsonSerializer.Deserialize<DesktopConfiguration>(bytes) ?? throw new InvalidDataException("桌面配置为空。");
+        configuration.Validate();
+        return configuration;
     }
 
     public void Save(DesktopConfiguration configuration)
@@ -194,7 +224,7 @@ public sealed class DesktopSettingsStore
         try
         {
             File.WriteAllBytes(temporary, json);
-            if (File.Exists(Path)) File.Replace(temporary, Path, Path + ".bak", ignoreMetadataErrors: false);
+            if (File.Exists(Path)) File.Replace(temporary, Path, BackupPath, ignoreMetadataErrors: false);
             else File.Move(temporary, Path);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
