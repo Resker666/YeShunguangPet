@@ -39,7 +39,7 @@ internal static class UiTests
             check(((StackPanel)((Button)manager.FindName("FocusNav")).Content).Children.OfType<TextBlock>().Last().Text == "专注计时" &&
                   Equals(((Button)manager.FindName("FocusHistoryLink")).Content, "专注记录") &&
                   Equals(((Button)manager.FindName("FocusSettingsLink")).Content, "专注与休息") &&
-                  ((FrameworkElement)manager.FindName("CommonSettingsPanel")).IsVisible &&
+                  ((FrameworkElement)manager.FindName("CommonSettingsPanel")).Visibility == Visibility.Visible &&
                   ((Button)manager.FindName("AiSettingsButton")).IsEnabled, "control center promotes common settings and AI settings");
             var timer = (DispatcherTimer)typeof(PetManagerWindow).GetField("_previewTimer", Private)!.GetValue(manager)!;
             check(manager.IsLoaded && timer.IsEnabled == UiTheme.MotionEnabled, "native control center loads and starts eligible previews");
