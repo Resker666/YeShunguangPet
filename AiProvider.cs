@@ -67,6 +67,7 @@ public sealed class OpenAiCompatibleProvider : IAiProvider
 
 public static class AiProviderFactory
 {
+    private static readonly HttpClient SharedHttp = new() { Timeout = TimeSpan.FromSeconds(45) };
     public static IAiProvider? Create(AiOptions options, AiSecretStore secrets, HttpClient? http = null)
     {
         options.Normalize(); options.Validate();
@@ -74,6 +75,6 @@ public static class AiProviderFactory
         var key = options.Provider == AiProviderKind.Direct ? secrets.Load() : null;
         if (options.Provider == AiProviderKind.Direct && string.IsNullOrWhiteSpace(key))
             throw new InvalidOperationException("直连 AI 服务尚未配置 API Key。");
-        return new OpenAiCompatibleProvider(options, key, http);
+        return new OpenAiCompatibleProvider(options, key, http ?? SharedHttp);
     }
 }

@@ -11,18 +11,18 @@ public sealed class AiSuggestionService
     private readonly IAiProvider _provider;
     public AiSuggestionService(IAiProvider provider) => _provider = provider ?? throw new ArgumentNullException(nameof(provider));
 
-    public async Task<AiSuggestion> SuggestAsync(AiPrompt prompt, CancellationToken cancellationToken = default)
+    public async Task<AiSuggestion> SuggestAsync(AiPrompt prompt, CancellationToken cancellationToken = default, int maxTextLength = 240)
     {
         var raw = await _provider.CompleteAsync(prompt, cancellationToken);
-        return Parse(raw);
+        return Parse(raw, maxTextLength);
     }
 
-    public static AiSuggestion Parse(string json)
+    public static AiSuggestion Parse(string json, int maxTextLength = 240)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         var text = root.TryGetProperty("text", out var textValue) ? textValue.GetString() : null;
-        if (string.IsNullOrWhiteSpace(text) || text.Length > 240) throw new InvalidDataException("AI 建议文本为空或超出长度限制。");
+        if (string.IsNullOrWhiteSpace(text) || text.Length > maxTextLength) throw new InvalidDataException("AI 建议文本为空或超出长度限制。");
         var mood = root.TryGetProperty("mood", out var moodValue) ? moodValue.GetString() : null;
         var action = root.TryGetProperty("action", out var actionValue) ? actionValue.GetString() : null;
         if (action is not null)

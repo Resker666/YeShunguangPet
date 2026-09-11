@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -58,4 +59,24 @@ public partial class StudyWindow : ThemedWindow
         catch (Exception ex) { StatusText.Text = ex.Message; }
     }
     private void Retry_Click(object sender, RoutedEventArgs e) { _runtime.History.RetrySave(); Refresh(); }
+    private async void Summary_Click(object sender, RoutedEventArgs e)
+    {
+        var options = _runtime.AiConfiguration;
+        if (options is null || !options.Enabled || !options.AllowStudySummaries)
+        {
+            StatusText.Text = "请先在 AI 设置中启用专注总结。"; return;
+        }
+        try
+        {
+            SummaryButton.IsEnabled = false; StatusText.Text = "正在生成总结…";
+            var provider = _runtime.CreateAiProvider() ?? throw new InvalidOperationException("AI Provider 未启用。");
+            var today = _runtime.History.Totals(_runtime.Today); var week = _runtime.History.Week(_runtime.Today);
+            var prompt = new AiPrompt("你是离线专注助手。只返回 JSON：{\"text\":\"一段中文总结\",\"mood\":\"encourage\"}。不要给出医疗或职业诊断，不要输出 JSON 之外的内容。总结最多 600 个汉字。",
+                $"日期：{_runtime.Today:yyyy-MM-dd}\n今日专注：{today.Minutes} 分钟，完成 {today.Sessions} 次\n近七天：{week.Sum(x => x.Minutes)} 分钟，完成 {week.Sum(x => x.Sessions)} 次\n请给出简短、具体、鼓励性的总结和一个明天可执行的小建议。");
+            var suggestion = await new AiSuggestionService(provider).SuggestAsync(prompt, CancellationToken.None, 600);
+            StatusText.Text = "AI 总结：" + suggestion.Text;
+        }
+        catch (Exception ex) { StatusText.Text = "AI 总结失败：" + ex.Message; }
+        finally { SummaryButton.IsEnabled = true; }
+    }
 }

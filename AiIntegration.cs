@@ -13,6 +13,11 @@ public sealed class AiOptions
     public string Model { get; set; } = string.Empty;
     public bool AllowSpeechSuggestions { get; set; }
     public bool AllowStudySummaries { get; set; }
+    public AiOptions Clone() => new()
+    {
+        Enabled = Enabled, Provider = Provider, Endpoint = Endpoint, Model = Model,
+        AllowSpeechSuggestions = AllowSpeechSuggestions, AllowStudySummaries = AllowStudySummaries
+    };
 
     public void Normalize()
     {

@@ -213,6 +213,11 @@ public partial class SettingsWindow : ThemedWindow
         if (Owner is MainWindow main) main.OpenDiagnostics(this);
         else new DiagnosticsWindow(null) { Owner = this }.ShowDialog();
     }
+    private void AiSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (Owner is MainWindow main) main.OpenAiSettings(this);
+        else AppDialog.Show(this, "AI 设置需要从桌面角色窗口打开。", "无法打开 AI 设置", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
 
     private static string GetApplicationVersion()
     {

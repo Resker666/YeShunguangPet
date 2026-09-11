@@ -1,0 +1,39 @@
+<ui:ThemedWindow x:Class="YeShunguangPet.AiSettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:YeShunguangPet"
+    Title="AI 设置" Width="640" Height="650" MinWidth="560" MinHeight="560" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <ui:SmoothScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="AI 设置" Style="{StaticResource PageHeading}"/>
+                <TextBlock Text="AI 只在你主动点击时请求，不会自动读取屏幕或修改角色文件。" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,6,0,18"/>
+                <CheckBox x:Name="EnabledCheck" Content="启用 AI 功能（用户主动触发）" Checked="Draft_Changed" Unchecked="Draft_Changed"/>
+                <StackPanel IsEnabled="{Binding IsChecked, ElementName=EnabledCheck}">
+                    <TextBlock Text="服务类型" FontWeight="SemiBold" Margin="0,10,0,6"/>
+                    <ComboBox x:Name="ProviderSelector" SelectedValuePath="Tag" SelectionChanged="Draft_Changed">
+                        <ComboBoxItem Tag="Direct" Content="直连 API"/>
+                        <ComboBoxItem Tag="Relay" Content="自建中转服务"/>
+                        <ComboBoxItem Tag="Local" Content="本地模型服务"/>
+                    </ComboBox>
+                    <TextBlock Text="Endpoint" FontWeight="SemiBold" Margin="0,14,0,6"/>
+                    <TextBox x:Name="EndpointInput" MinHeight="34" ToolTip="例如 https://api.openai.com/v1" TextChanged="Draft_Changed"/>
+                    <TextBlock Text="模型" FontWeight="SemiBold" Margin="0,14,0,6"/>
+                    <TextBox x:Name="ModelInput" MinHeight="34" ToolTip="填写服务商支持的模型名称" TextChanged="Draft_Changed"/>
+                    <TextBlock Text="API Key" FontWeight="SemiBold" Margin="0,14,0,6"/>
+                    <DockPanel>
+                        <Button x:Name="ClearKeyButton" DockPanel.Dock="Right" Content="清除" Click="ClearKey_Click"/>
+                        <PasswordBox x:Name="ApiKeyInput" MinHeight="34" PasswordChanged="Draft_Changed"/>
+                    </DockPanel>
+                    <TextBlock x:Name="KeyStatusText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,5,0,0"/>
+                    <CheckBox x:Name="SpeechCheck" Content="允许 AI 生成角色台词" Checked="Draft_Changed" Unchecked="Draft_Changed"/>
+                    <CheckBox x:Name="SummaryCheck" Content="允许 AI 生成专注总结" Checked="Draft_Changed" Unchecked="Draft_Changed"/>
+                </StackPanel>
+                <TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,18,0,0"/>
+            </StackPanel>
+        </ui:SmoothScrollViewer>
+        <DockPanel Grid.Row="1" Margin="0,16,0,0" LastChildFill="False">
+            <Button x:Name="TestButton" DockPanel.Dock="Left" Content="测试连接" Click="Test_Click"/>
+            <Button DockPanel.Dock="Right" Content="取消" IsCancel="True" Margin="0,0,8,0"/>
+            <Button x:Name="SaveButton" DockPanel.Dock="Right" Content="保存" Style="{StaticResource PrimaryButton}" Click="Save_Click"/>
+        </DockPanel>
+    </Grid>
+</ui:ThemedWindow>

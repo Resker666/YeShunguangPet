@@ -4,7 +4,7 @@
     Title="专注记录" Width="760" Height="680" MinWidth="640" MinHeight="550" WindowStartupLocation="CenterOwner">
     <Grid Margin="24">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <DockPanel Margin="0,0,0,22"><TextBlock Text="专注记录" Style="{StaticResource PageHeading}"/><TextBlock x:Name="DateText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/></DockPanel>
+        <DockPanel Margin="0,0,0,22"><StackPanel Orientation="Horizontal"><TextBlock Text="专注记录" Style="{StaticResource PageHeading}"/><Button x:Name="SummaryButton" Content="AI 总结" Margin="14,0,0,0" VerticalAlignment="Center" Click="Summary_Click"/></StackPanel><TextBlock x:Name="DateText" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/></DockPanel>
         <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <StackPanel><TextBlock Text="今日专注" Style="{StaticResource SecondaryLabel}"/><TextBlock x:Name="TodayText" Style="{StaticResource MetricText}" Margin="0,7,0,0"/></StackPanel>
             <StackPanel Grid.Column="1"><TextBlock Text="今日完成" Style="{StaticResource SecondaryLabel}"/><TextBlock x:Name="CountText" Style="{StaticResource MetricText}" Margin="0,7,0,0"/></StackPanel>

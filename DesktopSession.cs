@@ -47,6 +47,7 @@ public sealed partial class DesktopSession : IDisposable
         var globalSettings = new PetSettings();
         configuration.Companion.ApplyTo(globalSettings);
         Companion = new CompanionRuntime(globalSettings, clock, history, PersistCompanionDurations, configuration.FocusWindow, PersistFocusWindow);
+        Companion.ConfigureAi(() => Configuration.Ai);
         Companion.DurationsChanged += () =>
         {
             foreach (var window in Windows) window.ApplyGlobal(Configuration.Companion);
@@ -216,6 +217,20 @@ public sealed partial class DesktopSession : IDisposable
         try { Persist(); } catch { Configuration.Speech = previous; throw; }
         _speech.Dismiss();
         Changed?.Invoke();
+    }
+    public void UpdateAi(AiOptions options)
+    {
+        var previous = Configuration.Ai;
+        var next = options.Clone(); next.Normalize(); next.Validate();
+        Configuration.Ai = next;
+        try { Persist(); } catch { Configuration.Ai = previous; throw; }
+        Changed?.Invoke();
+    }
+    public void OpenAiSettings(Window? owner = null)
+    {
+        if (_disposed) return;
+        var dialog = new AiSettingsWindow(this) { Owner = owner };
+        dialog.ShowDialog();
     }
 
     internal bool BeginSettings(MainWindow window)

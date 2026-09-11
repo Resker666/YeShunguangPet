@@ -9,7 +9,7 @@
             <DockPanel Margin="0,12,0,0"><TextBlock Text="气泡间隔" FontSize="13"/><TextBlock x:Name="CooldownText" HorizontalAlignment="Right" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/></DockPanel>
             <Slider x:Name="CooldownSlider" Minimum="5" Maximum="300" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="Cooldown_Changed" AutomationProperties.Name="气泡冷却间隔"/>
         </StackPanel>
-        <TabControl Grid.Row="2">
+        <TabControl x:Name="Tabs" Grid.Row="2">
             <TabItem Header="点击"><TextBox x:Name="ClickInput" AcceptsReturn="True" VerticalContentAlignment="Top" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="1024" AutomationProperties.Name="点击台词"/></TabItem>
             <TabItem Header="拖动"><TextBox x:Name="DragInput" AcceptsReturn="True" VerticalContentAlignment="Top" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="1024" AutomationProperties.Name="拖动台词"/></TabItem>
             <TabItem Header="专注完成"><TextBox x:Name="FocusInput" AcceptsReturn="True" VerticalContentAlignment="Top" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="1024" AutomationProperties.Name="专注完成台词"/></TabItem>
@@ -17,7 +17,7 @@
         </TabControl>
         <Grid Grid.Row="3" Margin="0,16,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" MaxHeight="50" Margin="0,0,0,10"/>
-            <DockPanel Grid.Row="1" LastChildFill="False"><Button DockPanel.Dock="Left" Content="恢复默认台词" Click="Reset_Click"/><Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="保存" IsDefault="True" Click="Save_Click"/><Button DockPanel.Dock="Right" Content="取消" IsCancel="True" Margin="0,0,8,0"/></DockPanel>
+            <DockPanel Grid.Row="1" LastChildFill="False"><Button DockPanel.Dock="Left" Content="恢复默认台词" Click="Reset_Click"/><Button x:Name="GenerateAiButton" DockPanel.Dock="Left" Content="AI 生成当前台词" Margin="8,0,0,0" Click="GenerateAi_Click"/><Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="保存" IsDefault="True" Click="Save_Click"/><Button DockPanel.Dock="Right" Content="取消" IsCancel="True" Margin="0,0,8,0"/></DockPanel>
         </Grid>
     </Grid>
 </ui:ThemedWindow>

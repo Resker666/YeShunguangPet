@@ -17,6 +17,7 @@ public sealed class CompanionRuntime : IDisposable
     private FocusWindow? _window;
     private StudyWindow? _studyWindow;
     private string? _avatarInstance;
+    private Func<AiOptions>? _aiOptions;
     private bool _disposed;
     public bool IsQuiet => _service.IsQuiet;
     public event Action? Pulse { add => _service.Pulse += value; remove => _service.Pulse -= value; }
@@ -41,6 +42,9 @@ public sealed class CompanionRuntime : IDisposable
     public void SetDurations(int focusMinutes, int breakMinutes) => _service.SetDurations(focusMinutes, breakMinutes);
     public void Tick() => _service.Tick();
     public void SaveWindowOptions(FocusWindowOptions options) => _service.SaveWindowOptions(options);
+    internal void ConfigureAi(Func<AiOptions> options) => _aiOptions = options;
+    internal AiOptions? AiConfiguration => _aiOptions?.Invoke();
+    internal IAiProvider? CreateAiProvider() => _aiOptions is null ? null : AiProviderFactory.Create(_aiOptions(), new AiSecretStore());
 
     public void Open(PetPackage pet, string? instanceId = null)
     {
