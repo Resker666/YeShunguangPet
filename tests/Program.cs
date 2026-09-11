@@ -156,6 +156,7 @@ internal static class Program
             EdgeDockTests.Run((success, name) => Check(success, name), original, args.Length > 1 ? args[1] : null);
             UiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);
             DiagnosticsTests.Run((success, name) => Check(success, name), catalog, _root);
+            AiTests.Run((success, name) => Check(success, name), _root);
             SpeechStudyTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusDialTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusControllerTests.Run((success, name) => Check(success, name));

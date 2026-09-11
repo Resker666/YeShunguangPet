@@ -48,6 +48,8 @@
 
 [用 AI 制作皮肤的步骤与提示词](docs/AI_SKIN_GUIDE.md) · [皮肤包格式](docs/PET_FORMAT.md) · [皮肤 SDK](skin-sdk/README.md) · [动作编辑器](docs/USER_GUIDE.md#动作配置编辑器)
 
+AI 接入架构说明见 [AI_INTEGRATION.md](docs/AI_INTEGRATION.md)。当前默认完全离线，不会自动联网。
+
 ## 反馈与试用
 
 独立开发，欢迎告诉我哪里好用、哪里让你不想继续用。
