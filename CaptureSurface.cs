@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Ink;
 using System.Windows.Input;
@@ -108,6 +109,7 @@ public sealed class CaptureSurface : FrameworkElement
         dc.PushClip(new RectangleGeometry(new Rect(0, 0, Width, Height)));
         dc.PushTransform(new TranslateTransform(-Document.Crop.X, -Document.Crop.Y)); Document.Draw(dc);
         DrawPreview(dc);
+        DrawMosaicGuides(dc);
         dc.Pop(); dc.Pop();
     }
     public void DrawPreview(DrawingContext dc)
@@ -117,6 +119,21 @@ public sealed class CaptureSurface : FrameworkElement
             if (Tool == CaptureTool.Crop) dc.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.White, 1), new Rect(_start, _end));
             else if (_inkPreview is not null) _inkPreview.Draw(dc);
             else new CaptureMark(Tool, _start, _end, InkColor, Tool == CaptureTool.Mosaic ? MosaicBlockSize : StrokeWidth).Draw(dc, Document.Image);
+            if (Tool == CaptureTool.Mosaic) DrawMosaicGuide(dc, new Rect(_start, _end));
         }
+    }
+    private void DrawMosaicGuides(DrawingContext dc)
+    {
+        foreach (var mark in Document.Marks.Where(mark => mark.Tool == CaptureTool.Mosaic)) DrawMosaicGuide(dc, mark.Bounds);
+    }
+    private static void DrawMosaicGuide(DrawingContext dc, Rect rect)
+    {
+        if (rect.Width < 1 || rect.Height < 1) return;
+        var colors = UiTheme.GetColors();
+        var accent = colors["AccentBrush"];
+        var halo = new System.Windows.Media.Pen(new SolidColorBrush(Color.FromArgb(210, 0, 0, 0)), 4);
+        var line = new System.Windows.Media.Pen(new SolidColorBrush(Color.FromArgb(245, accent.R, accent.G, accent.B)), 1.5) { DashStyle = DashStyles.Dash };
+        halo.Freeze(); line.Freeze();
+        dc.DrawRectangle(null, halo, rect); dc.DrawRectangle(null, line, rect);
     }
 }

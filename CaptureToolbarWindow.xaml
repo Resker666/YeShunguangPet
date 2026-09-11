@@ -21,7 +21,8 @@
             </ControlTemplate></Setter.Value></Setter>
         </Style>
     </ui:ThemedWindow.Resources>
-    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="8,6">
+    <Border x:Name="GlassSurface" Background="Transparent" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="14" Padding="10,8">
+        <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.22"/></Border.Effect>
         <StackPanel>
             <WrapPanel x:Name="ToolOptions" Visibility="Collapsed" Margin="0,0,0,6">
                 <RadioButton x:Name="RedSwatch" Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#D62F4B" Background="#D62F4B" ToolTip="红色" AutomationProperties.Name="红色" Checked="Color_Changed"/>

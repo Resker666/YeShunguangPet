@@ -22,6 +22,7 @@ public sealed class CaptureMark
     public double FontSize { get; }
     public string Text { get; }
     public int PointCount { get; }
+    public Rect Bounds => new(Start, End);
     private readonly Stroke? _stroke;
     private readonly Brush _brush;
     private readonly System.Windows.Media.Pen _pen;
