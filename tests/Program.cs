@@ -304,7 +304,6 @@ internal static class Program
         {
             var type = typeof(MainWindow);
             var field = type.GetField("_pet", PrivateInstance)!;
-            var cache = (Dictionary<(int, int), BitmapSource>)type.GetField("_frameCache", PrivateInstance)!.GetValue(window)!;
             var animation = type.GetMethod("PlayAnimation", PrivateInstance)!;
             var frame = type.GetMethod("GetFrame", PrivateInstance)!;
             field.SetValue(window, original);
@@ -313,7 +312,7 @@ internal static class Program
             // Exercise the same package adoption used by ApplySettings without persisting user preferences.
             type.GetMethod("AdoptPackage", PrivateInstance)!.Invoke(window, new object[] { custom });
             animation.Invoke(window, new object[] { PetState.Idle, true });
-            Check(cache.Keys.All(k => k == (1, 1)), "switch discards old cached frames");
+            Check(((BitmapSource)frame.Invoke(window, new object[] { 1, 1 })!).PixelWidth == 16, "switch uses the new package frame cache without retaining old frames");
             Check(((Image)window.FindName("SpriteImage")).Source is BitmapSource { PixelWidth: 16 }, "runtime draws new sheet");
             type.GetMethod("ApplyScale", PrivateInstance)!.Invoke(window, new object[] { 1.5, false });
             Check(window.Width == 24 && window.Height == 24, "runtime size follows manifest cells");
