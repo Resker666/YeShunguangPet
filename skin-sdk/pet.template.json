@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "my-character",
+  "name": "我的角色",
+  "description": "一句简短的角色描述",
+  "spriteSheet": "spritesheet.png",
+  "cellWidth": 192,
+  "cellHeight": 208,
+  "columns": 8,
+  "rows": 11,
+  "animations": {
+    "idle": {
+      "row": 0,
+      "startColumn": 0,
+      "durationsMs": [350, 350, 350, 350],
+      "loop": true
+    },
+    "waving": {
+      "row": 1,
+      "startColumn": 0,
+      "durationsMs": [180, 180, 220, 220],
+      "loop": false
+    },
+    "jumping": {
+      "row": 2,
+      "startColumn": 0,
+      "durationsMs": [180, 180, 220, 260],
+      "loop": false
+    }
+  },
+  "lookDirections": []
+}

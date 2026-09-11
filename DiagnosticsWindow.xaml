@@ -9,10 +9,15 @@
             <StackPanel><TextBlock Text="诊断与日志" Style="{StaticResource PageHeading}"/><TextBlock x:Name="VersionText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,5,0,0"/></StackPanel>
             <Button x:Name="RefreshButton" Grid.Column="1" Style="{StaticResource IconButton}" Content="&#xE72C;" ToolTip="刷新诊断信息" AutomationProperties.Name="刷新诊断信息" Click="Refresh_Click"/>
         </Grid>
-        <StackPanel Grid.Row="1" Margin="0,0,0,18">
-            <TextBlock x:Name="LogStatusText" FontWeight="Medium"/>
-            <TextBlock x:Name="LogPathText" FontSize="12" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,6,0,0"/>
-        </StackPanel>
+        <Grid Grid.Row="1" Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock x:Name="LogStatusText" FontWeight="Medium"/>
+                <TextBlock x:Name="ResourceStatusText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/>
+                <TextBlock x:Name="ConfigStatusText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/>
+                <TextBlock x:Name="LogPathText" FontSize="12" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+            <Button x:Name="RestoreConfigButton" Grid.Column="1" Content="恢复配置备份" IsEnabled="False" Margin="16,0,0,0" VerticalAlignment="Center" Click="RestoreConfig_Click"/>
+        </Grid>
         <TabControl x:Name="ReportTabs" Grid.Row="2">
             <TabItem Header="运行信息"><TextBox x:Name="InformationText" IsReadOnly="True" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Padding="8" AutomationProperties.Name="脱敏运行信息"/></TabItem>
             <TabItem Header="脱敏日志"><TextBox x:Name="LogsText" IsReadOnly="True" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Padding="8" AutomationProperties.Name="脱敏日志"/></TabItem>

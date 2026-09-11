@@ -22,6 +22,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length >= 2 && args[0] == "--validate-skin") return ValidateSkin(args[1]);
         _root = Path.Combine(Path.GetTempPath(), "YeShunguangPet-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_root);
         typeof(AppLogger).GetMethod("SetSink", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null,
@@ -223,6 +224,24 @@ internal static class Program
         finally
         {
             Directory.Delete(_root, recursive: true);
+        }
+    }
+
+    private static int ValidateSkin(string path)
+    {
+        try
+        {
+            var snapshot = PetArchive.Read(Path.GetFullPath(path));
+            var manifest = snapshot.Package.Manifest;
+            Console.WriteLine($"PASS: {manifest.Name} ({manifest.Id})");
+            Console.WriteLine($"  sprite: {manifest.SpriteSheet} {manifest.CellWidth}x{manifest.CellHeight} · {manifest.Columns}x{manifest.Rows}");
+            Console.WriteLine($"  actions: {manifest.Animations.Count} · PNG bytes: {snapshot.Png.Length}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("FAIL: " + ex.Message);
+            return 1;
         }
     }
 

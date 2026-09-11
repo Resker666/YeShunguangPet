@@ -8,10 +8,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>YeShunguangPet</AssemblyName>
     <RootNamespace>YeShunguangPet</RootNamespace>
-    <Version>2.14.1</Version>
-    <AssemblyVersion>2.14.1.0</AssemblyVersion>
-    <FileVersion>2.14.1.0</FileVersion>
-    <InformationalVersion>2.14.1</InformationalVersion>
+    <Version>2.15.0</Version>
+    <AssemblyVersion>2.15.0.0</AssemblyVersion>
+    <FileVersion>2.15.0.0</FileVersion>
+    <InformationalVersion>2.15.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyTitle>叶瞬光桌面宠物</AssemblyTitle>
     <Authors>Resker666</Authors>

@@ -46,7 +46,7 @@
 
 已经有皮肤包时，可导入单个角色 ZIP 或 `pet.json`。只有一张立绘还不够，动画需要精灵图与动作参数。
 
-[用 AI 制作皮肤的步骤与提示词](docs/AI_SKIN_GUIDE.md) · [皮肤包格式](docs/PET_FORMAT.md) · [动作编辑器](docs/USER_GUIDE.md#动作配置编辑器)
+[用 AI 制作皮肤的步骤与提示词](docs/AI_SKIN_GUIDE.md) · [皮肤包格式](docs/PET_FORMAT.md) · [皮肤 SDK](skin-sdk/README.md) · [动作编辑器](docs/USER_GUIDE.md#动作配置编辑器)
 
 ## 反馈与试用
 

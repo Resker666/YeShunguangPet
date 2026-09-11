@@ -10,7 +10,7 @@ public static class PetArchive
 {
     private const long MaxArchiveBytes = 80 * 1024 * 1024;
 
-    internal static (PetPackage Package, byte[] Json, byte[] Png) Read(string path)
+    public static (PetPackage Package, byte[] Json, byte[] Png) Read(string path)
     {
         if (!Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase))
             return PetPackage.ReadPackage(path);

@@ -230,6 +230,22 @@ public sealed class DesktopSettingsStore
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
+    public void RestoreBackup()
+    {
+        if (!File.Exists(BackupPath)) throw new InvalidDataException("没有可恢复的配置备份。");
+        LoadFile(BackupPath);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(Path))!);
+        var temporary = Path + ".restore-" + Guid.NewGuid().ToString("N") + ".tmp";
+        var beforeRecovery = Path + ".pre-recovery.bak";
+        try
+        {
+            File.Copy(BackupPath, temporary, overwrite: true);
+            if (File.Exists(Path)) File.Replace(temporary, Path, beforeRecovery, ignoreMetadataErrors: false);
+            else File.Move(temporary, Path);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
     private static byte[] Read(string path)
     {
         using var stream = File.OpenRead(path);
