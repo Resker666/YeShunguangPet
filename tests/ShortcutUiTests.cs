@@ -38,11 +38,11 @@ internal static class ShortcutUiTests
             {
                 Show(window);
                 check(window.FontFamily.Source == "Segoe UI, Microsoft YaHei UI" && Rows(window).Length == 7, "shortcut editor includes separate region, current-screen and all-screen actions");
+                check(Find<TextBlock>(window, "StatusText").Text.Length == 0, "opening shortcut settings does not mark an untouched draft as changed");
                 check(RowControl<TextBox>(window, 1, "GestureBox").IsReadOnly && RowControl<Button>(window, 1, "ClearGestureButton") is not null, "shortcut editor uses direct gesture capture with an explicit clear action");
                 Rows(window)[1].Enabled = true; Rows(window)[1].Modifiers = 1; Rows(window)[1].Key = 0x41;
                 check(RowControl<TextBox>(window, 1, "GestureBox").Text == "Alt+A", "shortcut editor displays a WeChat-style Alt+A gesture");
                 Rows(window)[1].Enabled = false;
-                check(Find<TextBlock>(window, "StatusText").Text.Length == 0, "opening shortcut settings does not mark an untouched draft as changed");
                 foreach (var size in new[] { new Size(580, 650), new Size(480, 460) })
                 {
                     window.Width = size.Width; window.Height = size.Height; Wait(60);
