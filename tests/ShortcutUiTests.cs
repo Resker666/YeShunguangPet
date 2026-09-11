@@ -86,7 +86,9 @@ internal static class ShortcutUiTests
         desktop.UpdateShortcuts(options);
         check(((System.Windows.Forms.ToolStripMenuItem)tray.Items.Find("recallAll", false).Single()).ShortcutKeyDisplayString == "Ctrl+Alt+Shift+F11", "already-created tray reflects the saved shortcut hint");
         var pet = desktop.Windows.First(); Call(pet, "BuildWindowContextMenu"); Call(pet, "UpdateMenuChecks");
-        check(PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "专注计时")).InputGestureText == "Ctrl+Shift+F", "desktop menu uses the configured focus shortcut hint");
+        check(PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "设置")) is not null &&
+              PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "角色设置")) is not null &&
+              PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "专注计时")).InputGestureText == "Ctrl+Shift+F", "desktop menu separates global settings from current-role settings");
         desktop.UpdateShortcuts(new ShortcutOptions { RecallAll = null }); Call(pet, "UpdateMenuChecks");
         check(PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "召回主屏幕")).InputGestureText.Length == 0, "disabled shortcuts disappear from menu hints without removing commands");
     }

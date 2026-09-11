@@ -78,6 +78,19 @@
                         <TextBlock Text="设置" Style="{StaticResource PageHeading}" Margin="0,0,0,24"/>
                         <Border Background="{DynamicResource SidebarBrush}" CornerRadius="6" Padding="3" HorizontalAlignment="Left" Margin="0,0,0,28"><StackPanel Orientation="Horizontal"><RadioButton x:Name="AppScope" Content="应用" GroupName="Scope" Style="{StaticResource SegmentButton}" Checked="Scope_Changed"/><RadioButton x:Name="RoleScope" Content="当前角色" GroupName="Scope" Style="{StaticResource SegmentButton}" Checked="Scope_Changed"/></StackPanel></Border>
                         <StackPanel x:Name="AppSettingsPanel">
+                            <Border x:Name="CommonSettingsPanel" Background="{DynamicResource SubtleBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,13" Margin="0,0,0,26">
+                                <StackPanel>
+                                    <TextBlock Text="常用设置" Style="{StaticResource SectionTitle}" Margin="0,0,0,10"/>
+                                    <UniformGrid Columns="3">
+                                        <Button x:Name="AiSettingsButton" Style="{StaticResource PrimaryButton}" HorizontalContentAlignment="Left" Margin="0,0,8,8" Click="AiSettings_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" Margin="0,0,8,0"/><TextBlock Text="AI 设置"/></StackPanel></Button>
+                                        <Button x:Name="FocusSettingsLink" Style="{StaticResource AppButton}" Content="专注与休息" HorizontalContentAlignment="Left" Margin="0,0,8,8" Click="CompanionSettings_Click"/>
+                                        <Button x:Name="ShortcutsButton" Style="{StaticResource AppButton}" Content="快捷键" HorizontalContentAlignment="Left" Margin="0,0,0,8" Click="Shortcuts_Click"/>
+                                        <Button x:Name="FocusHistoryLink" Style="{StaticResource AppButton}" Content="专注记录" HorizontalContentAlignment="Left" Margin="0,0,8,0" Click="History_Click"/>
+                                        <Button x:Name="SpeechButton" Style="{StaticResource AppButton}" Content="角色台词" HorizontalContentAlignment="Left" Margin="0,0,8,0" Click="Speech_Click"/>
+                                        <Button x:Name="DiagnosticsButton" Style="{StaticResource AppButton}" Content="诊断与日志" HorizontalContentAlignment="Left" Click="Diagnostics_Click"/>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
                             <TextBlock Text="外观" Style="{StaticResource SectionTitle}"/>
                             <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="主题" FontSize="13" VerticalAlignment="Center"/><Border Grid.Column="1" Background="{DynamicResource SidebarBrush}" CornerRadius="6" Padding="3"><StackPanel Orientation="Horizontal"><RadioButton x:Name="SystemTheme" Content="跟随系统" Tag="system" GroupName="Theme" Style="{StaticResource SegmentButton}" Checked="Theme_Changed"/><RadioButton x:Name="LightTheme" Content="浅色" Tag="light" GroupName="Theme" Style="{StaticResource SegmentButton}" Checked="Theme_Changed"/><RadioButton x:Name="DarkTheme" Content="深色" Tag="dark" GroupName="Theme" Style="{StaticResource SegmentButton}" Checked="Theme_Changed"/></StackPanel></Border></Grid>
                             <DockPanel Margin="0,0,0,18"><TextBlock Text="强调色" FontSize="13" VerticalAlignment="Center"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><RadioButton x:Name="RedAccent" Background="#A92C46" Tag="#A92C46" ToolTip="绯红" AutomationProperties.Name="绯红" GroupName="Accent" Style="{StaticResource AccentSwatch}" Checked="Accent_Changed" Margin="0,0,8,0"/><RadioButton x:Name="GreenAccent" Background="#24796E" Tag="#24796E" ToolTip="青绿" AutomationProperties.Name="青绿" GroupName="Accent" Style="{StaticResource AccentSwatch}" Checked="Accent_Changed" Margin="0,0,8,0"/><RadioButton x:Name="BlueAccent" Background="#396BB8" Tag="#396BB8" ToolTip="蔚蓝" AutomationProperties.Name="蔚蓝" GroupName="Accent" Style="{StaticResource AccentSwatch}" Checked="Accent_Changed" Margin="0,0,8,0"/><RadioButton x:Name="GrayAccent" Background="#667085" Tag="#667085" ToolTip="石墨" AutomationProperties.Name="石墨" GroupName="Accent" Style="{StaticResource AccentSwatch}" Checked="Accent_Changed"/></StackPanel></DockPanel>
@@ -86,12 +99,6 @@
                             <TextBlock Text="常规" Style="{StaticResource SectionTitle}"/>
                             <CheckBox x:Name="StartupCheck" Content="开机启动" Margin="0,0,0,12" Checked="Startup_Changed" Unchecked="Startup_Changed"/>
                             <CheckBox x:Name="NotificationsCheck" Content="桌面通知与完成动作" Checked="Notifications_Changed" Unchecked="Notifications_Changed"/>
-                            <Separator Margin="0,24,0,18"/>
-                            <Button x:Name="FocusSettingsLink" Style="{StaticResource LinkButton}" Content="专注与休息设置" HorizontalAlignment="Left" Click="CompanionSettings_Click"/>
-                            <Button x:Name="FocusHistoryLink" Style="{StaticResource LinkButton}" Content="专注记录" HorizontalAlignment="Left" Click="History_Click"/>
-                            <Button x:Name="ShortcutsButton" Style="{StaticResource LinkButton}" Content="快捷键" HorizontalAlignment="Left" Click="Shortcuts_Click"/>
-                            <Button Style="{StaticResource LinkButton}" Content="角色台词" HorizontalAlignment="Left" Click="Speech_Click"/>
-                            <Button x:Name="DiagnosticsButton" Style="{StaticResource LinkButton}" Content="诊断与日志" HorizontalAlignment="Left" Click="Diagnostics_Click"/>
                         </StackPanel>
                         <StackPanel x:Name="RoleSettingsPanel" Visibility="Collapsed"><ComboBox x:Name="RoleChoice" DisplayMemberPath="DisplayName" SelectionChanged="RoleChoice_Changed" Margin="0,0,0,24" AutomationProperties.Name="当前角色"/><ContentControl x:Name="SettingsRoleHost" HorizontalContentAlignment="Stretch"/><TextBlock x:Name="NoRoleText" Text="暂无桌面角色" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel>
                     </StackPanel>

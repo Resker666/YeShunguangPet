@@ -567,9 +567,9 @@ public partial class MainWindow : Window
             capture.Items.Add(CreateShortcutMenuItem("全部屏幕", ShortcutAction.CaptureAllScreens, (_, _) => Dispatcher.BeginInvoke(_desktop.StartAllScreensCapture), "\uE9A6"));
             menu.Items.Add(capture);
         }
-        menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE713"));
+        if (_desktop is not null) menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE713"));
+        menu.Items.Add(CreateMenuItem("角色设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE716"));
         menu.Items.Add(CreateMenuItem("查看角色介绍", (_, _) => Dispatcher.BeginInvoke(OpenAbout), icon: "\uE946"));
-        if (_desktop is not null) menu.Items.Add(CreateMenuItem("角色管理", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE716"));
         menu.Items.Add(new Separator());
         var actions = new MenuItem { Header = "动作", Icon = MenuIcon("\uE768") };
         actions.Items.Add(CreateAnimationMenuItem("待机", PetState.Idle));

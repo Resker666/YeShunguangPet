@@ -29,7 +29,7 @@ public sealed class TrayMenu : ContextMenuStrip
         Renderer = new MenuRenderer(this);
         AccessibleName = "桌面宠物托盘菜单";
         Items.Add(new SectionLabel("常用入口"));
-        AddCommand("manager", "角色管理", desktop.OpenManager);
+        AddCommand("manager", "设置", desktop.OpenManager);
         AddCommand("focus", "专注计时", desktop.OpenFocus);
         _captureMenu = new ToolStripMenuItem("截图") { Name = "capture", AutoSize = false };
         Items.Add(_captureMenu); _captureMenu.DropDown.Renderer = new MenuRenderer(this);

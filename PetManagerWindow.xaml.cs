@@ -217,6 +217,7 @@ public partial class PetManagerWindow : ThemedWindow
     private void RecallAll_Click(object sender, RoutedEventArgs e) => Run(_desktop.RecallAll);
     private void Focus_Click(object sender, RoutedEventArgs e) => Run(_desktop.OpenFocus);
     private void History_Click(object sender, RoutedEventArgs e) => Run(() => _desktop.Companion.OpenHistory(this));
+    private void AiSettings_Click(object sender, RoutedEventArgs e) => Run(() => _desktop.OpenAiSettings(this));
     private void Speech_Click(object sender, RoutedEventArgs e)
     {
         if (Selected is { } card) Run(() => _desktop.OpenSpeechSettings(card.Window.Package, this));
