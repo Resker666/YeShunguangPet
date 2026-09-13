@@ -1,0 +1,3 @@
+# Keep imported Hu Tao skin identical to its community package on all platforms.
+Pets/hutao/pet.json -text
+Pets/hutao/spritesheet.png binary

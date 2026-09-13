@@ -2,7 +2,7 @@
 
 可换角色的离线桌面陪伴，带迷你番茄钟和专注记录。无需登录，不需要安装额外运行库。
 
-**[下载 Windows 便携版](https://github.com/Resker666/YeShunguangPet/releases/latest)** · [三步启动](#三步启动) · [完整使用说明](docs/USER_GUIDE.md) · [反馈体验](https://github.com/Resker666/YeShunguangPet/issues/new?template=trial_feedback.yml)
+**[下载 Windows 便携版](https://github.com/Resker666/YeShunguangPet/releases/latest)** · [社区皮肤库](https://github.com/Resker666/YeShunguangPet-Skins) · [三步启动](#三步启动) · [完整使用说明](docs/USER_GUIDE.md) · [反馈体验](https://github.com/Resker666/YeShunguangPet/issues/new?template=trial_feedback.yml)
 
 ![角色动作、迷你计时器和皮肤预览演示](docs/media/demo.gif)
 
@@ -41,6 +41,18 @@
 - **添加或切换角色**：右键 → 设置；皮肤导入入口在“设置 → 当前角色”。
 - **找不到角色**：按 `Ctrl + Alt + Y` 召回，或从系统托盘打开设置。
 - **完全退出**：在系统托盘或角色右键菜单中选择“退出程序”。关闭计时面板不会停止计时。
+
+## 内置角色与社区皮肤
+
+从 v2.18.1 起，便携包内置叶瞬光、知更鸟和胡桃。打开控制中心 →「桌面角色」→「添加角色」即可选择，无需额外下载。胡桃采用社区皮肤 v1.4.0，皮肤 ID 为 `hutao`，显示名称沿用皮肤包中的 `hutao`。
+
+[YeShunguangPet-Skins 社区皮肤库](https://github.com/Resker666/YeShunguangPet-Skins) 独立维护角色作品、作者说明和下载包：
+
+- **下载更多角色**：前往 [皮肤下载页](https://github.com/Resker666/YeShunguangPet-Skins/releases)，下载单角色 ZIP，再在皮肤管理中导入。不要选择 GitHub 的 Source code。
+- **分享自己的作品**：在程序中导出皮肤 ZIP，通过 [皮肤投稿表单](https://github.com/Resker666/YeShunguangPet-Skins/issues/new?template=submit-skin.yml) 提交预览、作者、素材来源和使用说明。
+- **主程序与皮肤分别更新**：社区皮肤按需下载；只有被选为内置角色的作品才随程序提供。目前没有应用内在线皮肤商店。
+
+已导入过同一份胡桃时，相同 ID 且文件字节相同的皮肤会合并显示。相同 ID 但内容不同则优先使用内置版本并提示冲突；自定义改版应另存为独立 ID，避免覆盖。
 
 ## 想制作自己的皮肤
 
