@@ -33,6 +33,13 @@ internal static class Program
         try
         {
             var source = Path.GetFullPath(args[0]);
+            if (args.Length > 1 && args[1] == "--ai-chat-tests")
+            {
+                AiTests.Run((success, name) => Check(success, name), _root);
+                AiChatTests.Run((success, name) => Check(success, name), _root);
+                Console.WriteLine($"PASS: {_passed} AI checks");
+                return 0;
+            }
             if (args.Length > 2 && args[2] == "--capture-smoke")
             {
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -157,6 +164,8 @@ internal static class Program
             UiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);
             DiagnosticsTests.Run((success, name) => Check(success, name), catalog, _root);
             AiTests.Run((success, name) => Check(success, name), _root);
+            AiChatTests.Run((success, name) => Check(success, name), _root);
+            AiChatUiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);
             SpeechStudyTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusDialTests.Run((success, name) => Check(success, name), catalog, _root);
             FocusControllerTests.Run((success, name) => Check(success, name));

@@ -68,7 +68,7 @@ public partial class SpeechSettingsWindow : ThemedWindow
         var options = _desktop.Configuration.Ai;
         if (!options.Enabled || !options.AllowSpeechSuggestions)
         {
-            ErrorText.Text = "请先在“关于 → AI 设置”中启用 AI 和角色台词建议。";
+            ErrorText.Text = "请先在控制中心左侧的“AI 设置”中启用 AI 和角色台词建议。";
             return;
         }
         try
@@ -77,7 +77,8 @@ public partial class SpeechSettingsWindow : ThemedWindow
             var provider = AiProviderFactory.Create(options, new AiSecretStore()) ?? throw new InvalidOperationException("AI Provider 未启用。");
             var tabs = (TabControl)FindName("Tabs");
             var trigger = (tabs.SelectedItem as TabItem)?.Header?.ToString() ?? "当前事件";
-            var prompt = new AiPrompt("你是离线桌宠的台词助手。只返回 JSON：{\"text\":\"一句中文短台词\",\"mood\":\"encourage\"}。不要执行动作，不要输出 JSON 之外的内容。台词最多 60 个汉字。",
+            var character = new AiChatSession(new AiChatStore(), _pet.Manifest.Id, _pet.Manifest.Name, _pet.Manifest.Description).State.Profile;
+            var prompt = new AiPrompt(character.BuildContext(_pet.Manifest.Name) + "\n你是桌宠的台词助手。只返回 JSON：{\"text\":\"一句中文短台词\",\"mood\":\"encourage\"}。不要执行动作，不要输出 JSON 之外的内容。台词最多 60 个汉字。",
                 $"角色：{_pet.Manifest.Name}\n事件：{trigger}\n请生成一句自然、简短、不冒充官方台词的桌宠台词。");
             var suggestion = await new AiSuggestionService(provider).SuggestAsync(prompt, CancellationToken.None);
             var target = CurrentInput(); target.Text = string.IsNullOrWhiteSpace(target.Text) ? suggestion.Text : target.Text.TrimEnd() + Environment.NewLine + suggestion.Text;
@@ -93,4 +94,5 @@ public partial class SpeechSettingsWindow : ThemedWindow
             1 => DragInput, 2 => FocusInput, 3 => BreakInput, _ => ClickInput
         } ?? ClickInput;
     }
+    private void Persona_Click(object sender, RoutedEventArgs e) => _desktop.OpenChat(_pet, this, editProfile: true);
 }

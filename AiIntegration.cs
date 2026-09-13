@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 
 namespace YeShunguangPet;
 
@@ -41,5 +42,9 @@ public sealed class AiOptions
     }
 }
 
-public sealed record AiPrompt(string System, string User);
+public sealed record AiPrompt(string System, string User)
+{
+    public IReadOnlyList<AiChatMessage>? History { get; init; }
+    public bool JsonResponse { get; init; } = true;
+}
 public sealed record AiSuggestion(string Text, string? Mood, string? Action, int? DurationSeconds);

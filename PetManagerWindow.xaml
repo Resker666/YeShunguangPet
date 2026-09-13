@@ -32,6 +32,7 @@
                 <StackPanel>
                     <RadioButton x:Name="RolesNav" GroupName="Navigation" Style="{StaticResource NavigationButton}" Checked="Navigate_Changed" Margin="0,0,0,6"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A9;" Margin="0,0,10,0"/><TextBlock Text="桌面角色"/></StackPanel></RadioButton>
                     <RadioButton x:Name="SettingsNav" GroupName="Navigation" Style="{StaticResource NavigationButton}" Checked="Navigate_Changed"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE713;" Margin="0,0,10,0"/><TextBlock Text="设置"/></StackPanel></RadioButton>
+                    <Button x:Name="AiSettingsButton" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Margin="0,6,0,0" Click="AiSettings_Click"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8F2;" Margin="0,0,10,0"/><TextBlock Text="AI 设置"/></StackPanel></Button>
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -82,7 +83,6 @@
                                 <StackPanel>
                                     <TextBlock Text="常用设置" Style="{StaticResource SectionTitle}" Margin="0,0,0,10"/>
                                     <UniformGrid Columns="3">
-                                        <Button x:Name="AiSettingsButton" Style="{StaticResource PrimaryButton}" HorizontalContentAlignment="Left" Margin="0,0,8,8" Click="AiSettings_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" Margin="0,0,8,0"/><TextBlock Text="AI 设置"/></StackPanel></Button>
                                         <Button x:Name="FocusSettingsLink" Style="{StaticResource AppButton}" Content="专注与休息" HorizontalContentAlignment="Left" Margin="0,0,8,8" Click="CompanionSettings_Click"/>
                                         <Button x:Name="ShortcutsButton" Style="{StaticResource AppButton}" Content="快捷键" HorizontalContentAlignment="Left" Margin="0,0,0,8" Click="Shortcuts_Click"/>
                                         <Button x:Name="FocusHistoryLink" Style="{StaticResource AppButton}" Content="专注记录" HorizontalContentAlignment="Left" Margin="0,0,8,0" Click="History_Click"/>

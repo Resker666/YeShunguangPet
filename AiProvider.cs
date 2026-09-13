@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -34,13 +35,23 @@ public sealed class OpenAiCompatibleProvider : IAiProvider
 
     public async Task<string> CompleteAsync(AiPrompt prompt, CancellationToken cancellationToken = default)
     {
-        var request = new
+        var messages = new List<object> { new { role = "system", content = prompt.System } };
+        if (prompt.History is not null)
         {
-            model = _model,
-            messages = new[] { new { role = "system", content = prompt.System }, new { role = "user", content = prompt.User } },
-            temperature = 0.7,
-            response_format = new { type = "json_object" }
+            foreach (var entry in prompt.History)
+            {
+                if (entry.Role is not ("user" or "assistant")) throw new InvalidOperationException("聊天历史角色无效。");
+                messages.Add(new { role = entry.Role, content = entry.Content });
+            }
+        }
+        messages.Add(new { role = "user", content = prompt.User });
+        var request = new Dictionary<string, object>
+        {
+            ["model"] = _model,
+            ["messages"] = messages,
+            ["temperature"] = 0.7
         };
+        if (prompt.JsonResponse) request["response_format"] = new { type = "json_object" };
         using var message = new HttpRequestMessage(HttpMethod.Post, _endpoint)
         {
             Content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json")

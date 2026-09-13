@@ -38,10 +38,11 @@ internal static class InlineCaptureUiTests
             check(toolbar.ActualHeight < 70 && Find<FrameworkElement>(toolbar, "ToolOptions").Visibility == Visibility.Collapsed, "selection mode keeps a single-row compact toolbar");
             AssertPlacement(check, capture, bounds);
             RenderScene(capture, bounds, renders, "inline-selection-" + theme + ".png");
-            var commandY = NativeBounds(toolbar).Top + Find<FrameworkElement>(toolbar, "CommandRow").TransformToAncestor((Visual)toolbar.Content).Transform(new Point()).Y;
+            // Compare physical screen pixels throughout; visual offsets are DIPs at non-100% scaling.
+            var commandY = Find<FrameworkElement>(toolbar, "CommandRow").PointToScreen(new Point()).Y;
             Find<RadioButton>(toolbar, "ArrowTool").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); Wait();
-            var expandedCommandY = NativeBounds(toolbar).Top + Find<FrameworkElement>(toolbar, "CommandRow").TransformToAncestor((Visual)toolbar.Content).Transform(new Point()).Y;
-            check(Math.Abs(commandY - expandedCommandY) <= 1, "contextual options open without shifting the command row under the pointer");
+            var expandedCommandY = Find<FrameworkElement>(toolbar, "CommandRow").PointToScreen(new Point()).Y;
+            check(Math.Abs(commandY - expandedCommandY) <= 1, $"contextual options open without shifting the command row under the pointer: {commandY:0.##} → {expandedCommandY:0.##} screen pixels");
             check(capture.Tool == CaptureTool.Arrow && Find<FrameworkElement>(toolbar, "StrokeOptions").IsVisible && !Find<FrameworkElement>(toolbar, "FontOptions").IsVisible, "line tools expose only colors and stroke width");
             RenderScene(capture, bounds, renders, "inline-options-" + theme + ".png");
             capture.Begin(new Point(bounds.X + 190, bounds.Y + 250)); capture.End(new Point(bounds.X + 400, bounds.Y + 380));

@@ -567,6 +567,7 @@ public partial class MainWindow : Window
             capture.Items.Add(CreateShortcutMenuItem("全部屏幕", ShortcutAction.CaptureAllScreens, (_, _) => Dispatcher.BeginInvoke(_desktop.StartAllScreensCapture), "\uE9A6"));
             menu.Items.Add(capture);
         }
+        if (_desktop is not null) menu.Items.Add(CreateMenuItem("聊天", (_, _) => Dispatcher.BeginInvoke(new Action(() => _desktop.OpenChat(_pet, this))), icon: "\uE8F2"));
         if (_desktop is not null) menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE713"));
         menu.Items.Add(CreateMenuItem("角色设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE716"));
         menu.Items.Add(CreateMenuItem("查看角色介绍", (_, _) => Dispatcher.BeginInvoke(OpenAbout), icon: "\uE946"));

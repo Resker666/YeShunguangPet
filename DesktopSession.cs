@@ -359,6 +359,7 @@ public sealed partial class DesktopSession : IDisposable
                 _save(Configuration);
             });
         Cleanup(Companion.Dispose);
+        foreach (var chat in _chatWindows.Values.ToArray()) Cleanup(chat.CloseForShutdown);
         Cleanup(() => _shortcutDialog?.Close());
         Cleanup(() => _diagnosticsWindow?.Close());
         Cleanup(() => _manager?.Close());

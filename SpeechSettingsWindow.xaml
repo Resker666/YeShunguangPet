@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:YeShunguangPet"
     Title="角色台词" Width="560" Height="580" MinWidth="500" MinHeight="480" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <DockPanel Margin="0,0,0,18"><Image x:Name="Portrait" Width="48" Height="54" Stretch="Uniform"/><StackPanel Margin="12,0,0,0" VerticalAlignment="Center"><TextBlock x:Name="NameText" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="380"/><TextBlock x:Name="SourceText" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/></StackPanel></DockPanel>
+        <DockPanel Margin="0,0,0,18"><Button DockPanel.Dock="Right" Content="角色人设" Click="Persona_Click" VerticalAlignment="Center"/><Image x:Name="Portrait" Width="48" Height="54" Stretch="Uniform"/><StackPanel Margin="12,0,0,0" VerticalAlignment="Center"><TextBlock x:Name="NameText" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="260"/><TextBlock x:Name="SourceText" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/></StackPanel></DockPanel>
         <StackPanel Grid.Row="1" Margin="0,0,0,20">
             <CheckBox x:Name="EnabledCheck" Content="显示台词气泡"/>
             <DockPanel Margin="0,12,0,0"><TextBlock Text="气泡间隔" FontSize="13"/><TextBlock x:Name="CooldownText" HorizontalAlignment="Right" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/></DockPanel>
