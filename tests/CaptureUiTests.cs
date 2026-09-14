@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -55,7 +56,10 @@ internal static class CaptureUiTests
                 check(editor.PinImage() && desktop.PinCount == 1, "pin command hands off the flattened result");
                 var pin = desktop.Pins.Single(); Show(pin); pin.SetZoom(0.75); Wait(60);
                 check(pin.Topmost && !pin.ShowInTaskbar && pin.Snapshot.PixelWidth == 600 && pin.Zoom <= 0.75, "pin is a bounded independent image window without a taskbar entry");
+                typeof(CapturePinWindow).GetMethod("SetHoverState", Private)!.Invoke(pin, new object[] { true });
+                VerifyPinResize(check, pin);
                 Render(pin, renders, "capture-pin-" + theme + ".png");
+                typeof(CapturePinWindow).GetMethod("SetHoverState", Private)!.Invoke(pin, new object[] { false });
                 desktop.HidePins(); check(!pin.IsVisible && desktop.PinCount == 1, "hiding pins preserves their in-memory images");
                 desktop.ShowPins(); Wait(40); check(pin.IsVisible, "hidden pins can be restored without reloading an image");
                 desktop.ClosePins(); check(desktop.PinCount == 0, "closed pins are removed from the session");
@@ -101,11 +105,13 @@ internal static class CaptureUiTests
         var pet = desktop.Windows.First(); pet.ShowActivated = false; pet.Show(); Wait(50);
         var config = desktop.Configuration.Pets[0]; var wasHidden = config.Hidden;
         var foreign = new Window { Width = 120, Height = 80 }; Show(foreign);
+        var existingPin = desktop.PinCapture(fixture, show: false); Show(existingPin);
         var frame = new CaptureFrame(fixture, new CaptureRect(0, 0, 600, 360), new[] { new CaptureRect(0, 0, 600, 360) });
         var captured = 0;
-        var canceled = desktop.CaptureAsync(readScreen: () => { captured++; check(!pet.IsVisible && config.Hidden == wasHidden, "capture hides the visual without persisting a hidden-role preference"); return frame; }, interact: (capture, _) => { capture.Cancel(); return Task.CompletedTask; });
-        Await(canceled); check(pet.IsVisible && !desktop.IsCapturing && captured == 1, "cancel restores previous visibility and leaves no editor");
+        var canceled = desktop.CaptureAsync(readScreen: () => { captured++; check(!pet.IsVisible && existingPin.IsVisible && config.Hidden == wasHidden, "capture hides the pet but keeps existing screenshot pins visible"); return frame; }, interact: (capture, _) => { check(existingPin.IsVisible, "existing pins remain visible during the next screenshot selection"); capture.Cancel(); return Task.CompletedTask; });
+        Await(canceled); check(pet.IsVisible && existingPin.IsVisible && !desktop.IsCapturing && captured == 1, "cancel restores hidden windows and retains existing pins");
         check(foreign.IsVisible, "temporary capture visibility stays within the owning desktop session"); foreign.Close();
+        desktop.ClosePins();
         var failed = desktop.CaptureAsync(readScreen: () => throw new InvalidOperationException("simulated capture failure"));
         try { Await(failed); } catch (InvalidOperationException) { }
         check(pet.IsVisible && !desktop.IsCapturing && config.Hidden == wasHidden, "failed capture also restores windows and preferences");
@@ -184,6 +190,57 @@ internal static class CaptureUiTests
             check(image.IsFrozen && pixel[2] > 200 && pixel[1] < 80 && pixel[0] > 130, "real Windows capture reads the owned test window pixels correctly");
         }
         finally { fixture.Close(); }
+    }
+    private static void VerifyPinResize(Action<bool, string> check, CapturePinWindow pin)
+    {
+        var pointer = new Point(500, 500);
+        var resizePin = new CapturePinWindow(pin.Snapshot, 999, cursorPosition: () => pointer);
+        Show(resizePin); resizePin.SetZoom(0.75); resizePin.Left = 100; resizePin.Top = 100;
+        var visual = (DependencyObject)resizePin.Content;
+        var handles = Descendants(visual).OfType<Thumb>().ToArray();
+        check(handles.Length == 8 && handles.Select(System.Windows.Automation.AutomationProperties.GetName).Distinct().Count() == 8,
+            "pinned screenshot exposes eight accessible resize handles");
+        var northEast = handles.Single(h => System.Windows.Automation.AutomationProperties.GetName(h) == "贴图缩放 右上角");
+        var gripCenter = northEast.TranslatePoint(new Point(northEast.ActualWidth / 2, northEast.ActualHeight / 2), resizePin);
+        check(HitContains(resizePin.InputHitTest(gripCenter) as DependencyObject, northEast), "upper-right resize grip stays clickable beside the hover toolbar");
+        var ratio = (double)resizePin.Snapshot.PixelWidth / resizePin.Snapshot.PixelHeight;
+        var southEast = handles.Single(h => System.Windows.Automation.AutomationProperties.GetName(h) == "贴图缩放 右下角");
+        var initialZoom = resizePin.Zoom; var initialLeft = resizePin.Left; var initialTop = resizePin.Top;
+        DragResize(southEast, position => pointer = position, pointer, new Point(pointer.X + 60, pointer.Y + 36));
+        check(resizePin.Zoom > initialZoom && Math.Abs((resizePin.Width - 2) / (resizePin.Height - 2) - ratio) < 0.001 &&
+              Math.Abs(resizePin.Left - initialLeft) < 0.5 && Math.Abs(resizePin.Top - initialTop) < 0.5,
+            "dragging the lower-right handle scales proportionally from the opposite corner");
+        var northWest = handles.Single(h => System.Windows.Automation.AutomationProperties.GetName(h) == "贴图缩放 左上角");
+        var right = resizePin.Left + resizePin.Width; var bottom = resizePin.Top + resizePin.Height; initialZoom = resizePin.Zoom;
+        DragResize(northWest, position => pointer = position, pointer, new Point(pointer.X - 30, pointer.Y - 18));
+        check(resizePin.Zoom > initialZoom && Math.Abs((resizePin.Width - 2) / (resizePin.Height - 2) - ratio) < 0.001 &&
+              Math.Abs(resizePin.Left + resizePin.Width - right) < 0.5 && Math.Abs(resizePin.Top + resizePin.Height - bottom) < 0.5,
+            "dragging the upper-left handle keeps the opposite corner anchored");
+        resizePin.Close();
+    }
+    private static void DragResize(Thumb handle, Action<Point> moveCursor, Point start, Point end)
+    {
+        handle.RaiseEvent(new DragStartedEventArgs(0, 0) { RoutedEvent = Thumb.DragStartedEvent });
+        const int steps = 8;
+        for (var i = 1; i <= steps; i++)
+        {
+            var current = new Point(start.X + (end.X - start.X) * i / steps, start.Y + (end.Y - start.Y) * i / steps);
+            moveCursor(current);
+            handle.RaiseEvent(new DragDeltaEventArgs(0, 0) { RoutedEvent = Thumb.DragDeltaEvent });
+        }
+        handle.RaiseEvent(new DragCompletedEventArgs(end.X - start.X, end.Y - start.Y, false) { RoutedEvent = Thumb.DragCompletedEvent });
+    }
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
+    {
+        yield return root;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            foreach (var child in Descendants(VisualTreeHelper.GetChild(root, i))) yield return child;
+    }
+    private static bool HitContains(DependencyObject? hit, DependencyObject target)
+    {
+        for (var node = hit; node is not null; node = node is Visual ? VisualTreeHelper.GetParent(node) : null)
+            if (ReferenceEquals(node, target)) return true;
+        return false;
     }
     private static void Show(Window window) { window.WindowStartupLocation = WindowStartupLocation.Manual; window.Left = window.Top = -30000; window.ShowActivated = window.ShowInTaskbar = false; window.Show(); Wait(80); }
     [StructLayout(LayoutKind.Sequential)] private struct CursorPoint { public int X; public int Y; }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -12,6 +13,8 @@ namespace YeShunguangPet;
 
 public sealed class CapturePinWindow : ThemedWindow
 {
+    private enum ResizeEdge { NorthWest, North, NorthEast, East, SouthEast, South, SouthWest, West }
+
     public BitmapSource Snapshot { get; }
     private readonly Action<BitmapSource> _copy;
     private readonly Image _image;
@@ -19,19 +22,33 @@ public sealed class CapturePinWindow : ThemedWindow
     private readonly Border _surface;
     private readonly ToggleButton _pin;
     private readonly ContextMenu _menu;
+    private readonly List<Thumb> _resizeHandles = new();
+    private readonly List<Border> _resizeIndicators = new();
     private readonly CaptureRect? _anchor;
+    private readonly Func<Point> _cursorPosition;
     private bool _hovered;
     private double _zoom = 1;
+    private ResizeEdge _resizeEdge;
+    private Point _resizeStartCursor;
+    private double _resizeStartZoom, _resizeStartLeft, _resizeStartTop, _resizeStartWidth, _resizeStartHeight, _resizeStartImageWidth, _resizeStartImageHeight;
     public double Zoom => _zoom;
-    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null)
+    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null, Func<Point>? cursorPosition = null)
     {
-        Snapshot = image; _copy = copy ?? Clipboard.SetImage; _anchor = anchor;
+        Snapshot = image; _copy = copy ?? Clipboard.SetImage; _anchor = anchor; _cursorPosition = cursorPosition ?? ScreenCapture.CursorPosition;
         Title = $"贴图 {number}"; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; ShowInTaskbar = false; Topmost = true; ShowActivated = false; WindowStartupLocation = WindowStartupLocation.Manual;
         Background = Brushes.Transparent; Opacity = 0;
         var grid = new Grid();
         _image = new Image { Source = image, Stretch = Stretch.Uniform };
         grid.Children.Add(_image);
+        AddResizeHandle(grid, ResizeEdge.NorthWest, 14, 14, HorizontalAlignment.Left, VerticalAlignment.Top, Cursors.SizeNWSE);
+        AddResizeHandle(grid, ResizeEdge.North, 24, 8, HorizontalAlignment.Center, VerticalAlignment.Top, Cursors.SizeNS);
+        AddResizeHandle(grid, ResizeEdge.NorthEast, 14, 14, HorizontalAlignment.Right, VerticalAlignment.Top, Cursors.SizeNESW);
+        AddResizeHandle(grid, ResizeEdge.East, 8, 24, HorizontalAlignment.Right, VerticalAlignment.Center, Cursors.SizeWE);
+        AddResizeHandle(grid, ResizeEdge.SouthEast, 14, 14, HorizontalAlignment.Right, VerticalAlignment.Bottom, Cursors.SizeNWSE);
+        AddResizeHandle(grid, ResizeEdge.South, 24, 8, HorizontalAlignment.Center, VerticalAlignment.Bottom, Cursors.SizeNS);
+        AddResizeHandle(grid, ResizeEdge.SouthWest, 14, 14, HorizontalAlignment.Left, VerticalAlignment.Bottom, Cursors.SizeNESW);
+        AddResizeHandle(grid, ResizeEdge.West, 8, 24, HorizontalAlignment.Left, VerticalAlignment.Center, Cursors.SizeWE);
         var commands = new StackPanel { Orientation = Orientation.Horizontal };
         _pin = new ToggleButton { Width = 28, Height = 28, IsChecked = true, Content = Glyph("\uE718"), ToolTip = "置顶贴图" };
         _pin.SetResourceReference(StyleProperty, "ToolToggle"); System.Windows.Automation.AutomationProperties.SetName(_pin, "置顶贴图");
@@ -57,7 +74,7 @@ public sealed class CapturePinWindow : ThemedWindow
         _surface.MouseLeftButtonDown += (_, e) =>
         {
             for (var node = e.OriginalSource as DependencyObject; node is Visual && node != _surface; node = VisualTreeHelper.GetParent(node))
-                if (node is ButtonBase) return;
+                if (node is ButtonBase or Thumb) return;
             if (e.ClickCount == 2) ResetZoom();
             else { try { DragMove(); } catch (InvalidOperationException) { } }
             e.Handled = true;
@@ -93,6 +110,81 @@ public sealed class CapturePinWindow : ThemedWindow
     {
         var glyph = new TextBlock { Text = value, FontSize = 14 }; glyph.SetResourceReference(TextBlock.FontFamilyProperty, "IconFont"); return glyph;
     }
+    private void AddResizeHandle(Grid grid, ResizeEdge edge, double width, double height, HorizontalAlignment horizontal, VerticalAlignment vertical, Cursor cursor)
+    {
+        var indicatorWidth = width == height ? 10 : width > height ? 20 : 6;
+        var indicatorHeight = width == height ? 10 : height > width ? 20 : 6;
+        var indicator = new Border
+        {
+            Width = indicatorWidth, Height = indicatorHeight,
+            HorizontalAlignment = horizontal, VerticalAlignment = vertical,
+            CornerRadius = new CornerRadius(Math.Min(indicatorWidth, indicatorHeight) / 2),
+            BorderThickness = new Thickness(1), IsHitTestVisible = false, Opacity = 0
+        };
+        indicator.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
+        indicator.SetResourceReference(Border.BorderBrushProperty, "SurfaceBrush");
+        _resizeIndicators.Add(indicator);
+        grid.Children.Add(indicator);
+
+        var handle = new Thumb
+        {
+            Tag = edge, Width = width, Height = height, HorizontalAlignment = horizontal, VerticalAlignment = vertical,
+            Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(0),
+            Opacity = 0, Focusable = false, Cursor = cursor, ToolTip = "拖动调整贴图大小"
+        };
+        System.Windows.Automation.AutomationProperties.SetName(handle, $"贴图缩放 {ResizeEdgeName(edge)}");
+        handle.DragStarted += ResizeStarted;
+        handle.DragDelta += ResizeDelta;
+        handle.DragCompleted += ResizeCompleted;
+        _resizeHandles.Add(handle);
+        grid.Children.Add(handle);
+    }
+    private static string ResizeEdgeName(ResizeEdge edge) => edge switch
+    {
+        ResizeEdge.NorthWest => "左上角", ResizeEdge.North => "上边", ResizeEdge.NorthEast => "右上角",
+        ResizeEdge.East => "右边", ResizeEdge.SouthEast => "右下角", ResizeEdge.South => "下边",
+        ResizeEdge.SouthWest => "左下角", _ => "左边"
+    };
+    private void ResizeStarted(object sender, DragStartedEventArgs e)
+    {
+        if (sender is not Thumb { Tag: ResizeEdge edge }) return;
+        _resizeEdge = edge;
+        _resizeStartZoom = _zoom;
+        _resizeStartCursor = _cursorPosition();
+        _resizeStartLeft = Left;
+        _resizeStartTop = Top;
+        _resizeStartWidth = Width;
+        _resizeStartHeight = Height;
+        _resizeStartImageWidth = Snapshot.PixelWidth * _resizeStartZoom;
+        _resizeStartImageHeight = Snapshot.PixelHeight * _resizeStartZoom;
+    }
+    private void ResizeDelta(object sender, DragDeltaEventArgs e)
+    {
+        var cursor = _cursorPosition();
+        var horizontal = 1 + (cursor.X - _resizeStartCursor.X) / Math.Max(1, _resizeStartImageWidth) * (HasWestEdge(_resizeEdge) ? -1 : 1);
+        var vertical = 1 + (cursor.Y - _resizeStartCursor.Y) / Math.Max(1, _resizeStartImageHeight) * (HasNorthEdge(_resizeEdge) ? -1 : 1);
+        var factor = IsHorizontalEdge(_resizeEdge) ? horizontal : IsVerticalEdge(_resizeEdge) ? vertical :
+            Math.Abs(horizontal - 1) >= Math.Abs(vertical - 1) ? horizontal : vertical;
+        SetZoom(_resizeStartZoom * Math.Max(0.01, factor));
+        if (HasWestEdge(_resizeEdge)) Left = _resizeStartLeft + _resizeStartWidth - Width;
+        if (HasNorthEdge(_resizeEdge)) Top = _resizeStartTop + _resizeStartHeight - Height;
+        e.Handled = true;
+    }
+    private void ResizeCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (e.Canceled)
+        {
+            SetZoom(_resizeStartZoom);
+            Left = _resizeStartLeft;
+            Top = _resizeStartTop;
+        }
+        NativeMethods.EnsureWindowInWorkArea(this);
+        e.Handled = true;
+    }
+    private static bool HasWestEdge(ResizeEdge edge) => edge is ResizeEdge.NorthWest or ResizeEdge.West or ResizeEdge.SouthWest;
+    private static bool HasNorthEdge(ResizeEdge edge) => edge is ResizeEdge.NorthWest or ResizeEdge.North or ResizeEdge.NorthEast;
+    private static bool IsHorizontalEdge(ResizeEdge edge) => edge is ResizeEdge.East or ResizeEdge.West;
+    private static bool IsVerticalEdge(ResizeEdge edge) => edge is ResizeEdge.North or ResizeEdge.South;
     private Button Tool(string glyph, string tip, Action action)
     {
         var button = new Button { Content = Glyph(glyph), Width = 28, Height = 28, MinHeight = 28, ToolTip = tip };
@@ -113,6 +205,7 @@ public sealed class CapturePinWindow : ThemedWindow
     private void SetHoverState(bool hovered)
     {
         _hovered = hovered; _tools.Opacity = hovered ? 1 : 0; _tools.IsHitTestVisible = hovered; ApplyTheme();
+        foreach (var indicator in _resizeIndicators) indicator.Opacity = hovered ? 0.95 : 0;
         _surface.BorderThickness = new Thickness(hovered ? 3 : 2);
     }
     private void PositionFromAnchor()
@@ -128,11 +221,13 @@ public sealed class CapturePinWindow : ThemedWindow
     public void SetZoom(double zoom)
     {
         var dpi = VisualTreeHelper.GetDpi(this); var maximum = Math.Max(0.01, MaximumZoom());
-        _zoom = Math.Clamp(zoom, Math.Min(0.05, maximum), maximum);
+        var minimum = Math.Max(0.05, Math.Max(94 * dpi.DpiScaleX / Snapshot.PixelWidth, 46 * dpi.DpiScaleY / Snapshot.PixelHeight));
+        _zoom = Math.Clamp(zoom, Math.Min(minimum, maximum), maximum);
         _image.Width = Snapshot.PixelWidth * _zoom / dpi.DpiScaleX;
         _image.Height = Snapshot.PixelHeight * _zoom / dpi.DpiScaleY;
-        Width = Math.Max(96, _image.Width + 2);
-        Height = Math.Max(48, _image.Height + 2);
+        Width = _image.Width + 2;
+        Height = _image.Height + 2;
+        _tools.Margin = Width >= 160 ? new Thickness(0, 8, 16, 0) : new Thickness(0);
         ToolTip = $"{Snapshot.PixelWidth} x {Snapshot.PixelHeight} · {_zoom:P0}";
     }
     private void ResetZoom() => SetZoom(Math.Min(1, MaximumZoom() * 0.8));

@@ -47,7 +47,8 @@ public sealed partial class DesktopSession
         var closed = new HashSet<Window>(); CaptureResult? result = null; CapturePinWindow? stagedPin = null;
         try
         {
-            var windows = CaptureWindows().Where(w => w.IsVisible && w.WindowState != WindowState.Minimized).Distinct().ToArray();
+            // Pinned screenshots remain ordinary desktop content and may be included in the new capture.
+            var windows = CaptureWindows().Where(w => w is not CapturePinWindow && w.IsVisible && w.WindowState != WindowState.Minimized).Distinct().ToArray();
             foreach (var window in windows)
             {
                 EventHandler onClosed = (_, _) => closed.Add(window); window.Closed += onClosed;
