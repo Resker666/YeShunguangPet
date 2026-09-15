@@ -22,6 +22,7 @@ public partial class FocusWindow
     private bool _layoutUpdating;
     private bool _compactLayout;
     private bool _layoutClosed;
+    private bool _miniRestoreQueued;
     private bool? _presetsEditable;
     private FocusWindowOptions _viewOptions = new();
     private bool _switchingMode;
@@ -50,6 +51,11 @@ public partial class FocusWindow
         StateChanged += (_, _) =>
         {
             if (_switchingMode) return;
+            if (WindowState == WindowState.Minimized && IsMiniMode && _viewOptions.MiniTopmost)
+            {
+                RestoreMiniAfterSystemMinimize();
+                return;
+            }
             if (WindowState == WindowState.Normal) QueueScreenRefresh();
             else { _placementTimer.Stop(); SaveWindowPlacement(); }
         };
@@ -147,6 +153,11 @@ public partial class FocusWindow
     {
         switch (message)
         {
+            case 0x0005:
+                var sizeState = wParam.ToInt64();
+                if (sizeState == 1 && IsMiniMode && _viewOptions.MiniTopmost)
+                    RestoreMiniAfterSystemMinimize();
+                break;
             case 0x0231: _insideSizeMove = true; _placementTimer.Stop(); break;
             case 0x0232: _insideSizeMove = false; FitToScreen(); SaveWindowPlacement(); break;
             case 0x007E: // Display topology changed.
@@ -161,6 +172,20 @@ public partial class FocusWindow
                 break;
         }
         return IntPtr.Zero;
+    }
+
+    private void RestoreMiniAfterSystemMinimize()
+    {
+        if (_miniRestoreQueued || _layoutClosed) return;
+        _miniRestoreQueued = true;
+        NativeMethods.RestoreWindowWithoutActivation(this);
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            _miniRestoreQueued = false;
+            if (_layoutClosed || !IsMiniMode || !_viewOptions.MiniTopmost) return;
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            EnsureMiniTopmost();
+        }));
     }
 
     private void QueueScreenRefresh()

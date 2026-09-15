@@ -13,9 +13,13 @@ internal static class NativeMethods
     private const long WsExNoActivate = 0x08000000L;
     private const long WsExToolWindow = 0x00000080L;
     private const uint MonitorDefaultToNearest = 0x00000002;
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoMove = 0x0002;
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoOwnerZOrder = 0x0200;
+    private const int SwShownoactivate = 4;
 
     public const int WmHotkey = 0x0312;
 
@@ -50,6 +54,18 @@ internal static class NativeMethods
         if (hwnd == IntPtr.Zero) return;
         var style = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
         SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(style | WsExLayered | WsExTransparent | WsExNoActivate | WsExToolWindow));
+    }
+    internal static bool EnsureTopmost(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        return hwnd != IntPtr.Zero && SetWindowPos(
+            hwnd, HwndTopmost, 0, 0, 0, 0,
+            SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+    }
+    internal static bool RestoreWindowWithoutActivation(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        return hwnd != IntPtr.Zero && ShowWindowAsync(hwnd, SwShownoactivate);
     }
     internal static bool TryGetWindowBounds(Window window, out Rect bounds)
     {
@@ -215,6 +231,10 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

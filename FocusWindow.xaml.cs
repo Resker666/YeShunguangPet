@@ -50,14 +50,15 @@ public partial class FocusWindow : ThemedWindow
         _displayTimer.Tick += (_, _) => RefreshDisplay();
         _avatarTimer.Tick += AvatarTimer_Tick;
         if (_runtime is not null) _runtime.CompletionNoticeChanged += RefreshCompletionBadge;
-        Activated += (_, _) => { if (IsLoaded) _runtime?.AcknowledgeCompletion(); };
+        Activated += (_, _) => { if (IsLoaded) _runtime?.AcknowledgeCompletion(); EnsureMiniTopmost(); };
+        Deactivated += (_, _) => EnsureMiniTopmost();
         PreviewMouseDown += (_, _) => _runtime?.AcknowledgeCompletion();
         PreviewKeyDown += (_, _) => _runtime?.AcknowledgeCompletion();
         Loaded += (_, _) => RefreshCompletionBadge();
-        Loaded += (_, _) => { _displayTimer.Start(); RefreshAvatar(); UpdateResponsiveLayout(); };
+        Loaded += (_, _) => { _displayTimer.Start(); RefreshAvatar(); UpdateResponsiveLayout(); EnsureMiniTopmost(); };
         StateChanged += (_, _) =>
         {
-            if (WindowState == WindowState.Minimized) { _displayTimer.Stop(); Dial.CancelDrag(); }
+            if (WindowState == WindowState.Minimized && !(IsMiniMode && _viewOptions.MiniTopmost)) { _displayTimer.Stop(); Dial.CancelDrag(); }
             else { _displayTimer.Start(); RefreshDisplay(); }
             RefreshAvatar();
         };
@@ -273,5 +274,6 @@ public partial class FocusWindow : ThemedWindow
         RefreshAvatar();
         UpdateResponsiveLayout();
         RefreshMiniStatus();
+        EnsureMiniTopmost();
     }
 }

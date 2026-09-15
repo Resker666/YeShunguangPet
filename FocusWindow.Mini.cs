@@ -76,6 +76,15 @@ public partial class FocusWindow
         MiniRoot.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
         MiniPinButton.IsChecked = _viewOptions.MiniTopmost;
         UiTheme.MatchTitleBarBackground(this);
+        EnsureMiniTopmost();
+    }
+
+    private void EnsureMiniTopmost()
+    {
+        if (!_managePlacement || !IsMiniMode || !_viewOptions.MiniTopmost || !IsLoaded || !IsVisible || WindowState == WindowState.Minimized)
+            return;
+        if (!Topmost) Topmost = true;
+        NativeMethods.EnsureTopmost(this);
     }
 
     private void MiniPin_Click(object sender, RoutedEventArgs e)
@@ -84,6 +93,7 @@ public partial class FocusWindow
         options.MiniTopmost = MiniPinButton.IsChecked == true;
         if (StoreViewOptions(options)) Topmost = IsMiniMode && options.MiniTopmost;
         MiniPinButton.IsChecked = _viewOptions.MiniTopmost;
+        EnsureMiniTopmost();
     }
 
     private bool StoreViewOptions(FocusWindowOptions options)
