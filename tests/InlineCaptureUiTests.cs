@@ -15,6 +15,8 @@ internal static class InlineCaptureUiTests
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Private)!.GetValue(target)!;
+    private static bool CursorAssistVisible(CaptureSelection capture) =>
+        (bool)typeof(CaptureSelection).GetProperty("CursorAssistVisible", Private)!.GetValue(capture)!;
     private static T Find<T>(Window window, string name) => (T)window.FindName(name);
     private static void Wait(int ms = 60) => FocusVisualGate.Pump(ms);
     public static void RunLive(Action<bool, string> check, PetCatalog catalog, string renders)
@@ -31,7 +33,12 @@ internal static class InlineCaptureUiTests
                 image => { if (busy) throw new ExternalException("剪贴板被占用，请重试。"); copied = image; }, _ => savePath);
             var count = Application.Current.Windows.Count;
             capture.ShowAsync(CancellationToken.None);
-            capture.Begin(new Point(bounds.X + 60, bounds.Y + 50)); capture.End(new Point(bounds.X + 940, bounds.Y + 550)); Wait();
+            Wait();
+            check(CursorAssistVisible(capture), "cursor pixel assistant is visible before the first selection");
+            capture.Begin(new Point(bounds.X + 60, bounds.Y + 50));
+            check(!CursorAssistVisible(capture), "cursor pixel assistant hides as soon as selection starts");
+            capture.End(new Point(bounds.X + 940, bounds.Y + 550)); Wait();
+            check(!CursorAssistVisible(capture), "cursor pixel assistant stays hidden after selection completes");
             var toolbar = Field<CaptureToolbarWindow>(capture, "_toolbar");
             var overlays = Field<System.Collections.Generic.List<Window>>(capture, "_windows");
             check(!capture.Result.IsCompleted && Application.Current.Windows.Count == count + 2, "inline capture retains one desktop overlay and one floating toolbar, not an editor");

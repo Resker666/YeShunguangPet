@@ -38,6 +38,8 @@ public sealed class CaptureSelection : IDisposable
     private int _toolbarMonitor;
     private CancellationTokenRegistration _cancellation;
     private Dispatcher? _dispatcher;
+    private Point _cursorPoint;
+    private bool _hasCursorPoint;
     public CaptureDocument Document { get; }
     public CaptureTool? Tool { get; private set; }
     public Color InkColor { get => _annotation.InkColor; set => _annotation.InkColor = value; }
@@ -49,6 +51,7 @@ public sealed class CaptureSelection : IDisposable
     public CaptureRect Selection => _region.Selection;
     public bool HasSelection => Selection.HasArea;
     public bool IsDragging => _region.IsDragging || _painting;
+    internal bool CursorAssistVisible => _hasCursorPoint && !_committed && !IsDragging && !_painting;
 
     public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null)
     {
@@ -81,7 +84,7 @@ public sealed class CaptureSelection : IDisposable
                 window.Deactivated += (_, _) => CheckActivation();
                 _windows.Add(window); window.Show();
             }
-            var point = origin ?? InitialCursor(); _toolbarMonitor = MonitorAt(point);
+            var point = origin ?? InitialCursor(); UpdateCursor(point); _toolbarMonitor = MonitorAt(point);
             _windows[_toolbarMonitor].Activate();
             Prepare(mode, point); if (_committed) ShowToolbar();
         }
@@ -110,9 +113,17 @@ public sealed class CaptureSelection : IDisposable
     }
     private Point ToImage(Point point) => new(point.X - _frame.Bounds.X, point.Y - _frame.Bounds.Y);
     public CaptureHit HitTest(Point point, double tolerance = 6) => _region.HitTest(point, tolerance);
+    private void UpdateCursor(Point point)
+    {
+        if (!double.IsFinite(point.X + point.Y)) return;
+        _cursorPoint = point;
+        _hasCursorPoint = true;
+        RefreshSurfaces();
+    }
     public bool Begin(Point point, double tolerance = 6)
     {
         if (_finished || _modalExport) return false;
+        UpdateCursor(point);
         if (!CommitText()) return false; Error = string.Empty;
         var hit = HitTest(point, tolerance); _toolbarMonitor = MonitorAt(point);
         if (hit == CaptureHit.Move && Tool is { } tool)
@@ -126,12 +137,14 @@ public sealed class CaptureSelection : IDisposable
     public void Move(Point point)
     {
         if (_finished) return;
+        _cursorPoint = point; _hasCursorPoint = true;
         if (_painting) _annotation.MoveAnnotation(ToImage(point)); else _region.Update(point);
         RefreshSurfaces();
     }
     public void End(Point point)
     {
         if (_finished) return;
+        UpdateCursor(point);
         if (_painting) { _annotation.EndAnnotation(ToImage(point)); _painting = false; }
         else if (_region.IsDragging) { _region.End(point); if (HasSelection) CommitSelection(); }
         _toolbarMonitor = MonitorAt(point); RefreshSurfaces(); ShowToolbar();
@@ -255,6 +268,96 @@ public sealed class CaptureSelection : IDisposable
         catch (Exception ex) { _textInput = input; ShowError(ex.Message); return false; }
     }
     private void CancelText() { var input = _textInput; _textInput = null; if (input is not null) _textHost?.Children.Remove(input); _textHost = null; }
+
+    internal void DrawCursorAssist(DrawingContext dc, CaptureRect monitor, BitmapSource image, double scaleX, double scaleY, Size surfaceSize, double pixelsPerDip)
+    {
+        if (!CursorAssistVisible || !monitor.ToRect().Contains(_cursorPoint)) return;
+        var local = new Point((_cursorPoint.X - monitor.X) * scaleX, (_cursorPoint.Y - monitor.Y) * scaleY);
+        var lensSize = Math.Min(132, Math.Min(surfaceSize.Width - 16, surfaceSize.Height - 82));
+        if (lensSize < 72) return;
+        const double infoHeight = 66;
+        var left = local.X + 24;
+        var top = local.Y + 24;
+        if (left + lensSize > surfaceSize.Width - 8) left = local.X - lensSize - 24;
+        if (top + lensSize + infoHeight > surfaceSize.Height - 8) top = local.Y - lensSize - infoHeight - 24;
+        left = Math.Clamp(left, 8, Math.Max(8, surfaceSize.Width - lensSize - 8));
+        top = Math.Clamp(top, 8, Math.Max(8, surfaceSize.Height - lensSize - infoHeight - 8));
+
+        const int sourceSize = 40;
+        var sourceWidth = Math.Min(sourceSize, monitor.Width);
+        var sourceHeight = Math.Min(sourceSize, monitor.Height);
+        var sourceX = Math.Clamp((int)Math.Round(_cursorPoint.X - monitor.X - sourceWidth / 2.0), 0, Math.Max(0, monitor.Width - sourceWidth));
+        var sourceY = Math.Clamp((int)Math.Round(_cursorPoint.Y - monitor.Y - sourceHeight / 2.0), 0, Math.Max(0, monitor.Height - sourceHeight));
+        var viewbox = new Rect(sourceX / (double)monitor.Width, sourceY / (double)monitor.Height,
+            sourceWidth / (double)monitor.Width, sourceHeight / (double)monitor.Height);
+        var brush = new ImageBrush(image)
+        {
+            Stretch = Stretch.Fill,
+            Viewbox = viewbox,
+            ViewboxUnits = BrushMappingMode.RelativeToBoundingBox
+        };
+        var lens = new Rect(left, top, lensSize, lensSize);
+        var info = new Rect(left, top + lensSize, lensSize, infoHeight);
+        var shell = new Rect(left, top, lensSize, lensSize + infoHeight);
+        var borderPen = new Pen(new SolidColorBrush(Color.FromRgb(185, 185, 185)), 1);
+        dc.PushClip(new RectangleGeometry(shell, 6, 6));
+        dc.DrawRectangle(brush, null, lens);
+        dc.DrawRectangle(Brushes.White, null, info);
+        dc.Pop();
+        var center = new Point(left + ((_cursorPoint.X - monitor.X) - sourceX) / sourceWidth * lensSize,
+            top + ((_cursorPoint.Y - monitor.Y) - sourceY) / sourceHeight * lensSize);
+        var crosshairHalo = new Pen(new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)), 3);
+        var crosshair = new Pen(new SolidColorBrush(Color.FromRgb(35, 178, 108)), 1);
+        dc.DrawLine(crosshairHalo, new Point(center.X, lens.Top), new Point(center.X, lens.Bottom));
+        dc.DrawLine(crosshairHalo, new Point(lens.Left, center.Y), new Point(lens.Right, center.Y));
+        dc.DrawLine(crosshair, new Point(center.X, lens.Top), new Point(center.X, lens.Bottom));
+        dc.DrawLine(crosshair, new Point(lens.Left, center.Y), new Point(lens.Right, center.Y));
+        dc.DrawRectangle(null, crosshair, new Rect(center.X - 3, center.Y - 3, 6, 6));
+        dc.DrawRoundedRectangle(null, borderPen, shell, 6, 6);
+
+        var pixel = CursorPixel();
+        var textBrush = new SolidColorBrush(Color.FromRgb(38, 38, 38));
+        var mutedBrush = new SolidColorBrush(Color.FromRgb(145, 145, 145));
+        var typeface = new Typeface("Microsoft YaHei UI");
+        var coordinate = new FormattedText($"坐标    {pixel.X}, {pixel.Y}", CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight,
+            typeface, 10.5, textBrush, pixelsPerDip);
+        var color = new FormattedText($"色值    {pixel.Hex}", CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight,
+            typeface, 10.5, textBrush, pixelsPerDip);
+        var hint = new FormattedText("按 Ctrl+C 复制色值", CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight,
+            typeface, 10, mutedBrush, pixelsPerDip);
+        dc.DrawText(coordinate, new Point(info.Left + 10, info.Top + 5));
+        dc.DrawText(color, new Point(info.Left + 10, info.Top + 23));
+        dc.DrawText(hint, new Point(info.Left + 10, info.Top + 43));
+    }
+
+    private (int X, int Y, string Hex) CursorPixel()
+    {
+        var screenX = (int)Math.Floor(_cursorPoint.X);
+        var screenY = (int)Math.Floor(_cursorPoint.Y);
+        var imageX = screenX - _frame.Bounds.X;
+        var imageY = screenY - _frame.Bounds.Y;
+        if (imageX < 0 || imageY < 0 || imageX >= _frame.Image.PixelWidth || imageY >= _frame.Image.PixelHeight)
+            return (screenX, screenY, "#------");
+        try
+        {
+            var pixel = new byte[4];
+            _frame.Image.CopyPixels(new Int32Rect(imageX, imageY, 1, 1), pixel, 4, 0);
+            return (screenX, screenY, $"#{pixel[2]:X2}{pixel[1]:X2}{pixel[0]:X2}");
+        }
+        catch
+        {
+            return (screenX, screenY, "#------");
+        }
+    }
+
+    private void CopyCursorColor()
+    {
+        var value = CursorPixel().Hex;
+        if (value.Contains('-')) return;
+        try { Clipboard.SetText(value); }
+        catch (Exception ex) { AppLogger.Error("Could not copy capture color.", ex); }
+    }
+
     internal void HandleKey(KeyEventArgs e)
     {
         if (_finished || _modalExport) return;
@@ -269,7 +372,11 @@ public sealed class CaptureSelection : IDisposable
         else if (e.Key == Key.Enter) Complete(CaptureOutput.Copy);
         else if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
-            if (e.Key == Key.C) Complete(CaptureOutput.Copy); else if (e.Key == Key.S) Complete(CaptureOutput.Save);
+            if (e.Key == Key.C)
+            {
+                if (!_committed && _hasCursorPoint) CopyCursorColor(); else Complete(CaptureOutput.Copy);
+            }
+            else if (e.Key == Key.S) Complete(CaptureOutput.Save);
             else if (e.Key == Key.Z) { if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) Redo(); else Undo(); }
             else if (e.Key == Key.Y) Redo(); else return;
         }
@@ -307,7 +414,7 @@ public sealed class CaptureSelection : IDisposable
         {
             _owner = owner; _monitor = monitor; _image = owner._frame.Crop(monitor); Cursor = Cursors.Cross; Focusable = true;
             MouseLeftButtonDown += (_, e) => { WithCursor(point => { Focus(); if (_owner.Begin(point, 6 * _monitor.Width / Math.Max(1, ActualWidth))) CaptureMouse(); }); e.Handled = true; };
-            MouseMove += (_, _) => WithCursor(point => { if (IsMouseCaptured) _owner.Move(point); else UpdateCursor(point); });
+            MouseMove += (_, _) => WithCursor(point => { if (IsMouseCaptured) _owner.Move(point); else { _owner.UpdateCursor(point); UpdateCursor(point); } });
             MouseLeftButtonUp += (_, e) => { if (IsMouseCaptured) WithCursor(point => { _ending = true; try { ReleaseMouseCapture(); _owner.End(point); } finally { _ending = false; } }); e.Handled = true; };
             LostMouseCapture += (_, _) => { if (!_ending) _owner.CancelGesture(); };
             MouseRightButtonDown += (_, e) => { _owner.Cancel(); e.Handled = true; };
@@ -327,8 +434,13 @@ public sealed class CaptureSelection : IDisposable
         {
             var area = new Rect(0, 0, ActualWidth, ActualHeight); dc.DrawImage(_image, area);
             dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(110, 0, 0, 0)), null, area);
-            var selection = _owner.Selection; if (!selection.HasArea) return;
             var sx = ActualWidth / _monitor.Width; var sy = ActualHeight / _monitor.Height;
+            var selection = _owner.Selection;
+            if (!selection.HasArea)
+            {
+                _owner.DrawCursorAssist(dc, _monitor, _image, sx, sy, new Size(ActualWidth, ActualHeight), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                return;
+            }
             var rect = new Rect((selection.X - _monitor.X) * sx, (selection.Y - _monitor.Y) * sy, selection.Width * sx, selection.Height * sy);
             dc.PushClip(new RectangleGeometry(rect)); dc.DrawImage(_image, area);
             dc.PushTransform(new MatrixTransform(sx, 0, 0, sy, (_owner._frame.Bounds.X - _monitor.X) * sx, (_owner._frame.Bounds.Y - _monitor.Y) * sy));
