@@ -14,19 +14,24 @@ namespace YeShunguangPet;
 public sealed class CapturePinWindow : ThemedWindow
 {
     private enum ResizeEdge { NorthWest, North, NorthEast, East, SouthEast, South, SouthWest, West }
+    private const double TitleBarHeight = 36;
 
     public BitmapSource Snapshot { get; }
     private readonly Action<BitmapSource> _copy;
     private readonly Image _image;
     private readonly Border _tools;
     private readonly Border _surface;
+    private readonly Border _titleBar;
     private readonly ToggleButton _pin;
+    private readonly Button _maximize;
     private readonly ContextMenu _menu;
     private readonly List<Thumb> _resizeHandles = new();
     private readonly List<Border> _resizeIndicators = new();
     private readonly CaptureRect? _anchor;
     private readonly Func<Point> _cursorPosition;
     private bool _hovered;
+    private bool _maximized;
+    private CaptureRect? _restoreBounds;
     private double _zoom = 1;
     private ResizeEdge _resizeEdge;
     private Point _resizeStartCursor;
@@ -39,8 +44,29 @@ public sealed class CapturePinWindow : ThemedWindow
         AllowsTransparency = true; ShowInTaskbar = false; Topmost = true; ShowActivated = false; WindowStartupLocation = WindowStartupLocation.Manual;
         Background = Brushes.Transparent; Opacity = 0;
         var grid = new Grid();
+        var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(TitleBarHeight) });
+        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         _image = new Image { Source = image, Stretch = Stretch.Uniform };
-        grid.Children.Add(_image);
+        Grid.SetRow(_image, 1); layout.Children.Add(_image);
+        var titleContent = new Grid();
+        titleContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        titleContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _pin = new ToggleButton { Width = 34, Height = 34, IsChecked = true, Content = Glyph("\uE718"), ToolTip = "置顶贴图",
+            HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(2, 0, 0, 0) };
+        _pin.SetResourceReference(StyleProperty, "ToolToggle"); System.Windows.Automation.AutomationProperties.SetName(_pin, "置顶贴图");
+        _pin.Click += (_, _) => Topmost = _pin.IsChecked == true; titleContent.Children.Add(_pin);
+        var commands = new StackPanel { Orientation = Orientation.Horizontal };
+        commands.Children.Add(Tool("\uE712", "贴图操作", () => { _menu!.PlacementTarget = this; _menu.IsOpen = true; }));
+        commands.Children.Add(Tool("\uE921", "隐藏贴图", Hide));
+        _maximize = Tool("\uE922", "最大化贴图", ToggleMaximize); commands.Children.Add(_maximize);
+        commands.Children.Add(Tool("\uE711", "关闭贴图", Close));
+        _tools = new Border { Child = commands, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
+            Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0), Opacity = 1, IsHitTestVisible = true };
+        Grid.SetColumn(_tools, 1); titleContent.Children.Add(_tools);
+        _titleBar = new Border { Height = TitleBarHeight, Child = titleContent, BorderThickness = new Thickness(0, 0, 0, 1) };
+        layout.Children.Add(_titleBar);
+        grid.Children.Add(layout);
         AddResizeHandle(grid, ResizeEdge.NorthWest, 14, 14, HorizontalAlignment.Left, VerticalAlignment.Top, Cursors.SizeNWSE);
         AddResizeHandle(grid, ResizeEdge.North, 24, 8, HorizontalAlignment.Center, VerticalAlignment.Top, Cursors.SizeNS);
         AddResizeHandle(grid, ResizeEdge.NorthEast, 14, 14, HorizontalAlignment.Right, VerticalAlignment.Top, Cursors.SizeNESW);
@@ -49,17 +75,8 @@ public sealed class CapturePinWindow : ThemedWindow
         AddResizeHandle(grid, ResizeEdge.South, 24, 8, HorizontalAlignment.Center, VerticalAlignment.Bottom, Cursors.SizeNS);
         AddResizeHandle(grid, ResizeEdge.SouthWest, 14, 14, HorizontalAlignment.Left, VerticalAlignment.Bottom, Cursors.SizeNESW);
         AddResizeHandle(grid, ResizeEdge.West, 8, 24, HorizontalAlignment.Left, VerticalAlignment.Center, Cursors.SizeWE);
-        var commands = new StackPanel { Orientation = Orientation.Horizontal };
-        _pin = new ToggleButton { Width = 28, Height = 28, IsChecked = true, Content = Glyph("\uE718"), ToolTip = "置顶贴图" };
-        _pin.SetResourceReference(StyleProperty, "ToolToggle"); System.Windows.Automation.AutomationProperties.SetName(_pin, "置顶贴图");
-        _pin.Click += (_, _) => Topmost = _pin.IsChecked == true; commands.Children.Add(_pin);
-        var more = Tool("\uE712", "贴图操作", () => { _menu!.PlacementTarget = this; _menu.IsOpen = true; }); commands.Children.Add(more);
-        commands.Children.Add(Tool("\uE711", "关闭贴图", Close));
-        _tools = new Border { Child = commands, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-            CornerRadius = new CornerRadius(8), Padding = new Thickness(3), Opacity = 0, IsHitTestVisible = false };
-        _tools.SetResourceReference(Border.BackgroundProperty, "SurfaceBrush"); grid.Children.Add(_tools);
-        _surface = new Border { Child = grid, BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(10) };
-        _surface.Effect = new DropShadowEffect { BlurRadius = 28, ShadowDepth = 10, Opacity = 0.32 };
+        _surface = new Border { Child = grid, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6) };
+        _surface.Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 6, Opacity = 0.22 };
         Content = _surface; ApplyTheme();
         _menu = new PetContextMenu();
         AddMenu("复制", () => _copy(Snapshot)); AddMenu("保存 PNG", Save);
@@ -73,13 +90,18 @@ public sealed class CapturePinWindow : ThemedWindow
         _menu.Closed += (_, _) => { if (!IsMouseOver) SetHoverState(false); };
         _surface.MouseLeftButtonDown += (_, e) =>
         {
+            var titleHit = false;
             for (var node = e.OriginalSource as DependencyObject; node is Visual && node != _surface; node = VisualTreeHelper.GetParent(node))
+            {
                 if (node is ButtonBase or Thumb) return;
-            if (e.ClickCount == 2) ResetZoom();
-            else { try { DragMove(); } catch (InvalidOperationException) { } }
+                if (node == _titleBar) titleHit = true;
+            }
+            if (e.ClickCount == 2 && titleHit) ToggleMaximize();
+            else if (e.ClickCount == 2) ResetZoom();
+            else if (!_maximized) { try { DragMove(); } catch (InvalidOperationException) { } }
             e.Handled = true;
         };
-        MouseWheel += (_, e) => { var point = e.GetPosition(this); var width = Width; var height = Height; SetZoom(_zoom * (e.Delta > 0 ? 1.25 : 0.8));
+        MouseWheel += (_, e) => { if (_maximized) { e.Handled = true; return; } var point = e.GetPosition(this); var width = Width; var height = Height; SetZoom(_zoom * (e.Delta > 0 ? 1.25 : 0.8));
             Left -= (Width - width) * point.X / Math.Max(1, width); Top -= (Height - height) * point.Y / Math.Max(1, height); NativeMethods.EnsureWindowInWorkArea(this); e.Handled = true; };
         PreviewKeyDown += (_, e) =>
         {
@@ -104,7 +126,8 @@ public sealed class CapturePinWindow : ThemedWindow
             Opacity = 1;
         };
         Closed += (_, _) => { _menu.IsOpen = false; (_menu as IDisposable)?.Dispose(); ContextMenu = null; _image.Source = null; _surface.Effect = null; };
-        Width = Math.Max(96, Math.Min(image.PixelWidth, 800)); Height = Math.Max(48, Width * image.PixelHeight / image.PixelWidth);
+        Width = Math.Max(96, Math.Min(image.PixelWidth, 800)) + 2;
+        Height = Math.Max(48, (Width - 2) * image.PixelHeight / image.PixelWidth) + TitleBarHeight + 2;
     }
     private TextBlock Glyph(string value)
     {
@@ -121,8 +144,6 @@ public sealed class CapturePinWindow : ThemedWindow
             CornerRadius = new CornerRadius(Math.Min(indicatorWidth, indicatorHeight) / 2),
             BorderThickness = new Thickness(1), IsHitTestVisible = false, Opacity = 0
         };
-        indicator.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
-        indicator.SetResourceReference(Border.BorderBrushProperty, "SurfaceBrush");
         _resizeIndicators.Add(indicator);
         grid.Children.Add(indicator);
 
@@ -147,7 +168,7 @@ public sealed class CapturePinWindow : ThemedWindow
     };
     private void ResizeStarted(object sender, DragStartedEventArgs e)
     {
-        if (sender is not Thumb { Tag: ResizeEdge edge }) return;
+        if (_maximized || sender is not Thumb { Tag: ResizeEdge edge }) return;
         _resizeEdge = edge;
         _resizeStartZoom = _zoom;
         _resizeStartCursor = _cursorPosition();
@@ -160,6 +181,7 @@ public sealed class CapturePinWindow : ThemedWindow
     }
     private void ResizeDelta(object sender, DragDeltaEventArgs e)
     {
+        if (_maximized) return;
         var cursor = _cursorPosition();
         var horizontal = 1 + (cursor.X - _resizeStartCursor.X) / Math.Max(1, _resizeStartImageWidth) * (HasWestEdge(_resizeEdge) ? -1 : 1);
         var vertical = 1 + (cursor.Y - _resizeStartCursor.Y) / Math.Max(1, _resizeStartImageHeight) * (HasNorthEdge(_resizeEdge) ? -1 : 1);
@@ -187,7 +209,7 @@ public sealed class CapturePinWindow : ThemedWindow
     private static bool IsVerticalEdge(ResizeEdge edge) => edge is ResizeEdge.North or ResizeEdge.South;
     private Button Tool(string glyph, string tip, Action action)
     {
-        var button = new Button { Content = Glyph(glyph), Width = 28, Height = 28, MinHeight = 28, ToolTip = tip };
+        var button = new Button { Content = Glyph(glyph), Width = 34, Height = 34, MinHeight = 34, ToolTip = tip, Padding = new Thickness(0) };
         button.SetResourceReference(StyleProperty, "IconButton"); System.Windows.Automation.AutomationProperties.SetName(button, tip);
         button.Click += (_, _) => Run(action); return button;
     }
@@ -196,41 +218,82 @@ public sealed class CapturePinWindow : ThemedWindow
     internal override void OnThemeUpdated() { base.OnThemeUpdated(); if (_surface is not null) ApplyTheme(); }
     private void ApplyTheme()
     {
-        var colors = UiTheme.GetColors(); var surface = colors["SurfaceBrush"]; var accent = colors["AccentBrush"];
-        _surface.Background = new SolidColorBrush(Color.FromArgb(218, surface.R, surface.G, surface.B));
-        _surface.BorderBrush = new SolidColorBrush(Color.FromArgb(_hovered ? (byte)255 : (byte)235, accent.R, accent.G, accent.B));
-        _tools.BorderBrush = new SolidColorBrush(Color.FromArgb(220, accent.R, accent.G, accent.B));
-        _tools.BorderThickness = new Thickness(1);
+        var colors = UiTheme.GetColors(); var surface = colors["SurfaceBrush"];
+        var dark = surface.R * 0.2126 + surface.G * 0.7152 + surface.B * 0.0722 < 128;
+        var frame = dark ? Color.FromRgb(108, 112, 118) : Color.FromRgb(151, 154, 159);
+        var title = dark ? Color.FromRgb(42, 44, 49) : Color.FromRgb(238, 239, 241);
+        var separator = dark ? Color.FromRgb(73, 76, 82) : Color.FromRgb(205, 207, 211);
+        _surface.Background = new SolidColorBrush(surface);
+        _surface.BorderBrush = new SolidColorBrush(frame);
+        _surface.BorderThickness = new Thickness(1);
+        _titleBar.Background = new SolidColorBrush(title);
+        _titleBar.BorderBrush = new SolidColorBrush(separator);
+        _pin.Foreground = new SolidColorBrush(Color.FromRgb(25, 178, 111));
+        foreach (var indicator in _resizeIndicators)
+        {
+            indicator.Background = new SolidColorBrush(Color.FromArgb(230, frame.R, frame.G, frame.B));
+            indicator.BorderBrush = new SolidColorBrush(surface);
+        }
     }
     private void SetHoverState(bool hovered)
     {
-        _hovered = hovered; _tools.Opacity = hovered ? 1 : 0; _tools.IsHitTestVisible = hovered; ApplyTheme();
-        foreach (var indicator in _resizeIndicators) indicator.Opacity = hovered ? 0.95 : 0;
-        _surface.BorderThickness = new Thickness(hovered ? 3 : 2);
+        _hovered = hovered; ApplyTheme();
+        foreach (var indicator in _resizeIndicators) indicator.Opacity = 0;
     }
     private void PositionFromAnchor()
     {
-        if (_anchor is { } anchor) NativeMethods.MoveWindowPixels(this, anchor.X, anchor.Y);
+        if (_maximized || _anchor is not { } anchor) return;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        NativeMethods.MoveWindowPixels(this, anchor.X, anchor.Y - (int)Math.Round((TitleBarHeight + 1) * dpi.DpiScaleY));
     }
     private double MaximumZoom()
     {
         var dpi = VisualTreeHelper.GetDpi(this); var work = SystemParameters.WorkArea;
         if (NativeMethods.TryGetWindowWorkArea(this, out var area)) work = new Rect(0, 0, (area.Right - area.Left) / dpi.DpiScaleX, (area.Bottom - area.Top) / dpi.DpiScaleY);
-        return Math.Min(4, Math.Min((work.Width - 16) * dpi.DpiScaleX / Snapshot.PixelWidth, (work.Height - 16) * dpi.DpiScaleY / Snapshot.PixelHeight));
+        return Math.Min(4, Math.Min((work.Width - 16) * dpi.DpiScaleX / Snapshot.PixelWidth,
+            Math.Max(1, work.Height - TitleBarHeight - 18) * dpi.DpiScaleY / Snapshot.PixelHeight));
     }
     public void SetZoom(double zoom)
     {
         var dpi = VisualTreeHelper.GetDpi(this); var maximum = Math.Max(0.01, MaximumZoom());
-        var minimum = Math.Max(0.05, Math.Max(94 * dpi.DpiScaleX / Snapshot.PixelWidth, 46 * dpi.DpiScaleY / Snapshot.PixelHeight));
+        var minimum = Math.Max(0.05, Math.Max(174 * dpi.DpiScaleX / Snapshot.PixelWidth, 46 * dpi.DpiScaleY / Snapshot.PixelHeight));
         _zoom = Math.Clamp(zoom, Math.Min(minimum, maximum), maximum);
+        if (_maximized) return;
         _image.Width = Snapshot.PixelWidth * _zoom / dpi.DpiScaleX;
         _image.Height = Snapshot.PixelHeight * _zoom / dpi.DpiScaleY;
         Width = _image.Width + 2;
-        Height = _image.Height + 2;
-        _tools.Margin = Width >= 160 ? new Thickness(0, 8, 16, 0) : new Thickness(0);
+        Height = _image.Height + TitleBarHeight + 2;
         ToolTip = $"{Snapshot.PixelWidth} x {Snapshot.PixelHeight} · {_zoom:P0}";
     }
-    private void ResetZoom() => SetZoom(Math.Min(1, MaximumZoom() * 0.8));
+    private void ResetZoom()
+    {
+        if (_maximized) ToggleMaximize();
+        SetZoom(Math.Min(1, MaximumZoom() * 0.8));
+    }
+    private void ToggleMaximize()
+    {
+        if (!_maximized)
+        {
+            if (!NativeMethods.TryGetWindowBounds(this, out var bounds) || !NativeMethods.TryGetWindowWorkArea(this, out var area)) return;
+            _restoreBounds = new CaptureRect((int)bounds.X, (int)bounds.Y, (int)bounds.Width, (int)bounds.Height);
+            _maximized = true;
+            _image.Width = double.NaN;
+            _image.Height = double.NaN;
+            foreach (var handle in _resizeHandles) handle.IsHitTestVisible = false;
+            NativeMethods.SetWindowBoundsPixels(this, new CaptureRect(area.Left, area.Top, area.Right - area.Left, area.Bottom - area.Top));
+        }
+        else
+        {
+            var bounds = _restoreBounds;
+            _maximized = false;
+            foreach (var handle in _resizeHandles) handle.IsHitTestVisible = true;
+            SetZoom(_zoom);
+            if (bounds is { } restore) NativeMethods.SetWindowBoundsPixels(this, restore);
+        }
+        _maximize.Content = Glyph(_maximized ? "\uE923" : "\uE922");
+        _maximize.ToolTip = _maximized ? "还原贴图" : "最大化贴图";
+        System.Windows.Automation.AutomationProperties.SetName(_maximize, _maximized ? "还原贴图" : "最大化贴图");
+    }
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi) { base.OnDpiChanged(oldDpi, newDpi); if (Snapshot is not null) SetZoom(_zoom); }
     private void Save()
     {

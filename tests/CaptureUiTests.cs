@@ -17,6 +17,7 @@ internal static class CaptureUiTests
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static T Find<T>(Window window, string name) => (T)window.FindName(name);
+    private static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Private)!.GetValue(target)!;
     public static void RunLive(Action<bool, string> check, PetCatalog catalog, string renders)
     {
         var fixture = CaptureTests.Fixture();
@@ -197,6 +198,23 @@ internal static class CaptureUiTests
         var resizePin = new CapturePinWindow(pin.Snapshot, 999, cursorPosition: () => pointer);
         Show(resizePin); resizePin.SetZoom(0.75); resizePin.Left = 100; resizePin.Top = 100;
         var visual = (DependencyObject)resizePin.Content;
+        var displayedImage = Field<Image>(resizePin, "_image");
+        var surface = Field<Border>(resizePin, "_surface");
+        check(surface.BorderThickness.Left == 1 && surface.BorderThickness.Top == 1,
+            "pinned screenshot uses a constant one-pixel neutral frame");
+        var titleCommands = Descendants(visual).OfType<ButtonBase>().Select(System.Windows.Automation.AutomationProperties.GetName).ToArray();
+        check(new[] { "置顶贴图", "贴图操作", "隐藏贴图", "最大化贴图", "关闭贴图" }.All(titleCommands.Contains),
+            "pinned screenshot title bar keeps all primary actions reachable");
+        var maximize = Descendants(visual).OfType<Button>().Single(button => System.Windows.Automation.AutomationProperties.GetName(button) == "最大化贴图");
+        var normalBounds = WindowBounds(resizePin); maximize.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); Wait(80);
+        var maximizedBounds = WindowBounds(resizePin);
+        check(maximizedBounds.Width > normalBounds.Width && maximizedBounds.Height > normalBounds.Height &&
+              System.Windows.Automation.AutomationProperties.GetName(maximize) == "还原贴图",
+            "title bar maximize fills the monitor work area and switches to restore");
+        maximize.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); Wait(80); var restoredBounds = WindowBounds(resizePin);
+        check(Math.Abs(restoredBounds.Left - normalBounds.Left) < 1 && Math.Abs(restoredBounds.Top - normalBounds.Top) < 1 &&
+              Math.Abs(restoredBounds.Width - normalBounds.Width) < 1 && Math.Abs(restoredBounds.Height - normalBounds.Height) < 1,
+            "title bar restore returns to the original pin position and size");
         var handles = Descendants(visual).OfType<Thumb>().ToArray();
         check(handles.Length == 8 && handles.Select(System.Windows.Automation.AutomationProperties.GetName).Distinct().Count() == 8,
             "pinned screenshot exposes eight accessible resize handles");
@@ -207,16 +225,23 @@ internal static class CaptureUiTests
         var southEast = handles.Single(h => System.Windows.Automation.AutomationProperties.GetName(h) == "贴图缩放 右下角");
         var initialZoom = resizePin.Zoom; var initialLeft = resizePin.Left; var initialTop = resizePin.Top;
         DragResize(southEast, position => pointer = position, pointer, new Point(pointer.X + 60, pointer.Y + 36));
-        check(resizePin.Zoom > initialZoom && Math.Abs((resizePin.Width - 2) / (resizePin.Height - 2) - ratio) < 0.001 &&
+        check(resizePin.Zoom > initialZoom && Math.Abs(displayedImage.Width / displayedImage.Height - ratio) < 0.001 &&
               Math.Abs(resizePin.Left - initialLeft) < 0.5 && Math.Abs(resizePin.Top - initialTop) < 0.5,
             "dragging the lower-right handle scales proportionally from the opposite corner");
         var northWest = handles.Single(h => System.Windows.Automation.AutomationProperties.GetName(h) == "贴图缩放 左上角");
         var right = resizePin.Left + resizePin.Width; var bottom = resizePin.Top + resizePin.Height; initialZoom = resizePin.Zoom;
         DragResize(northWest, position => pointer = position, pointer, new Point(pointer.X - 30, pointer.Y - 18));
-        check(resizePin.Zoom > initialZoom && Math.Abs((resizePin.Width - 2) / (resizePin.Height - 2) - ratio) < 0.001 &&
+        check(resizePin.Zoom > initialZoom && Math.Abs(displayedImage.Width / displayedImage.Height - ratio) < 0.001 &&
               Math.Abs(resizePin.Left + resizePin.Width - right) < 0.5 && Math.Abs(resizePin.Top + resizePin.Height - bottom) < 0.5,
             "dragging the upper-left handle keeps the opposite corner anchored");
         resizePin.Close();
+    }
+    private static Rect WindowBounds(Window window)
+    {
+        var native = typeof(MainWindow).Assembly.GetType("YeShunguangPet.NativeMethods")!;
+        var args = new object[] { window, Rect.Empty };
+        native.GetMethod("TryGetWindowBounds", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, args);
+        return (Rect)args[1];
     }
     private static void DragResize(Thumb handle, Action<Point> moveCursor, Point start, Point end)
     {
