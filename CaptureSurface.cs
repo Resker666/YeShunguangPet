@@ -166,7 +166,7 @@ public sealed class CaptureSurface : FrameworkElement
                 if (selection.HasArea) Try(() => Document.SetCrop(new Int32Rect(selection.X, selection.Y, selection.Width, selection.Height)));
             }
             else if (Tool == CaptureTool.Pen || (_end - _start).Length >= 1)
-                Try(() => Document.Add(new CaptureMark(Tool, _start, _end, InkColor, Tool == CaptureTool.Mosaic ? MosaicBlockSize : StrokeWidth, points: points)));
+                Try(() => Document.Add(new CaptureMark(Tool, _start, _end, InkColor, WidthFor(Tool), points: points)));
             if (Document.Marks.Count > before) SelectMark(Document.Marks.Count - 1);
         }
         finally { _finishing = false; CancelGesture(); }
@@ -258,7 +258,9 @@ public sealed class CaptureSurface : FrameworkElement
         if (SelectedMark is { } mark)
         {
             _syncingOptions = true;
-            _inkColor = mark.Color; _strokeWidth = mark.Width; _textSize = mark.FontSize; _mosaicBlockSize = mark.Width;
+            _inkColor = mark.Color; _textSize = mark.FontSize;
+            if (mark.Tool == CaptureTool.Mosaic) _mosaicBlockSize = mark.Width;
+            else if (mark.Tool != CaptureTool.Redact) _strokeWidth = mark.Width;
             if (mark.Tool == CaptureTool.Text) _labelText = mark.Text;
             _syncingOptions = false;
         }
@@ -268,11 +270,18 @@ public sealed class CaptureSurface : FrameworkElement
     private void ApplySelectedStyle()
     {
         if (SelectedMark is not { } mark || _transforming) return;
-        var width = mark.Tool == CaptureTool.Mosaic ? MosaicBlockSize : StrokeWidth;
+        var width = WidthFor(mark.Tool);
         var fontSize = mark.Tool == CaptureTool.Text ? TextSize : mark.FontSize;
         try { Document.ReplaceMark(_selectedIndex, mark.WithStyle(InkColor, width, fontSize)); }
         catch (Exception ex) { Error?.Invoke(ex.Message); }
     }
+
+    private double WidthFor(CaptureTool tool) => tool switch
+    {
+        CaptureTool.Mosaic => MosaicBlockSize,
+        CaptureTool.Redact => 1,
+        _ => StrokeWidth
+    };
 
     public void UpdateSelectedText(string text)
     {
@@ -338,7 +347,7 @@ public sealed class CaptureSurface : FrameworkElement
         if (_points is null) return;
         if (Tool == CaptureTool.Crop) dc.DrawRectangle(null, new System.Windows.Media.Pen(Brushes.White, 1), new Rect(_start, _end));
         else if (_inkPreview is not null) _inkPreview.Draw(dc);
-        else new CaptureMark(Tool, _start, _end, InkColor, Tool == CaptureTool.Mosaic ? MosaicBlockSize : StrokeWidth).Draw(dc, Document.Image);
+        else new CaptureMark(Tool, _start, _end, InkColor, WidthFor(Tool)).Draw(dc, Document.Image);
         if (Tool == CaptureTool.Mosaic) DrawMosaicGuide(dc, new Rect(_start, _end));
     }
 

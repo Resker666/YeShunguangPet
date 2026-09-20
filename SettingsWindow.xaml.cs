@@ -54,6 +54,9 @@ public partial class SettingsWindow : ThemedWindow
         QuietHoursCheckBox.IsChecked = _workingSettings.QuietHoursEnabled;
         QuietStartInput.Text = TimeSpan.FromMinutes(_workingSettings.QuietStartMinute).ToString(@"hh\:mm");
         QuietEndInput.Text = TimeSpan.FromMinutes(_workingSettings.QuietEndMinute).ToString(@"hh\:mm");
+        MosaicStandard.IsChecked = _workingSettings.MosaicBlockSize <= 12;
+        MosaicVeryStrong.IsChecked = _workingSettings.MosaicBlockSize >= 24;
+        MosaicStrong.IsChecked = MosaicStandard.IsChecked != true && MosaicVeryStrong.IsChecked != true;
 
         ScaleSlider.ValueChanged += (_, _) => UpdateValueLabels();
         IdleIntervalSlider.ValueChanged += (_, _) => UpdateValueLabels();
@@ -166,6 +169,7 @@ public partial class SettingsWindow : ThemedWindow
         _workingSettings.SessionAnimationEnabled = SessionAnimationCheckBox.IsChecked == true;
         _workingSettings.DoNotDisturb = DoNotDisturbCheckBox.IsChecked == true;
         _workingSettings.QuietHoursEnabled = QuietHoursCheckBox.IsChecked == true;
+        _workingSettings.MosaicBlockSize = MosaicVeryStrong.IsChecked == true ? 24 : MosaicStrong.IsChecked == true ? 18 : 12;
         return true;
     }
 

@@ -20,6 +20,7 @@ public sealed class CompanionOptions
     public bool QuietHoursEnabled { get; set; }
     public int QuietStartMinute { get; set; } = 1320;
     public int QuietEndMinute { get; set; } = 480;
+    public int MosaicBlockSize { get; set; } = 18;
 
     public static CompanionOptions From(PetSettings s) => new()
     {
@@ -27,7 +28,8 @@ public sealed class CompanionOptions
         BreakRemindersEnabled = s.BreakRemindersEnabled, BreakReminderMinutes = s.BreakReminderMinutes,
         NotificationsEnabled = s.NotificationsEnabled, PauseDuringFocus = s.PauseDuringFocus,
         SessionAnimationEnabled = s.SessionAnimationEnabled, DoNotDisturb = s.DoNotDisturb,
-        QuietHoursEnabled = s.QuietHoursEnabled, QuietStartMinute = s.QuietStartMinute, QuietEndMinute = s.QuietEndMinute
+        QuietHoursEnabled = s.QuietHoursEnabled, QuietStartMinute = s.QuietStartMinute, QuietEndMinute = s.QuietEndMinute,
+        MosaicBlockSize = s.MosaicBlockSize
     };
 
     public void ApplyTo(PetSettings s)
@@ -44,6 +46,7 @@ public sealed class CompanionOptions
         s.QuietHoursEnabled = QuietHoursEnabled;
         s.QuietStartMinute = QuietStartMinute;
         s.QuietEndMinute = QuietEndMinute;
+        s.MosaicBlockSize = MosaicBlockSize;
     }
 }
 

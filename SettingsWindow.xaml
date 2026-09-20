@@ -154,6 +154,18 @@
                                 <Button Content="立即召回" Margin="8,0,0,0" Click="Recall_Click"/>
                             </StackPanel>
                         </Grid>
+                        <Separator Margin="0,12,0,14" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="马赛克力度" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Background="{DynamicResource SidebarBrush}" CornerRadius="6" Padding="3">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="MosaicStandard" Content="标准" GroupName="MosaicStrength" Style="{StaticResource SegmentButton}" AutomationProperties.Name="马赛克力度标准"/>
+                                    <RadioButton x:Name="MosaicStrong" Content="强" GroupName="MosaicStrength" Style="{StaticResource SegmentButton}" AutomationProperties.Name="马赛克力度强"/>
+                                    <RadioButton x:Name="MosaicVeryStrong" Content="很强" GroupName="MosaicStrength" Style="{StaticResource SegmentButton}" AutomationProperties.Name="马赛克力度很强"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </StackPanel>
                 </ui:SmoothScrollViewer>
             </TabItem>

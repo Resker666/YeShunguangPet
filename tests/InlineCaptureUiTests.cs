@@ -70,11 +70,15 @@ internal static class InlineCaptureUiTests
             check(capture.SelectedMark?.Text == "重新编辑", "selected text annotation can be edited again");
             capture.SetTool(CaptureTool.Ellipse); capture.Begin(new Point(bounds.X + 420, bounds.Y + 280)); capture.End(new Point(bounds.X + 700, bounds.Y + 430));
             capture.SetTool(CaptureTool.Mosaic); capture.MosaicBlockSize = 8; capture.Begin(new Point(bounds.X + 600, bounds.Y + 120)); capture.End(new Point(bounds.X + 780, bounds.Y + 165));
-            check(Find<FrameworkElement>(toolbar, "ToolOptions").IsVisible && Find<FrameworkElement>(toolbar, "MosaicOptions").IsVisible && !Find<FrameworkElement>(toolbar, "StrokeOptions").IsVisible, "mosaic exposes only its strength control");
+            check(!Find<FrameworkElement>(toolbar, "ToolOptions").IsVisible && toolbar.FindName("MosaicStrength") is null,
+                "mosaic uses the saved global strength without irrelevant color or inline strength controls");
+            capture.SetTool(CaptureTool.Redact); capture.Begin(new Point(bounds.X + 620, bounds.Y + 180)); capture.End(new Point(bounds.X + 760, bounds.Y + 220));
+            check(capture.SelectedMark is { Tool: CaptureTool.Redact } && !Find<FrameworkElement>(toolbar, "ToolOptions").IsVisible,
+                "secure redaction creates an opaque mark without color controls");
             capture.SetTool(null);
             var before = capture.Selection;
             capture.Begin(new Point(before.Right, before.Bottom)); capture.End(new Point(before.Right + 25, before.Bottom + 25));
-            check(capture.Selection.Width == before.Width + 25 && capture.Document.Marks.Count == 4, "resize handle expands the live selection without scaling or dropping annotations");
+            check(capture.Selection.Width == before.Width + 25 && capture.Document.Marks.Count == 5, "resize handle expands the live selection without scaling or dropping annotations");
             capture.Undo(); check(capture.Selection == before, "floating toolbar undo restores selection geometry");
             var center = new Point(before.X + before.Width / 2.0, before.Y + before.Height / 2.0);
             capture.Begin(center); capture.End(center + new Vector(10, 10));

@@ -25,11 +25,13 @@
         <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.18"/></Border.Effect>
         <StackPanel>
             <WrapPanel x:Name="ToolOptions" Visibility="Collapsed" Margin="0,0,0,6">
-                <RadioButton x:Name="RedSwatch" Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#D62F4B" Background="#D62F4B" ToolTip="红色" AutomationProperties.Name="红色" Checked="Color_Changed"/>
-                <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#287A5C" Background="#287A5C" ToolTip="绿色" AutomationProperties.Name="绿色" Checked="Color_Changed"/>
-                <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#396BB8" Background="#396BB8" ToolTip="蓝色" AutomationProperties.Name="蓝色" Checked="Color_Changed"/>
-                <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#FFFFFF" Background="#FFFFFF" ToolTip="白色" AutomationProperties.Name="白色" Checked="Color_Changed"/>
-                <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#111111" Background="#111111" ToolTip="黑色" AutomationProperties.Name="黑色" Checked="Color_Changed"/>
+                <WrapPanel x:Name="ColorOptions">
+                    <RadioButton x:Name="RedSwatch" Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#D62F4B" Background="#D62F4B" ToolTip="红色" AutomationProperties.Name="红色" Checked="Color_Changed"/>
+                    <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#287A5C" Background="#287A5C" ToolTip="绿色" AutomationProperties.Name="绿色" Checked="Color_Changed"/>
+                    <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#396BB8" Background="#396BB8" ToolTip="蓝色" AutomationProperties.Name="蓝色" Checked="Color_Changed"/>
+                    <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#FFFFFF" Background="#FFFFFF" ToolTip="白色" AutomationProperties.Name="白色" Checked="Color_Changed"/>
+                    <RadioButton Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#111111" Background="#111111" ToolTip="黑色" AutomationProperties.Name="黑色" Checked="Color_Changed"/>
+                </WrapPanel>
                 <StackPanel x:Name="StrokeOptions" Orientation="Horizontal" Margin="10,0,0,0">
                     <TextBlock Text="线宽" FontSize="12" VerticalAlignment="Center"/>
                     <Slider x:Name="LineWidth" Width="82" Minimum="1" Maximum="16" Value="4" IsSnapToTickEnabled="True" TickFrequency="1" AutomationProperties.Name="线宽" ValueChanged="Options_Changed"/>
@@ -38,10 +40,6 @@
                     <TextBlock Text="字号" FontSize="12" VerticalAlignment="Center"/>
                     <Slider x:Name="TextSize" Width="72" Minimum="12" Maximum="64" Value="22" IsSnapToTickEnabled="True" TickFrequency="2" AutomationProperties.Name="字号" ValueChanged="Options_Changed"/>
                     <TextBox x:Name="LabelInput" Width="140" MaxLength="500" Margin="8,0,0,0" ToolTip="标注文字" AutomationProperties.Name="标注文字" TextChanged="Label_Changed" LostKeyboardFocus="Label_Commit" KeyDown="Label_KeyDown"/>
-                </StackPanel>
-                <StackPanel x:Name="MosaicOptions" Orientation="Horizontal" Margin="10,0,0,0" Visibility="Collapsed">
-                    <TextBlock Text="马赛克" FontSize="12" VerticalAlignment="Center"/>
-                    <Slider x:Name="MosaicStrength" Width="100" Minimum="4" Maximum="24" Value="8" IsSnapToTickEnabled="True" TickFrequency="2" AutomationProperties.Name="马赛克强度" ValueChanged="Options_Changed"/>
                 </StackPanel>
             </WrapPanel>
             <WrapPanel x:Name="CommandRow" HorizontalAlignment="Center">
@@ -54,6 +52,7 @@
                     <RadioButton x:Name="PenTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Pen" ToolTip="画笔" AutomationProperties.Name="画笔" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70F;"/></RadioButton>
                     <RadioButton x:Name="TextTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Text" ToolTip="文字" AutomationProperties.Name="文字" Click="Tool_Click"><Border Width="17" Height="17" BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" BorderThickness="1"><TextBlock Text="T" FontFamily="Segoe UI" FontWeight="SemiBold" FontSize="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></RadioButton>
                     <RadioButton x:Name="MosaicTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Mosaic" ToolTip="马赛克遮挡" AutomationProperties.Name="马赛克遮挡" Click="Tool_Click"><Border Width="17" Height="17" BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" BorderThickness="1" Padding="2"><UniformGrid Rows="3" Columns="3"><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/></UniformGrid></Border></RadioButton>
+                    <RadioButton x:Name="RedactTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Redact" ToolTip="安全遮挡" AutomationProperties.Name="安全遮挡" Click="Tool_Click"><Border Width="17" Height="13" Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/></RadioButton>
                 </WrapPanel></Border>
                 <Border Style="{StaticResource ToolGroup}"><StackPanel Orientation="Horizontal">
                     <Button x:Name="UndoButton" Style="{StaticResource Command}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click"/>

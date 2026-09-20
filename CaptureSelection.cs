@@ -55,11 +55,11 @@ public sealed class CaptureSelection : IDisposable
     public bool IsDragging => _region.IsDragging || _painting;
     internal bool CursorAssistVisible => _hasCursorPoint && !_committed && !IsDragging && !_painting;
 
-    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null)
+    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null, int mosaicBlockSize = 18)
     {
         if (frame.Monitors.Count == 0 || frame.Image.PixelWidth != frame.Bounds.Width || frame.Image.PixelHeight != frame.Bounds.Height) throw new ArgumentException("Invalid capture frame.");
         _frame = frame; _cursor = cursorPosition ?? ScreenCapture.CursorPosition; _copy = copy ?? Clipboard.SetImage; _savePath = savePath; _pin = pin; _pinAt = pinAt;
-        _region = new CaptureRegion(frame.Bounds); Document = new CaptureDocument(frame.Image); _annotation = new CaptureSurface(Document);
+        _region = new CaptureRegion(frame.Bounds); Document = new CaptureDocument(frame.Image); _annotation = new CaptureSurface(Document) { MosaicBlockSize = mosaicBlockSize };
         Document.Changed += OnDocumentChanged; _annotation.Error += ShowError;
         _annotation.SelectionChanged += AnnotationSelectionChanged; _annotation.TextEditRequested += EditSelectedText;
     }
@@ -239,7 +239,7 @@ public sealed class CaptureSelection : IDisposable
         {
             if (!_frame.Monitors[_toolbarMonitor].ToRect().IntersectsWith(Selection.ToRect())) _toolbarMonitor = MonitorAt(new Point(Selection.Right - 1, Selection.Bottom - 1));
             var monitor = _frame.Monitors[_toolbarMonitor]; var dpi = VisualTreeHelper.GetDpi(_toolbar);
-            _toolbar.Width = Math.Min(640, Math.Max(80, (monitor.Width - 16) / dpi.DpiScaleX));
+            _toolbar.Width = Math.Min(680, Math.Max(80, (monitor.Width - 16) / dpi.DpiScaleX));
             _toolbar.UpdateLayout();
             var size = new Size(_toolbar.ActualWidth * dpi.DpiScaleX, _toolbar.ActualHeight * dpi.DpiScaleY);
             if (size.Width < 1 || size.Height < 1) return;

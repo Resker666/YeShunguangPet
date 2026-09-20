@@ -37,19 +37,18 @@ public partial class CapturePinEditToolbarWindow : ThemedWindow
         var surface = _pin.EditSurface; var document = _pin.EditDocument;
         if (surface is null || document is null) return;
         _refreshing = true;
-        foreach (var button in new[] { SelectTool, CropTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool })
+        foreach (var button in new[] { SelectTool, CropTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool, RedactTool })
             button.IsChecked = (string)button.Tag == surface.Tool.ToString();
-        foreach (var swatch in ToolOptions.Children.OfType<RadioButton>())
+        foreach (var swatch in ColorOptions.Children.OfType<RadioButton>())
             if (swatch.Tag is string value) swatch.IsChecked = (Color)ColorConverter.ConvertFromString(value) == surface.InkColor;
         var effectiveTool = surface.SelectedMark?.Tool ?? surface.Tool;
         var color = effectiveTool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text;
-        var mosaic = effectiveTool == CaptureTool.Mosaic;
-        ToolOptions.Visibility = color || mosaic ? Visibility.Visible : Visibility.Collapsed;
+        ToolOptions.Visibility = color ? Visibility.Visible : Visibility.Collapsed;
+        ColorOptions.Visibility = color ? Visibility.Visible : Visibility.Collapsed;
         FontOptions.Visibility = effectiveTool == CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
         StrokeOptions.Visibility = color && effectiveTool != CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
-        MosaicOptions.Visibility = mosaic ? Visibility.Visible : Visibility.Collapsed;
         UndoButton.IsEnabled = document.CanUndo; RedoButton.IsEnabled = document.CanRedo; DeleteButton.IsEnabled = surface.SelectedMark is not null;
-        LineWidth.Value = surface.StrokeWidth; TextSize.Value = surface.TextSize; MosaicStrength.Value = surface.MosaicBlockSize;
+        LineWidth.Value = surface.StrokeWidth; TextSize.Value = surface.TextSize;
         if (LabelInput.Text != surface.LabelText) LabelInput.Text = surface.LabelText;
         ErrorText.Text = _pin.EditError; ErrorText.Visibility = string.IsNullOrEmpty(_pin.EditError) ? Visibility.Collapsed : Visibility.Visible;
         _refreshing = false;
@@ -68,8 +67,8 @@ public partial class CapturePinEditToolbarWindow : ThemedWindow
     }
     private void Options_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_refreshing || _pin.EditSurface is not { } surface || LineWidth is null || TextSize is null || MosaicStrength is null) return;
-        surface.StrokeWidth = LineWidth.Value; surface.TextSize = TextSize.Value; surface.MosaicBlockSize = MosaicStrength.Value;
+        if (_refreshing || _pin.EditSurface is not { } surface || LineWidth is null || TextSize is null) return;
+        surface.StrokeWidth = LineWidth.Value; surface.TextSize = TextSize.Value;
     }
     private void Label_Changed(object sender, TextChangedEventArgs e)
     {

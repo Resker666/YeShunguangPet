@@ -24,6 +24,7 @@ internal static class CaptureUiTests
     public static void RunLive(Action<bool, string> check, PetCatalog catalog, string renders)
     {
         var fixture = CaptureTests.Fixture();
+        VerifyMosaicToRedact(check, fixture);
         var clock = new SpeechStudyTests.ManualClock();
         using var desktop = new DesktopSession(DesktopConfiguration.Migrate(new PetSettings { Topmost = false, FocusMinutes = 1, BreakMinutes = 1 }), catalog, _ => { }, false, clock);
         desktop.Start(false);
@@ -45,7 +46,7 @@ internal static class CaptureUiTests
                 foreach (var size in new[] { new Size(1000, 720), new Size(720, 480) })
                 {
                     editor.Width = size.Width; editor.Height = size.Height; Wait(80);
-                    foreach (var name in new[] { "CopyButton", "SaveButton", "PinButton", "UndoButton", "RedoButton", "LabelInput", "TextSize", "LineWidth", "MosaicStrength" })
+                    foreach (var name in new[] { "CopyButton", "SaveButton", "PinButton", "UndoButton", "RedoButton", "LabelInput", "TextSize", "LineWidth" })
                         check(Inside(Find<FrameworkElement>(editor, name), (FrameworkElement)editor.Content), $"capture {name} stays inside {size} {theme}");
                     check(surface.ActualWidth > 0 && editor.Document.Flatten().PixelWidth == 600, "editor zoom and resize never alter output dimensions");
                     Render(editor, renders, $"capture-editor-{size.Width}-{theme}.png");
@@ -82,6 +83,28 @@ internal static class CaptureUiTests
         check(item.DropDown.Visible && item.DropDownItems.Count == 4 && item.DropDownItems.Cast<System.Windows.Forms.ToolStripItem>().All(i => i.Bounds.Right <= item.DropDown.Width), "tray pin submenu exposes clipboard, show, hide and close commands without clipping");
         item.HideDropDown(); tray.Close();
     }
+
+    private static void VerifyMosaicToRedact(Action<bool, string> check, BitmapSource fixture)
+    {
+        var document = new CaptureDocument(fixture);
+        var surface = new CaptureSurface(document) { MosaicBlockSize = 24 };
+        surface.Tool = CaptureTool.Mosaic;
+        surface.BeginAnnotation(new Point(20, 20));
+        surface.EndAnnotation(new Point(140, 90));
+
+        surface.Tool = CaptureTool.Redact;
+        surface.BeginAnnotation(new Point(180, 30));
+        surface.MoveAnnotation(new Point(300, 100));
+        var visual = new DrawingVisual();
+        using (var drawing = visual.RenderOpen()) surface.DrawPreview(drawing);
+        surface.EndAnnotation(new Point(300, 100));
+
+        check(surface.StrokeWidth == 4 && document.Marks.Count == 2 &&
+              document.Marks[0] is { Tool: CaptureTool.Mosaic, Width: 24 } &&
+              document.Marks[1] is { Tool: CaptureTool.Redact, Width: 1 },
+            "switching from strongest mosaic to secure redaction keeps tool widths isolated and renders without crashing");
+    }
+
     private static void VerifySelection(Action<bool, string> check, BitmapSource fixture, string renders)
     {
         var frame = new CaptureFrame(fixture, new CaptureRect(-30000, -30000, 600, 360), new[] { new CaptureRect(-30000, -30000, 300, 360), new CaptureRect(-29700, -30000, 300, 360) });

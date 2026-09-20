@@ -16,11 +16,11 @@ public partial class CaptureEditorWindow : ThemedWindow
     private readonly Action<BitmapSource> _copy, _pin;
     private bool _fit = true;
     private double _zoom = 1;
-    public CaptureEditorWindow(BitmapSource image, Action<BitmapSource> pin, Action<BitmapSource>? copy = null)
+    public CaptureEditorWindow(BitmapSource image, Action<BitmapSource> pin, Action<BitmapSource>? copy = null, int mosaicBlockSize = 18)
     {
         InitializeComponent();
         _copy = copy ?? Clipboard.SetImage; _pin = pin;
-        Document = new CaptureDocument(image); Surface = new CaptureSurface(Document);
+        Document = new CaptureDocument(image); Surface = new CaptureSurface(Document) { MosaicBlockSize = mosaicBlockSize };
         Surface.Error += ShowError; Surface.TextEditRequested += FocusTextInput; SurfaceHost.Children.Add(Surface); Document.Changed += RefreshDocument;
         ArrowTool.IsChecked = RedSwatch.IsChecked = true;
         Loaded += (_, _) => { Fit(); RefreshDocument(); };
@@ -57,10 +57,10 @@ public partial class CaptureEditorWindow : ThemedWindow
         Surface.CancelGesture(); Surface.Tool = Enum.Parse<CaptureTool>(tag); StatusText.Text = string.Empty;
         LabelInput.IsEnabled = Surface.Tool == CaptureTool.Text; TextSize.IsEnabled = Surface.Tool == CaptureTool.Text;
         LineWidth.IsEnabled = Surface.Tool is CaptureTool.Arrow or CaptureTool.Rectangle or CaptureTool.Pen;
-        MosaicStrength.IsEnabled = Surface.Tool == CaptureTool.Mosaic;
+        ColorOptions.Visibility = Surface.Tool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
     }
     private void Color_Changed(object sender, RoutedEventArgs e) { if (Surface is not null && (sender as RadioButton)?.Tag is string color) Surface.InkColor = (Color)ColorConverter.ConvertFromString(color); }
-    private void Options_Changed(object sender, RoutedPropertyChangedEventArgs<double> e) { if (Surface is not null) { Surface.StrokeWidth = LineWidth.Value; Surface.TextSize = TextSize.Value; Surface.MosaicBlockSize = MosaicStrength.Value; } }
+    private void Options_Changed(object sender, RoutedPropertyChangedEventArgs<double> e) { if (Surface is not null) { Surface.StrokeWidth = LineWidth.Value; Surface.TextSize = TextSize.Value; } }
     private void Label_Changed(object sender, TextChangedEventArgs e) { if (Surface is not null) Surface.LabelText = LabelInput.Text; }
     private void SetZoom(double value)
     {

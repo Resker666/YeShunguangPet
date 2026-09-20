@@ -29,18 +29,17 @@ public partial class CaptureToolbarWindow : ThemedWindow
     public void Refresh()
     {
         _refreshing = true;
-        foreach (var button in new[] { SelectTool, ObjectSelectTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool })
+        foreach (var button in new[] { SelectTool, ObjectSelectTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool, RedactTool })
             button.IsChecked = (string)button.Tag == (_capture.Tool ?? CaptureTool.Crop).ToString();
         var effectiveTool = _capture.SelectedMark?.Tool ?? _capture.Tool;
         var color = effectiveTool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text;
-        var mosaic = effectiveTool == CaptureTool.Mosaic;
-        ToolOptions.Visibility = color || mosaic ? Visibility.Visible : Visibility.Collapsed;
+        ToolOptions.Visibility = color ? Visibility.Visible : Visibility.Collapsed;
+        ColorOptions.Visibility = color ? Visibility.Visible : Visibility.Collapsed;
         FontOptions.Visibility = effectiveTool == CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
         StrokeOptions.Visibility = color && effectiveTool != CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
-        MosaicOptions.Visibility = mosaic ? Visibility.Visible : Visibility.Collapsed;
         UndoButton.IsEnabled = _capture.Document.CanUndo; RedoButton.IsEnabled = _capture.Document.CanRedo; DeleteButton.IsEnabled = _capture.SelectedMark is not null;
         ErrorText.Text = _capture.Error; ErrorText.Visibility = string.IsNullOrEmpty(_capture.Error) ? Visibility.Collapsed : Visibility.Visible;
-        LineWidth.Value = _capture.StrokeWidth; TextSize.Value = _capture.TextSize; MosaicStrength.Value = _capture.MosaicBlockSize;
+        LineWidth.Value = _capture.StrokeWidth; TextSize.Value = _capture.TextSize;
         _refreshing = false;
     }
     private void Tool_Click(object sender, RoutedEventArgs e)
@@ -54,8 +53,8 @@ public partial class CaptureToolbarWindow : ThemedWindow
     }
     private void Size_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_refreshing || LineWidth is null || TextSize is null || MosaicStrength is null) return;
-        _capture.StrokeWidth = LineWidth.Value; _capture.TextSize = TextSize.Value; _capture.MosaicBlockSize = MosaicStrength.Value;
+        if (_refreshing || LineWidth is null || TextSize is null) return;
+        _capture.StrokeWidth = LineWidth.Value; _capture.TextSize = TextSize.Value;
     }
     private void Undo_Click(object sender, RoutedEventArgs e) => _capture.Undo();
     private void Redo_Click(object sender, RoutedEventArgs e) => _capture.Redo();

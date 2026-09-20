@@ -32,6 +32,7 @@ public sealed class CapturePinWindow : ThemedWindow
     private readonly List<Border> _resizeIndicators = new();
     private readonly CaptureRect? _anchor;
     private readonly Func<Point> _cursorPosition;
+    private readonly int _mosaicBlockSize;
     private bool _hovered;
     private bool _maximized;
     private bool _editing;
@@ -49,9 +50,9 @@ public sealed class CapturePinWindow : ThemedWindow
     internal CaptureDocument? EditDocument => _editDocument;
     internal CaptureSurface? EditSurface => _editSurface;
     internal string EditError => _editError;
-    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null, Func<Point>? cursorPosition = null)
+    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null, Func<Point>? cursorPosition = null, int mosaicBlockSize = 18)
     {
-        Snapshot = image; _copy = copy ?? Clipboard.SetImage; _anchor = anchor; _cursorPosition = cursorPosition ?? ScreenCapture.CursorPosition;
+        Snapshot = image; _copy = copy ?? Clipboard.SetImage; _anchor = anchor; _cursorPosition = cursorPosition ?? ScreenCapture.CursorPosition; _mosaicBlockSize = mosaicBlockSize;
         Title = $"贴图 {number}"; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; ShowInTaskbar = false; Topmost = true; ShowActivated = false; WindowStartupLocation = WindowStartupLocation.Manual;
         Background = Brushes.Transparent; Opacity = 0;
@@ -276,7 +277,7 @@ public sealed class CapturePinWindow : ThemedWindow
         if (_maximized) ToggleMaximize();
         _editing = true; _editError = string.Empty;
         _editDocument = new CaptureDocument(Snapshot);
-        _editSurface = new CaptureSurface(_editDocument) { Tool = CaptureTool.Arrow };
+        _editSurface = new CaptureSurface(_editDocument) { Tool = CaptureTool.Arrow, MosaicBlockSize = _mosaicBlockSize };
         _editSurface.Error += EditFailed;
         _editSurface.SelectionChanged += EditSelectionChanged;
         _editSurface.TextEditRequested += EditTextRequested;

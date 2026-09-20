@@ -50,6 +50,9 @@ internal static class CaptureTests
         var masked = document.Flatten();
         check(!Pixel(masked, 80, 60).SequenceEqual(Pixel(image, 80, 60)) && Pixel(masked, 200, 150).SequenceEqual(Pixel(image, 200, 150)), "mosaic exports altered blocks while leaving other pixels intact");
         check(Pixel(image, 80, 60)[0] != 0, "mosaic annotation cannot change the immutable source screenshot");
+        var redactedDocument = new CaptureDocument(image); redactedDocument.Add(new CaptureMark(CaptureTool.Redact, new Point(30, 30), new Point(90, 70), Colors.Red, 4));
+        var redacted = Pixel(redactedDocument.Flatten(), 50, 50);
+        check(redacted[0] == 0 && redacted[1] == 0 && redacted[2] == 0 && redacted[3] == 255, "secure redaction exports a fully opaque black raster block independent of the selected color");
         document.SetCrop(new Int32Rect(40, 40, 200, 150));
         var flattened = document.Flatten();
         check(flattened.PixelWidth == 200 && flattened.PixelHeight == 150 && !Pixel(flattened, 40, 20).SequenceEqual(Pixel(image, 80, 60)), "crop and mosaic are flattened together without hidden original layers");
@@ -74,6 +77,9 @@ internal static class CaptureTests
         for (var i = 0; i < 120; i++) history.Add(new CaptureMark(CaptureTool.Rectangle, new Point(1, 1), new Point(10, 10), Colors.Red, 2));
         var undoCount = 0; while (history.CanUndo) { history.Undo(); undoCount++; }
         check(undoCount == 100, "annotation undo history is bounded to one hundred operations");
+        var captureConfig = DesktopConfiguration.Migrate(new PetSettings { MosaicBlockSize = 22 });
+        check(captureConfig.Companion.MosaicBlockSize == 24 && captureConfig.Companion.MosaicBlockSize is 12 or 18 or 24,
+            "mosaic strength is normalized to one of the three saved global levels");
         using var desktop = new DesktopSession(DesktopConfiguration.Migrate(new PetSettings()), catalog, _ => { }, false);
         desktop.Start(false);
         for (var i = 0; i < 8; i++) desktop.PinCapture(crop, show: false);

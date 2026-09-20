@@ -810,6 +810,7 @@ public partial class MainWindow : Window
         _settings.QuietHoursEnabled = updated.QuietHoursEnabled;
         _settings.QuietStartMinute = updated.QuietStartMinute;
         _settings.QuietEndMinute = updated.QuietEndMinute;
+        _settings.MosaicBlockSize = updated.MosaicBlockSize;
         _desktop?.UpdateGlobal(_settings);
 
         ApplyScale(_settings.Scale, save: false);

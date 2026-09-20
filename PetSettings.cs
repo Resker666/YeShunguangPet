@@ -39,6 +39,7 @@ public sealed class PetSettings
     public bool QuietHoursEnabled { get; set; }
     public int QuietStartMinute { get; set; } = 22 * 60;
     public int QuietEndMinute { get; set; } = 8 * 60;
+    public int MosaicBlockSize { get; set; } = 18;
 
     public static string SettingsDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
@@ -164,7 +165,8 @@ public sealed class PetSettings
             DoNotDisturb = DoNotDisturb,
             QuietHoursEnabled = QuietHoursEnabled,
             QuietStartMinute = QuietStartMinute,
-            QuietEndMinute = QuietEndMinute
+            QuietEndMinute = QuietEndMinute,
+            MosaicBlockSize = MosaicBlockSize
         };
     }
 
@@ -192,6 +194,7 @@ public sealed class PetSettings
         BreakReminderMinutes = Math.Clamp(BreakReminderMinutes, 15, 180);
         QuietStartMinute = Math.Clamp(QuietStartMinute, 0, 1439);
         QuietEndMinute = Math.Clamp(QuietEndMinute, 0, 1439);
+        MosaicBlockSize = MosaicBlockSize switch { <= 14 => 12, <= 21 => 18, _ => 24 };
 
         if (Left.HasValue && !double.IsFinite(Left.Value))
         {
