@@ -27,8 +27,8 @@ public partial class CapturePinEditToolbarWindow : ThemedWindow
     {
         base.OnThemeUpdated();
         if (GlassSurface is null) return;
-        var colors = UiTheme.GetColors(); var surface = colors["SurfaceBrush"]; var border = colors["BorderBrush"];
-        GlassSurface.Background = new SolidColorBrush(Color.FromArgb(232, surface.R, surface.G, surface.B));
+        var colors = UiTheme.GetColors(); var surface = colors["SurfaceBrush"]; var border = colors["SwitchOffBrush"];
+        GlassSurface.Background = new SolidColorBrush(Color.FromArgb(248, surface.R, surface.G, surface.B));
         GlassSurface.BorderBrush = new SolidColorBrush(Color.FromArgb(190, border.R, border.G, border.B));
     }
 

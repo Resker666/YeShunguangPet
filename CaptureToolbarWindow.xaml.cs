@@ -22,8 +22,8 @@ public partial class CaptureToolbarWindow : ThemedWindow
         base.OnThemeUpdated();
         if (GlassSurface is null) return;
         var surface = UiTheme.GetColors()["SurfaceBrush"];
-        var border = UiTheme.GetColors()["BorderBrush"];
-        GlassSurface.Background = new SolidColorBrush(Color.FromArgb(218, surface.R, surface.G, surface.B));
+        var border = UiTheme.GetColors()["SwitchOffBrush"];
+        GlassSurface.Background = new SolidColorBrush(Color.FromArgb(248, surface.R, surface.G, surface.B));
         GlassSurface.BorderBrush = new SolidColorBrush(Color.FromArgb(190, border.R, border.G, border.B));
     }
     public void Refresh()

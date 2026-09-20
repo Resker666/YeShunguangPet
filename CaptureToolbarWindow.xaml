@@ -4,9 +4,9 @@
     WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
     ShowInTaskbar="False" ShowActivated="False" Topmost="True" WindowStartupLocation="Manual" PreviewKeyDown="Toolbar_KeyDown">
     <ui:ThemedWindow.Resources>
-        <Style x:Key="Tool" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}"><Setter Property="Width" Value="38"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/><Setter Property="Padding" Value="0"/></Style>
-        <Style x:Key="Command" TargetType="Button" BasedOn="{StaticResource IconButton}"><Setter Property="Width" Value="38"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/></Style>
-        <Style x:Key="ToolGroup" TargetType="Border"><Setter Property="Background" Value="{DynamicResource SubtleBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,0,6,0"/></Style>
+        <Style x:Key="Tool" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}"><Setter Property="Width" Value="38"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/><Setter Property="Padding" Value="0"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/></Style>
+        <Style x:Key="Command" TargetType="Button" BasedOn="{StaticResource IconButton}"><Setter Property="Width" Value="38"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/></Style>
+        <Style x:Key="ToolGroup" TargetType="Border"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="{DynamicResource SwitchOffBrush}"/><Setter Property="BorderThickness" Value="0,0,1,0"/><Setter Property="CornerRadius" Value="0"/><Setter Property="Padding" Value="0,0,8,0"/><Setter Property="Margin" Value="0,0,8,0"/></Style>
         <Style x:Key="InkSwatch" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}">
             <Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="MinHeight" Value="26"/>
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
@@ -21,8 +21,8 @@
             </ControlTemplate></Setter.Value></Setter>
         </Style>
     </ui:ThemedWindow.Resources>
-    <Border x:Name="GlassSurface" Background="Transparent" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="14" Padding="10,8">
-        <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.22"/></Border.Effect>
+    <Border x:Name="GlassSurface" Background="Transparent" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8,4">
+        <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.18"/></Border.Effect>
         <StackPanel>
             <WrapPanel x:Name="ToolOptions" Visibility="Collapsed" Margin="0,0,0,6">
                 <RadioButton x:Name="RedSwatch" Style="{StaticResource InkSwatch}" GroupName="Color" Tag="#D62F4B" Background="#D62F4B" ToolTip="红色" AutomationProperties.Name="红色" Checked="Color_Changed"/>
@@ -55,8 +55,8 @@
                         <RadioButton x:Name="EllipseTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Ellipse" ToolTip="椭圆" AutomationProperties.Name="椭圆" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xEA3A;"/></RadioButton>
                         <RadioButton x:Name="ArrowTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Arrow" ToolTip="箭头" AutomationProperties.Name="箭头" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72A;"/></RadioButton>
                         <RadioButton x:Name="PenTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Pen" ToolTip="画笔" AutomationProperties.Name="画笔" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70F;"/></RadioButton>
-                        <RadioButton x:Name="TextTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Text" ToolTip="文字" AutomationProperties.Name="文字" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D2;"/></RadioButton>
-                        <RadioButton x:Name="MosaicTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Mosaic" ToolTip="马赛克遮挡" AutomationProperties.Name="马赛克遮挡" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72E;"/></RadioButton>
+                        <RadioButton x:Name="TextTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Text" ToolTip="文字" AutomationProperties.Name="文字" Click="Tool_Click"><Border Width="17" Height="17" BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" BorderThickness="1"><TextBlock Text="T" FontFamily="Segoe UI" FontWeight="SemiBold" FontSize="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></RadioButton>
+                        <RadioButton x:Name="MosaicTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Mosaic" ToolTip="马赛克遮挡" AutomationProperties.Name="马赛克遮挡" Click="Tool_Click"><Border Width="17" Height="17" BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" BorderThickness="1" Padding="2"><UniformGrid Rows="3" Columns="3"><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/><Rectangle Fill="Transparent"/><Rectangle Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/></UniformGrid></Border></RadioButton>
                     </WrapPanel>
                 </Border>
                 <Border Style="{StaticResource ToolGroup}">
@@ -66,9 +66,9 @@
                         <Button x:Name="DeleteButton" Style="{StaticResource Command}" Content="&#xE74D;" ToolTip="删除标注" AutomationProperties.Name="删除标注" Click="Delete_Click"/>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ToolGroup}" Margin="0">
+                <Border Style="{StaticResource ToolGroup}" Margin="0" Padding="0" BorderThickness="0">
                     <StackPanel Orientation="Horizontal">
-                        <Button x:Name="SaveButton" Style="{StaticResource Command}" Content="&#xE74E;" ToolTip="保存 PNG" AutomationProperties.Name="保存 PNG" Click="Save_Click"/>
+                        <Button x:Name="SaveButton" Style="{StaticResource Command}" Content="&#xE896;" ToolTip="保存 PNG" AutomationProperties.Name="保存 PNG" Click="Save_Click"/>
                         <Button x:Name="PinButton" Style="{StaticResource Command}" Content="&#xE718;" ToolTip="贴到桌面" AutomationProperties.Name="贴到桌面" Click="Pin_Click"/>
                         <Button x:Name="CancelButton" Style="{StaticResource Command}" Content="&#xE711;" Foreground="{DynamicResource DangerBrush}" ToolTip="取消截图" AutomationProperties.Name="取消截图" Click="Cancel_Click"/>
                         <Button x:Name="DoneButton" Style="{StaticResource Command}" Content="&#xE73E;" Foreground="#239D62" ToolTip="完成并复制" AutomationProperties.Name="完成并复制" Click="Done_Click"/>
