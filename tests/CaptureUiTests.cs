@@ -58,7 +58,7 @@ internal static class CaptureUiTests
                 var pin = desktop.Pins.Single(); Show(pin); pin.SetZoom(0.75); Wait(60);
                 check(pin.Topmost && !pin.ShowInTaskbar && pin.Snapshot.PixelWidth == 600 && pin.Zoom <= 0.75, "pin is a bounded independent image window without a taskbar entry");
                 typeof(CapturePinWindow).GetMethod("SetHoverState", Private)!.Invoke(pin, new object[] { true });
-                VerifyPinResize(check, pin);
+                VerifyPinResize(check, pin, renders, theme);
                 Render(pin, renders, "capture-pin-" + theme + ".png");
                 typeof(CapturePinWindow).GetMethod("SetHoverState", Private)!.Invoke(pin, new object[] { false });
                 desktop.HidePins(); check(!pin.IsVisible && desktop.PinCount == 1, "hiding pins preserves their in-memory images");
@@ -192,7 +192,7 @@ internal static class CaptureUiTests
         }
         finally { fixture.Close(); }
     }
-    private static void VerifyPinResize(Action<bool, string> check, CapturePinWindow pin)
+    private static void VerifyPinResize(Action<bool, string> check, CapturePinWindow pin, string renders, string theme)
     {
         var pointer = new Point(500, 500);
         var resizePin = new CapturePinWindow(pin.Snapshot, 999, cursorPosition: () => pointer);
@@ -203,8 +203,10 @@ internal static class CaptureUiTests
         check(surface.BorderThickness.Left == 1 && surface.BorderThickness.Top == 1,
             "pinned screenshot uses a constant one-pixel neutral frame");
         var titleCommands = Descendants(visual).OfType<ButtonBase>().Select(System.Windows.Automation.AutomationProperties.GetName).ToArray();
-        check(new[] { "置顶贴图", "贴图操作", "隐藏贴图", "最大化贴图", "关闭贴图" }.All(titleCommands.Contains),
-            "pinned screenshot title bar keeps all primary actions reachable");
+        check(new[] { "置顶贴图", "隐藏贴图", "最大化贴图", "关闭贴图" }.All(titleCommands.Contains) && !titleCommands.Contains("贴图操作"),
+            "pinned screenshot title bar keeps window actions and removes the redundant more button");
+        var menu = Field<ContextMenu>(resizePin, "_menu");
+        check(menu.Items.OfType<MenuItem>().Any(item => Equals(item.Header, "编辑")), "pinned screenshot image menu exposes in-place editing");
         var maximize = Descendants(visual).OfType<Button>().Single(button => System.Windows.Automation.AutomationProperties.GetName(button) == "最大化贴图");
         var normalBounds = WindowBounds(resizePin); maximize.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); Wait(80);
         var maximizedBounds = WindowBounds(resizePin);
@@ -215,6 +217,25 @@ internal static class CaptureUiTests
         check(Math.Abs(restoredBounds.Left - normalBounds.Left) < 1 && Math.Abs(restoredBounds.Top - normalBounds.Top) < 1 &&
               Math.Abs(restoredBounds.Width - normalBounds.Width) < 1 && Math.Abs(restoredBounds.Height - normalBounds.Height) < 1,
             "title bar restore returns to the original pin position and size");
+        var originalCenter = new Point(restoredBounds.Left + restoredBounds.Width / 2, restoredBounds.Top + restoredBounds.Height / 2);
+        var originalPixel = CaptureTests.Pixel(resizePin.Snapshot, 20, 20);
+        typeof(CapturePinWindow).GetMethod("BeginEdit", Private)!.Invoke(resizePin, null); Wait(80);
+        var editToolbar = Field<CapturePinEditToolbarWindow>(resizePin, "_editToolbar");
+        var editSurface = Field<CaptureSurface>(resizePin, "_editSurface");
+        check(editToolbar.IsVisible && editToolbar.Owner == resizePin && !menu.IsEnabled,
+            "in-place pin editing opens an owned toolbar and locks the image menu");
+        Render(resizePin, renders, "capture-pin-edit-surface-" + theme + ".png");
+        Render(editToolbar, renders, "capture-pin-edit-toolbar-" + theme + ".png");
+        editSurface.Tool = CaptureTool.Rectangle; editSurface.InkColor = Colors.Red;
+        editSurface.BeginAnnotation(new Point(20, 20)); editSurface.EndAnnotation(new Point(100, 100));
+        typeof(CapturePinWindow).GetMethod("CompleteEdit", Private)!.Invoke(resizePin, new object[] { true }); Wait(80); var editedBounds = WindowBounds(resizePin);
+        check(!editToolbar.IsVisible && !CaptureTests.Pixel(resizePin.Snapshot, 20, 20).SequenceEqual(originalPixel) &&
+              Math.Abs(editedBounds.Left + editedBounds.Width / 2 - originalCenter.X) < 2 && Math.Abs(editedBounds.Top + editedBounds.Height / 2 - originalCenter.Y) < 2,
+            "finishing pin editing replaces the current image in place and preserves its center");
+        var editedSnapshot = resizePin.Snapshot;
+        typeof(CapturePinWindow).GetMethod("BeginEdit", Private)!.Invoke(resizePin, null); Wait(60);
+        typeof(CapturePinWindow).GetMethod("CompleteEdit", Private)!.Invoke(resizePin, new object[] { false }); Wait(60);
+        check(ReferenceEquals(editedSnapshot, resizePin.Snapshot), "canceling pin editing keeps the preceding snapshot unchanged");
         var handles = Descendants(visual).OfType<Thumb>().ToArray();
         check(handles.Length == 8 && handles.Select(System.Windows.Automation.AutomationProperties.GetName).Distinct().Count() == 8,
             "pinned screenshot exposes eight accessible resize handles");
