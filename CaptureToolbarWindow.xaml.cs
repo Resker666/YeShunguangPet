@@ -29,15 +29,16 @@ public partial class CaptureToolbarWindow : ThemedWindow
     public void Refresh()
     {
         _refreshing = true;
-        foreach (var button in new[] { SelectTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool })
+        foreach (var button in new[] { SelectTool, ObjectSelectTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool })
             button.IsChecked = (string)button.Tag == (_capture.Tool ?? CaptureTool.Crop).ToString();
-        var color = _capture.Tool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text;
-        var mosaic = _capture.Tool == CaptureTool.Mosaic;
+        var effectiveTool = _capture.SelectedMark?.Tool ?? _capture.Tool;
+        var color = effectiveTool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text;
+        var mosaic = effectiveTool == CaptureTool.Mosaic;
         ToolOptions.Visibility = color || mosaic ? Visibility.Visible : Visibility.Collapsed;
-        FontOptions.Visibility = _capture.Tool == CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
-        StrokeOptions.Visibility = color && _capture.Tool != CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
+        FontOptions.Visibility = effectiveTool == CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
+        StrokeOptions.Visibility = color && effectiveTool != CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
         MosaicOptions.Visibility = mosaic ? Visibility.Visible : Visibility.Collapsed;
-        UndoButton.IsEnabled = _capture.Document.CanUndo; RedoButton.IsEnabled = _capture.Document.CanRedo;
+        UndoButton.IsEnabled = _capture.Document.CanUndo; RedoButton.IsEnabled = _capture.Document.CanRedo; DeleteButton.IsEnabled = _capture.SelectedMark is not null;
         ErrorText.Text = _capture.Error; ErrorText.Visibility = string.IsNullOrEmpty(_capture.Error) ? Visibility.Collapsed : Visibility.Visible;
         LineWidth.Value = _capture.StrokeWidth; TextSize.Value = _capture.TextSize; MosaicStrength.Value = _capture.MosaicBlockSize;
         _refreshing = false;
@@ -58,6 +59,7 @@ public partial class CaptureToolbarWindow : ThemedWindow
     }
     private void Undo_Click(object sender, RoutedEventArgs e) => _capture.Undo();
     private void Redo_Click(object sender, RoutedEventArgs e) => _capture.Redo();
+    private void Delete_Click(object sender, RoutedEventArgs e) => _capture.DeleteSelected();
     private void Save_Click(object sender, RoutedEventArgs e) => _capture.Complete(CaptureOutput.Save);
     private void Pin_Click(object sender, RoutedEventArgs e) => _capture.Complete(CaptureOutput.Pin);
     private void Done_Click(object sender, RoutedEventArgs e) => _capture.Complete(CaptureOutput.Copy);

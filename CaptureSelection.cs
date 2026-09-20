@@ -34,6 +34,7 @@ public sealed class CaptureSelection : IDisposable
     private TextBox? _textInput;
     private Canvas? _textHost;
     private Point _textPoint;
+    private bool _editingExistingText;
     private bool _painting, _finished, _committed, _modalExport, _placing;
     private int _toolbarMonitor;
     private CancellationTokenRegistration _cancellation;
@@ -46,6 +47,7 @@ public sealed class CaptureSelection : IDisposable
     public double StrokeWidth { get => _annotation.StrokeWidth; set => _annotation.StrokeWidth = value; }
     public double TextSize { get => _annotation.TextSize; set => _annotation.TextSize = value; }
     public double MosaicBlockSize { get => _annotation.MosaicBlockSize; set => _annotation.MosaicBlockSize = value; }
+    public CaptureMark? SelectedMark => _annotation.SelectedMark;
     public string Error { get; private set; } = string.Empty;
     public Task<CaptureResult?> Result => _result.Task;
     public CaptureRect Selection => _region.Selection;
@@ -59,6 +61,7 @@ public sealed class CaptureSelection : IDisposable
         _frame = frame; _cursor = cursorPosition ?? ScreenCapture.CursorPosition; _copy = copy ?? Clipboard.SetImage; _savePath = savePath; _pin = pin; _pinAt = pinAt;
         _region = new CaptureRegion(frame.Bounds); Document = new CaptureDocument(frame.Image); _annotation = new CaptureSurface(Document);
         Document.Changed += OnDocumentChanged; _annotation.Error += ShowError;
+        _annotation.SelectionChanged += AnnotationSelectionChanged; _annotation.TextEditRequested += EditSelectedText;
     }
 
     public Task<CaptureResult?> ShowAsync(CancellationToken cancellation, CaptureMode mode = CaptureMode.Region, Point? origin = null)
@@ -120,7 +123,7 @@ public sealed class CaptureSelection : IDisposable
         _hasCursorPoint = true;
         RefreshSurfaces();
     }
-    public bool Begin(Point point, double tolerance = 6)
+    public bool Begin(Point point, double tolerance = 6, int clickCount = 1)
     {
         if (_finished || _modalExport) return false;
         UpdateCursor(point);
@@ -128,24 +131,27 @@ public sealed class CaptureSelection : IDisposable
         var hit = HitTest(point, tolerance); _toolbarMonitor = MonitorAt(point);
         if (hit == CaptureHit.Move && Tool is { } tool)
         {
-            if (tool == CaptureTool.Text) { BeginText(point); return false; }
-            _annotation.Tool = tool; _annotation.BeginAnnotation(ToImage(point)); _painting = true;
+            _annotation.InteractionScale = Math.Max(0.01, 6 / Math.Max(0.01, tolerance)); _annotation.Tool = tool;
+            if (tool == CaptureTool.Text && !_annotation.TryBeginSelectionInteraction(ToImage(point), clickCount)) BeginText(point);
+            else _annotation.BeginInteraction(ToImage(point), clickCount);
+            _painting = _annotation.IsInteracting;
         }
         else _region.Begin(point, hit);
-        _toolbar?.Hide(); RefreshSurfaces(); return true;
+        if (_painting || _region.IsDragging) _toolbar?.Hide(); else ShowToolbar();
+        RefreshSurfaces(); return _painting || _region.IsDragging;
     }
     public void Move(Point point)
     {
         if (_finished) return;
         _cursorPoint = point; _hasCursorPoint = true;
-        if (_painting) _annotation.MoveAnnotation(ToImage(point)); else _region.Update(point);
+        if (_painting) _annotation.MoveInteraction(ToImage(point)); else _region.Update(point);
         RefreshSurfaces();
     }
     public void End(Point point)
     {
         if (_finished) return;
         UpdateCursor(point);
-        if (_painting) { _annotation.EndAnnotation(ToImage(point)); _painting = false; }
+        if (_painting) { _annotation.EndInteraction(ToImage(point)); _painting = false; }
         else if (_region.IsDragging) { _region.End(point); if (HasSelection) CommitSelection(); }
         _toolbarMonitor = MonitorAt(point); RefreshSurfaces(); ShowToolbar();
     }
@@ -164,13 +170,20 @@ public sealed class CaptureSelection : IDisposable
         if (!IsDragging) _region.Set(new CaptureRect(r.X + _frame.Bounds.X, r.Y + _frame.Bounds.Y, r.Width, r.Height));
         _annotation.RefreshSize(); RefreshSurfaces(); _toolbar?.Refresh();
     }
+    private void AnnotationSelectionChanged() { RefreshSurfaces(); _toolbar?.Refresh(); }
     public void SetTool(CaptureTool? tool)
     {
         if (!CommitText()) return; CancelGesture(); Tool = tool == CaptureTool.Crop ? null : tool; Error = string.Empty;
+        if (Tool is { } activeTool)
+        {
+            if (activeTool != CaptureTool.Select) _annotation.ClearSelection();
+            _annotation.Tool = activeTool;
+        }
         _toolbar?.Refresh(); PlaceToolbar();
     }
     public void Undo() { if (!CommitText()) return; CancelGesture(); Document.Undo(); ShowToolbar(); }
     public void Redo() { if (!CommitText()) return; CancelGesture(); Document.Redo(); ShowToolbar(); }
+    public void DeleteSelected() { if (!CommitText()) return; _annotation.DeleteSelected(); ShowToolbar(); }
     public bool Complete(CaptureOutput output)
     {
         if (_finished || _modalExport || !HasSelection || IsDragging) return false;
@@ -243,31 +256,41 @@ public sealed class CaptureSelection : IDisposable
             if (!_finished && !_modalExport && !_windows.Any(w => w.IsActive) && _toolbar?.IsActive != true) Cancel();
         }));
     }
-    private void BeginText(Point point)
+    private void BeginText(Point point, bool editingExisting = false, string text = "")
     {
         if (_windows.Count == 0) return;
         var index = MonitorAt(point); var root = (Grid)_windows[index].Content; var monitor = _frame.Monitors[index];
-        _textHost = (Canvas)root.Children[1]; _textPoint = ToImage(point);
+        _textHost = (Canvas)root.Children[1]; _textPoint = ToImage(point); _editingExistingText = editingExisting;
         var scale = root.ActualWidth / monitor.Width;
         _textInput = new TextBox { MaxLength = 500, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             FontFamily = new FontFamily("Segoe UI, Microsoft YaHei UI"), FontSize = TextSize * scale, Foreground = new SolidColorBrush(InkColor),
-            Background = Brushes.White, BorderBrush = new SolidColorBrush(Color.FromRgb(35, 178, 108)), BorderThickness = new Thickness(1), Padding = new Thickness(2), Width = Math.Min(240, root.ActualWidth - 16), MinHeight = 32, MaxHeight = Math.Max(32, root.ActualHeight / 2) };
+            Background = Brushes.White, BorderBrush = new SolidColorBrush(Color.FromRgb(35, 178, 108)), BorderThickness = new Thickness(1), Padding = new Thickness(2), Width = Math.Min(240, root.ActualWidth - 16), MinHeight = 32, MaxHeight = Math.Max(32, root.ActualHeight / 2), Text = text };
         Canvas.SetLeft(_textInput, Math.Clamp((point.X - monitor.X) * scale, 4, Math.Max(4, root.ActualWidth - _textInput.Width - 4)));
         Canvas.SetTop(_textInput, Math.Clamp((point.Y - monitor.Y) * root.ActualHeight / monitor.Height, 4, Math.Max(4, root.ActualHeight - 40)));
         _textInput.LostKeyboardFocus += (_, _) => { if (!_finished) CommitText(); };
-        _textHost.Children.Add(_textInput); _textInput.Focus();
+        _textHost.Children.Add(_textInput); _textInput.Focus(); if (editingExisting) _textInput.SelectAll();
+    }
+    private void EditSelectedText()
+    {
+        if (_annotation.SelectedMark is not { Tool: CaptureTool.Text } mark) return;
+        BeginText(new Point(mark.Start.X + _frame.Bounds.X, mark.Start.Y + _frame.Bounds.Y), true, mark.Text);
     }
     public bool CommitText()
     {
         var input = _textInput; if (input is null) return true; _textInput = null;
         try
         {
-            if (!string.IsNullOrWhiteSpace(input.Text)) Document.Add(new CaptureMark(CaptureTool.Text, _textPoint, _textPoint, InkColor, StrokeWidth, input.Text, TextSize));
+            if (!string.IsNullOrWhiteSpace(input.Text))
+            {
+                if (_editingExistingText) _annotation.UpdateSelectedText(input.Text);
+                else Document.Add(new CaptureMark(CaptureTool.Text, _textPoint, _textPoint, InkColor, StrokeWidth, input.Text, TextSize));
+            }
+            _editingExistingText = false;
             _textHost?.Children.Remove(input); _textHost = null; return true;
         }
         catch (Exception ex) { _textInput = input; ShowError(ex.Message); return false; }
     }
-    private void CancelText() { var input = _textInput; _textInput = null; if (input is not null) _textHost?.Children.Remove(input); _textHost = null; }
+    private void CancelText() { var input = _textInput; _textInput = null; _editingExistingText = false; if (input is not null) _textHost?.Children.Remove(input); _textHost = null; }
 
     internal void DrawCursorAssist(DrawingContext dc, CaptureRect monitor, BitmapSource image, double scaleX, double scaleY, Size surfaceSize, double pixelsPerDip)
     {
@@ -369,6 +392,7 @@ public sealed class CaptureSelection : IDisposable
         }
         if (e.Key == Key.Escape) { if (IsDragging) CancelGesture(); else Cancel(); }
         else if (Keyboard.FocusedElement is TextBoxBase or RangeBase or Selector) return;
+        else if (CaptureSurface.IsDeleteKey(e.Key) && SelectedMark is not null) DeleteSelected();
         else if (e.Key == Key.Enter) Complete(CaptureOutput.Copy);
         else if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
@@ -383,9 +407,13 @@ public sealed class CaptureSelection : IDisposable
         else if (HasSelection && e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
         {
             var step = (Keyboard.Modifiers & ModifierKeys.Shift) == 0 ? 1 : 10;
-            var point = new Point(Selection.X, Selection.Y); _region.Begin(point, CaptureHit.Move);
-            _region.End(point + new Vector(e.Key == Key.Left ? -step : e.Key == Key.Right ? step : 0, e.Key == Key.Up ? -step : e.Key == Key.Down ? step : 0));
-            CommitSelection(); ShowToolbar();
+            var offset = new Vector(e.Key == Key.Left ? -step : e.Key == Key.Right ? step : 0, e.Key == Key.Up ? -step : e.Key == Key.Down ? step : 0);
+            if (SelectedMark is not null) _annotation.NudgeSelected(offset);
+            else
+            {
+                var point = new Point(Selection.X, Selection.Y); _region.Begin(point, CaptureHit.Move); _region.End(point + offset); CommitSelection();
+            }
+            ShowToolbar();
         }
         else return;
         e.Handled = true;
@@ -397,6 +425,7 @@ public sealed class CaptureSelection : IDisposable
         if (_finished) return; _finished = true; CancelText(); _annotation.CancelGesture();
         _cancellation.Dispose(); SystemEvents.DisplaySettingsChanged -= CancelForDisplay; SystemEvents.SessionSwitch -= CancelForSession;
         Document.Changed -= OnDocumentChanged; _annotation.Error -= ShowError;
+        _annotation.SelectionChanged -= AnnotationSelectionChanged; _annotation.TextEditRequested -= EditSelectedText;
         _toolbar?.Close(); _toolbar = null;
         foreach (var window in _windows.ToArray()) window.Close(); _windows.Clear();
         if (error is null) _result.TrySetResult(result); else _result.TrySetException(error);
@@ -413,7 +442,7 @@ public sealed class CaptureSelection : IDisposable
         public SelectionSurface(CaptureSelection owner, CaptureRect monitor)
         {
             _owner = owner; _monitor = monitor; _image = owner._frame.Crop(monitor); Cursor = Cursors.Cross; Focusable = true;
-            MouseLeftButtonDown += (_, e) => { WithCursor(point => { Focus(); if (_owner.Begin(point, 6 * _monitor.Width / Math.Max(1, ActualWidth))) CaptureMouse(); }); e.Handled = true; };
+            MouseLeftButtonDown += (_, e) => { WithCursor(point => { Focus(); if (_owner.Begin(point, 6 * _monitor.Width / Math.Max(1, ActualWidth), e.ClickCount)) CaptureMouse(); }); e.Handled = true; };
             MouseMove += (_, _) => WithCursor(point => { if (IsMouseCaptured) _owner.Move(point); else { _owner.UpdateCursor(point); UpdateCursor(point); } });
             MouseLeftButtonUp += (_, e) => { if (IsMouseCaptured) WithCursor(point => { _ending = true; try { ReleaseMouseCapture(); _owner.End(point); } finally { _ending = false; } }); e.Handled = true; };
             LostMouseCapture += (_, _) => { if (!_ending) _owner.CancelGesture(); };
@@ -444,7 +473,7 @@ public sealed class CaptureSelection : IDisposable
             var rect = new Rect((selection.X - _monitor.X) * sx, (selection.Y - _monitor.Y) * sy, selection.Width * sx, selection.Height * sy);
             dc.PushClip(new RectangleGeometry(rect)); dc.DrawImage(_image, area);
             dc.PushTransform(new MatrixTransform(sx, 0, 0, sy, (_owner._frame.Bounds.X - _monitor.X) * sx, (_owner._frame.Bounds.Y - _monitor.Y) * sy));
-            _owner.Document.DrawMarks(dc); _owner._annotation.DrawPreview(dc); dc.Pop(); dc.Pop();
+            _owner._annotation.DrawMarks(dc); _owner._annotation.DrawPreview(dc); _owner._annotation.DrawSelection(dc); dc.Pop(); dc.Pop();
             dc.DrawRectangle(null, new System.Windows.Media.Pen(Green, 1.5), rect);
             foreach (var (_, p) in _owner._region.Handles()) dc.DrawRectangle(Green, null, new Rect((p.X - _monitor.X) * sx - 3, (p.Y - _monitor.Y) * sy - 3, 6, 6));
             if (rect.IntersectsWith(area))

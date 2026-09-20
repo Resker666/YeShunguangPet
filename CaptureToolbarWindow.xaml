@@ -4,8 +4,8 @@
     WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
     ShowInTaskbar="False" ShowActivated="False" Topmost="True" WindowStartupLocation="Manual" PreviewKeyDown="Toolbar_KeyDown">
     <ui:ThemedWindow.Resources>
-        <Style x:Key="Tool" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}"><Setter Property="Width" Value="40"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/><Setter Property="Padding" Value="0"/></Style>
-        <Style x:Key="Command" TargetType="Button" BasedOn="{StaticResource IconButton}"><Setter Property="Width" Value="40"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/></Style>
+        <Style x:Key="Tool" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}"><Setter Property="Width" Value="38"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/><Setter Property="Padding" Value="0"/></Style>
+        <Style x:Key="Command" TargetType="Button" BasedOn="{StaticResource IconButton}"><Setter Property="Width" Value="38"/><Setter Property="Height" Value="40"/><Setter Property="MinHeight" Value="40"/><Setter Property="FontSize" Value="18"/></Style>
         <Style x:Key="ToolGroup" TargetType="Border"><Setter Property="Background" Value="{DynamicResource SubtleBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="0,0,6,0"/></Style>
         <Style x:Key="InkSwatch" TargetType="RadioButton" BasedOn="{StaticResource SegmentButton}">
             <Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="MinHeight" Value="26"/>
@@ -50,6 +50,7 @@
                 <Border Style="{StaticResource ToolGroup}">
                     <WrapPanel>
                         <RadioButton x:Name="SelectTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Crop" ToolTip="调整选区" AutomationProperties.Name="调整选区" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7A8;"/></RadioButton>
+                        <RadioButton x:Name="ObjectSelectTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Select" ToolTip="选择标注" AutomationProperties.Name="选择标注" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7C9;"/></RadioButton>
                         <RadioButton x:Name="RectangleTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Rectangle" ToolTip="矩形" AutomationProperties.Name="矩形" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE739;"/></RadioButton>
                         <RadioButton x:Name="EllipseTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Ellipse" ToolTip="椭圆" AutomationProperties.Name="椭圆" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xEA3A;"/></RadioButton>
                         <RadioButton x:Name="ArrowTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Arrow" ToolTip="箭头" AutomationProperties.Name="箭头" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72A;"/></RadioButton>
@@ -62,6 +63,7 @@
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="UndoButton" Style="{StaticResource Command}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click"/>
                         <Button x:Name="RedoButton" Style="{StaticResource Command}" Content="&#xE7A6;" ToolTip="重做" AutomationProperties.Name="重做" Click="Redo_Click"/>
+                        <Button x:Name="DeleteButton" Style="{StaticResource Command}" Content="&#xE74D;" ToolTip="删除标注" AutomationProperties.Name="删除标注" Click="Delete_Click"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource ToolGroup}" Margin="0">

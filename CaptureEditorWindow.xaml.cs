@@ -21,10 +21,10 @@ public partial class CaptureEditorWindow : ThemedWindow
         InitializeComponent();
         _copy = copy ?? Clipboard.SetImage; _pin = pin;
         Document = new CaptureDocument(image); Surface = new CaptureSurface(Document);
-        Surface.Error += ShowError; SurfaceHost.Children.Add(Surface); Document.Changed += RefreshDocument;
+        Surface.Error += ShowError; Surface.TextEditRequested += FocusTextInput; SurfaceHost.Children.Add(Surface); Document.Changed += RefreshDocument;
         ArrowTool.IsChecked = RedSwatch.IsChecked = true;
         Loaded += (_, _) => { Fit(); RefreshDocument(); };
-        Closed += (_, _) => { Surface.CancelGesture(); Document.Changed -= RefreshDocument; Surface.Error -= ShowError; SurfaceHost.Children.Clear(); };
+        Closed += (_, _) => { Surface.CancelGesture(); Document.Changed -= RefreshDocument; Surface.Error -= ShowError; Surface.TextEditRequested -= FocusTextInput; SurfaceHost.Children.Clear(); };
         RefreshDocument();
     }
     private void RefreshDocument()
@@ -65,7 +65,8 @@ public partial class CaptureEditorWindow : ThemedWindow
     private void SetZoom(double value)
     {
         var dpi = VisualTreeHelper.GetDpi(this);
-        _zoom = Math.Clamp(value, 0.001, 4); Surface.LayoutTransform = new ScaleTransform(_zoom / dpi.DpiScaleX, _zoom / dpi.DpiScaleY); ZoomText.Text = $"{_zoom:P0}";
+        _zoom = Math.Clamp(value, 0.001, 4); Surface.InteractionScale = _zoom / dpi.DpiScaleX;
+        Surface.LayoutTransform = new ScaleTransform(_zoom / dpi.DpiScaleX, _zoom / dpi.DpiScaleY); ZoomText.Text = $"{_zoom:P0}";
     }
     private void Fit()
     {
@@ -87,9 +88,11 @@ public partial class CaptureEditorWindow : ThemedWindow
     private void Editor_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape) { Surface.CancelGesture(); return; }
+        if (CaptureSurface.IsDeleteKey(e.Key) && Keyboard.FocusedElement is not TextBoxBase) { Surface.DeleteSelected(); e.Handled = true; return; }
         if (Keyboard.FocusedElement is TextBoxBase || (Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
         if (e.Key == Key.Z) { if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) Document.Redo(); else Document.Undo(); }
         else if (e.Key == Key.Y) Document.Redo(); else if (e.Key == Key.C) Copy_Click(this, e); else if (e.Key == Key.S) Save_Click(this, e); else return;
         e.Handled = true;
     }
+    private void FocusTextInput() { LabelInput.Focus(); LabelInput.SelectAll(); }
 }

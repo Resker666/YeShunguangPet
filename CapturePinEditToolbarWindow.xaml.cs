@@ -37,17 +37,18 @@ public partial class CapturePinEditToolbarWindow : ThemedWindow
         var surface = _pin.EditSurface; var document = _pin.EditDocument;
         if (surface is null || document is null) return;
         _refreshing = true;
-        foreach (var button in new[] { CropTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool })
+        foreach (var button in new[] { SelectTool, CropTool, RectangleTool, EllipseTool, ArrowTool, PenTool, TextTool, MosaicTool })
             button.IsChecked = (string)button.Tag == surface.Tool.ToString();
         foreach (var swatch in ToolOptions.Children.OfType<RadioButton>())
             if (swatch.Tag is string value) swatch.IsChecked = (Color)ColorConverter.ConvertFromString(value) == surface.InkColor;
-        var color = surface.Tool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text;
-        var mosaic = surface.Tool == CaptureTool.Mosaic;
+        var effectiveTool = surface.SelectedMark?.Tool ?? surface.Tool;
+        var color = effectiveTool is CaptureTool.Rectangle or CaptureTool.Ellipse or CaptureTool.Arrow or CaptureTool.Pen or CaptureTool.Text;
+        var mosaic = effectiveTool == CaptureTool.Mosaic;
         ToolOptions.Visibility = color || mosaic ? Visibility.Visible : Visibility.Collapsed;
-        FontOptions.Visibility = surface.Tool == CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
-        StrokeOptions.Visibility = color && surface.Tool != CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
+        FontOptions.Visibility = effectiveTool == CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
+        StrokeOptions.Visibility = color && effectiveTool != CaptureTool.Text ? Visibility.Visible : Visibility.Collapsed;
         MosaicOptions.Visibility = mosaic ? Visibility.Visible : Visibility.Collapsed;
-        UndoButton.IsEnabled = document.CanUndo; RedoButton.IsEnabled = document.CanRedo;
+        UndoButton.IsEnabled = document.CanUndo; RedoButton.IsEnabled = document.CanRedo; DeleteButton.IsEnabled = surface.SelectedMark is not null;
         LineWidth.Value = surface.StrokeWidth; TextSize.Value = surface.TextSize; MosaicStrength.Value = surface.MosaicBlockSize;
         if (LabelInput.Text != surface.LabelText) LabelInput.Text = surface.LabelText;
         ErrorText.Text = _pin.EditError; ErrorText.Visibility = string.IsNullOrEmpty(_pin.EditError) ? Visibility.Collapsed : Visibility.Visible;
@@ -74,14 +75,26 @@ public partial class CapturePinEditToolbarWindow : ThemedWindow
     {
         if (!_refreshing && _pin.EditSurface is { } surface) surface.LabelText = LabelInput.Text;
     }
+    private void Label_Commit(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (!_refreshing) _pin.EditSurface?.UpdateSelectedText(LabelInput.Text);
+    }
+    private void Label_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || (Keyboard.Modifiers & ModifierKeys.Shift) != 0) return;
+        _pin.EditSurface?.UpdateSelectedText(LabelInput.Text); _pin.EditSurface?.Focus(); e.Handled = true;
+    }
     private void Undo_Click(object sender, RoutedEventArgs e) => _pin.UndoEdit();
     private void Redo_Click(object sender, RoutedEventArgs e) => _pin.RedoEdit();
+    private void Delete_Click(object sender, RoutedEventArgs e) => _pin.DeleteEdit();
     private void Cancel_Click(object sender, RoutedEventArgs e) => _pin.CompleteEdit(false);
     private void Done_Click(object sender, RoutedEventArgs e) => _pin.CompleteEdit(true);
     private void Toolbar_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape) { _pin.CompleteEdit(false); e.Handled = true; return; }
-        if (Keyboard.FocusedElement is TextBoxBase || (Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
+        if (Keyboard.FocusedElement is TextBoxBase) return;
+        if (CaptureSurface.IsDeleteKey(e.Key)) { _pin.DeleteEdit(); e.Handled = true; return; }
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
         if (e.Key == Key.Z) { if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) _pin.RedoEdit(); else _pin.UndoEdit(); }
         else if (e.Key == Key.Y) _pin.RedoEdit(); else return;
         e.Handled = true;
@@ -90,5 +103,9 @@ public partial class CapturePinEditToolbarWindow : ThemedWindow
     {
         base.OnDpiChanged(oldDpi, newDpi);
         Dispatcher.BeginInvoke(_pin.PlaceEditToolbar);
+    }
+    internal void FocusTextInput()
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => { LabelInput.Focus(); LabelInput.SelectAll(); }));
     }
 }

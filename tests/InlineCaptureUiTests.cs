@@ -54,11 +54,20 @@ internal static class InlineCaptureUiTests
             RenderScene(capture, bounds, renders, "inline-options-" + theme + ".png");
             capture.Begin(new Point(bounds.X + 190, bounds.Y + 250)); capture.End(new Point(bounds.X + 400, bounds.Y + 380));
             check(capture.Document.Marks.Count == 1, "in-place pointer gesture uses the shared annotation model");
+            var annotation = Field<CaptureSurface>(capture, "_annotation");
+            check(capture.SelectedMark is { Tool: CaptureTool.Arrow }, "new inline annotation remains selected with adjustment handles");
+            var arrowBefore = capture.SelectedMark!.Bounds; annotation.NudgeSelected(new Vector(5, 3));
+            check(capture.SelectedMark!.Bounds.Left == arrowBefore.Left + 5 && capture.SelectedMark.Bounds.Top == arrowBefore.Top + 3,
+                "inline selected annotation can be adjusted immediately after drawing");
             capture.SetTool(CaptureTool.Text); capture.Begin(new Point(bounds.X + 400, bounds.Y + 200)); Wait();
             var input = Field<TextBox>(capture, "_textInput");
             check(input.IsVisible && Find<FrameworkElement>(toolbar, "FontOptions").IsVisible && !Find<FrameworkElement>(toolbar, "StrokeOptions").IsVisible, "text starts at the image with contextual font controls");
             input.Text = "原地标注"; capture.CommitText();
             check(capture.Document.Marks.Any(m => m.Text == "原地标注") && overlays.Select(w => ((Canvas)((Grid)w.Content).Children[1]).Children.Count).Sum() == 0, "committing text removes the temporary input and preserves its raster annotation");
+            capture.SetTool(CaptureTool.Select); annotation.BeginInteraction(new Point(402, 202)); annotation.EndInteraction(new Point(402, 202));
+            check(capture.SelectedMark is { Tool: CaptureTool.Text }, "selection tool can reselect an earlier text annotation");
+            annotation.UpdateSelectedText("重新编辑");
+            check(capture.SelectedMark?.Text == "重新编辑", "selected text annotation can be edited again");
             capture.SetTool(CaptureTool.Ellipse); capture.Begin(new Point(bounds.X + 420, bounds.Y + 280)); capture.End(new Point(bounds.X + 700, bounds.Y + 430));
             capture.SetTool(CaptureTool.Mosaic); capture.MosaicBlockSize = 8; capture.Begin(new Point(bounds.X + 600, bounds.Y + 120)); capture.End(new Point(bounds.X + 780, bounds.Y + 165));
             check(Find<FrameworkElement>(toolbar, "ToolOptions").IsVisible && Find<FrameworkElement>(toolbar, "MosaicOptions").IsVisible && !Find<FrameworkElement>(toolbar, "StrokeOptions").IsVisible, "mosaic exposes only its strength control");

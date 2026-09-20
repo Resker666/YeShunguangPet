@@ -12,6 +12,9 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using YeShunguangPet;
+using Key = System.Windows.Input.Key;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using Keyboard = System.Windows.Input.Keyboard;
 
 internal static class CaptureUiTests
 {
@@ -218,7 +221,7 @@ internal static class CaptureUiTests
               Math.Abs(restoredBounds.Width - normalBounds.Width) < 1 && Math.Abs(restoredBounds.Height - normalBounds.Height) < 1,
             "title bar restore returns to the original pin position and size");
         var originalCenter = new Point(restoredBounds.Left + restoredBounds.Width / 2, restoredBounds.Top + restoredBounds.Height / 2);
-        var originalPixel = CaptureTests.Pixel(resizePin.Snapshot, 20, 20);
+        var originalPixel = CaptureTests.Pixel(resizePin.Snapshot, 30, 25);
         typeof(CapturePinWindow).GetMethod("BeginEdit", Private)!.Invoke(resizePin, null); Wait(80);
         var editToolbar = Field<CapturePinEditToolbarWindow>(resizePin, "_editToolbar");
         var editSurface = Field<CaptureSurface>(resizePin, "_editSurface");
@@ -228,8 +231,27 @@ internal static class CaptureUiTests
         Render(editToolbar, renders, "capture-pin-edit-toolbar-" + theme + ".png");
         editSurface.Tool = CaptureTool.Rectangle; editSurface.InkColor = Colors.Red;
         editSurface.BeginAnnotation(new Point(20, 20)); editSurface.EndAnnotation(new Point(100, 100));
+        check(editSurface.SelectedMark is { Tool: CaptureTool.Rectangle }, "new annotation remains selected for immediate adjustment");
+        var selectedBounds = editSurface.SelectedMark!.Bounds; editSurface.NudgeSelected(new Vector(10, 5));
+        check(editSurface.SelectedMark!.Bounds.Left == selectedBounds.Left + 10 && editSurface.SelectedMark.Bounds.Top == selectedBounds.Top + 5,
+            "selected annotation can be moved after drawing");
+        editSurface.InkColor = Colors.Blue;
+        check(editSurface.SelectedMark!.Color == Colors.Blue, "selected annotation adopts toolbar color changes");
+        editSurface.ClearSelection(); editSurface.Tool = CaptureTool.Rectangle;
+        editSurface.BeginAnnotation(new Point(150, 20)); editSurface.EndAnnotation(new Point(220, 80));
+        editSurface.ClearSelection(); editSurface.BeginAnnotation(new Point(250, 30)); editSurface.EndAnnotation(new Point(320, 90));
+        check(editSurface.Document.Marks.Count == 3 && editSurface.SelectedIndex == 2, "multiple annotations retain independent object identities");
+        editSurface.BeginInteraction(new Point(50, 50)); editSurface.EndInteraction(new Point(50, 50));
+        check(editSurface.SelectedIndex == 0 && editSurface.Document.Marks.Count == 3,
+            "clicking an older annotation selects it directly without creating another shape");
+        var editDocument = Field<CaptureDocument>(resizePin, "_editDocument");
+        var backspace = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(resizePin), Environment.TickCount, Key.Back)
+        { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+        resizePin.RaiseEvent(backspace); Wait(30);
+        check(backspace.Handled && editDocument.Marks.Count == 2, "Backspace deletes only the selected annotation during pin editing");
+        editDocument.Undo(); check(editDocument.Marks.Count == 3, "Backspace annotation deletion remains undoable");
         typeof(CapturePinWindow).GetMethod("CompleteEdit", Private)!.Invoke(resizePin, new object[] { true }); Wait(80); var editedBounds = WindowBounds(resizePin);
-        check(!editToolbar.IsVisible && !CaptureTests.Pixel(resizePin.Snapshot, 20, 20).SequenceEqual(originalPixel) &&
+        check(!editToolbar.IsVisible && !CaptureTests.Pixel(resizePin.Snapshot, 30, 25).SequenceEqual(originalPixel) &&
               Math.Abs(editedBounds.Left + editedBounds.Width / 2 - originalCenter.X) < 2 && Math.Abs(editedBounds.Top + editedBounds.Height / 2 - originalCenter.Y) < 2,
             "finishing pin editing replaces the current image in place and preserves its center");
         var editedSnapshot = resizePin.Snapshot;

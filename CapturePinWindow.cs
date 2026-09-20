@@ -122,6 +122,7 @@ public sealed class CapturePinWindow : ThemedWindow
             if (_editing)
             {
                 if (e.Key == Key.Escape) CompleteEdit(false);
+                else if (CaptureSurface.IsDeleteKey(e.Key)) DeleteEdit();
                 else if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && e.Key == Key.Z) { if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) RedoEdit(); else UndoEdit(); }
                 else if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && e.Key == Key.Y) RedoEdit(); else return;
                 e.Handled = true; return;
@@ -277,6 +278,8 @@ public sealed class CapturePinWindow : ThemedWindow
         _editDocument = new CaptureDocument(Snapshot);
         _editSurface = new CaptureSurface(_editDocument) { Tool = CaptureTool.Arrow };
         _editSurface.Error += EditFailed;
+        _editSurface.SelectionChanged += EditSelectionChanged;
+        _editSurface.TextEditRequested += EditTextRequested;
         _editDocument.Changed += EditDocumentChanged;
         UpdateEditSurfaceScale();
         _imageHost.Children.Clear(); _imageHost.Children.Add(_editSurface);
@@ -297,6 +300,9 @@ public sealed class CapturePinWindow : ThemedWindow
         _editError = message; _editToolbar?.Refresh(); PlaceEditToolbar();
     }
 
+    private void EditSelectionChanged() => _editToolbar?.Refresh();
+    private void EditTextRequested() => _editToolbar?.FocusTextInput();
+
     private void EditDocumentChanged()
     {
         _editError = string.Empty;
@@ -309,13 +315,17 @@ public sealed class CapturePinWindow : ThemedWindow
     {
         if (_editSurface is null) return;
         var dpi = VisualTreeHelper.GetDpi(this);
-        _editSurface.LayoutTransform = new ScaleTransform(_zoom / dpi.DpiScaleX, _zoom / dpi.DpiScaleY);
+        var scale = _zoom / dpi.DpiScaleX;
+        _editSurface.InteractionScale = scale;
+        _editSurface.LayoutTransform = new ScaleTransform(scale, _zoom / dpi.DpiScaleY);
     }
 
     internal void SetEditTool(CaptureTool tool)
     {
         if (_editSurface is null) return;
-        _editSurface.CancelGesture(); _editSurface.Tool = tool; _editError = string.Empty; _editToolbar?.Refresh();
+        _editSurface.CancelGesture();
+        if (tool != CaptureTool.Select) _editSurface.ClearSelection();
+        _editSurface.Tool = tool; _editError = string.Empty; _editToolbar?.Refresh();
     }
 
     internal void UndoEdit()
@@ -327,6 +337,8 @@ public sealed class CapturePinWindow : ThemedWindow
     {
         _editSurface?.CancelGesture(); _editDocument?.Redo();
     }
+
+    internal void DeleteEdit() => _editSurface?.DeleteSelected();
 
     internal void CompleteEdit(bool apply)
     {
@@ -344,6 +356,7 @@ public sealed class CapturePinWindow : ThemedWindow
             if (toolbar is not null) { toolbar.Closed -= EditToolbarClosed; toolbar.Close(); }
             if (_editDocument is not null) _editDocument.Changed -= EditDocumentChanged;
             if (_editSurface is not null) _editSurface.Error -= EditFailed;
+            if (_editSurface is not null) { _editSurface.SelectionChanged -= EditSelectionChanged; _editSurface.TextEditRequested -= EditTextRequested; }
             _editSurface?.CancelGesture(); _imageHost.Children.Clear(); _imageHost.Children.Add(_image);
             _editSurface = null; _editDocument = null; _editing = false; _editError = string.Empty;
             _pin.IsEnabled = _tools.IsEnabled = _menu.IsEnabled = true;

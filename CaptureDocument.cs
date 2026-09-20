@@ -10,7 +10,7 @@ using System.Windows.Media.Imaging;
 
 namespace YeShunguangPet;
 
-public enum CaptureTool { Crop, Rectangle, Arrow, Pen, Text, Redact, Ellipse, Mosaic }
+public enum CaptureTool { Crop, Rectangle, Arrow, Pen, Text, Redact, Ellipse, Mosaic, Select }
 
 public sealed class CaptureMark
 {
@@ -22,15 +22,31 @@ public sealed class CaptureMark
     public double FontSize { get; }
     public string Text { get; }
     public int PointCount { get; }
-    public Rect Bounds => new(Start, End);
+    public Rect Bounds
+    {
+        get
+        {
+            if (Tool == CaptureTool.Text) return new Rect(Start, new Size(Math.Max(1, _text?.WidthIncludingTrailingWhitespace ?? 1), Math.Max(1, _text?.Height ?? FontSize)));
+            if (Tool == CaptureTool.Pen && _points.Length > 0)
+            {
+                var left = _points.Min(point => point.X); var top = _points.Min(point => point.Y);
+                var right = _points.Max(point => point.X); var bottom = _points.Max(point => point.Y);
+                return new Rect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
+            }
+            var bounds = new Rect(Start, End);
+            return new Rect(bounds.X, bounds.Y, Math.Max(1, bounds.Width), Math.Max(1, bounds.Height));
+        }
+    }
+    public IReadOnlyList<Point> Points => Array.AsReadOnly(_points);
     private readonly Stroke? _stroke;
+    private readonly Point[] _points;
     private readonly Brush _brush;
     private readonly System.Windows.Media.Pen _pen;
     private readonly FormattedText? _text;
     public CaptureMark(CaptureTool tool, Point start, Point end, Color color, double width, string text = "", double fontSize = 22, IEnumerable<Point>? points = null)
     {
         var maxWidth = tool == CaptureTool.Mosaic ? 32 : 16;
-        if (!Enum.IsDefined(tool) || tool == CaptureTool.Crop || !double.IsFinite(start.X + start.Y + end.X + end.Y) ||
+        if (!Enum.IsDefined(tool) || tool is CaptureTool.Crop or CaptureTool.Select || !double.IsFinite(start.X + start.Y + end.X + end.Y) ||
             !double.IsFinite(width) || width is < 1 || width > maxWidth || !double.IsFinite(fontSize) || fontSize is < 12 or > 64 || text.Length > 500)
             throw new ArgumentException("标注参数无效。");
         Tool = tool; Start = start; End = end; Color = Color.FromRgb(color.R, color.G, color.B); Width = width; Text = text; FontSize = fontSize;
@@ -38,14 +54,64 @@ public sealed class CaptureMark
         _pen = new System.Windows.Media.Pen(_brush, Width) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round }; _pen.Freeze();
         if (tool == CaptureTool.Text)
             _text = new FormattedText(Text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface("Segoe UI, Microsoft YaHei UI"), FontSize, _brush, 1) { MaxTextWidth = 1600 };
+        _points = tool == CaptureTool.Pen ? (points ?? new[] { start, end }).Take(10001).ToArray() : Array.Empty<Point>();
         if (tool == CaptureTool.Pen)
         {
-            var samples = (points ?? new[] { start, end }).Take(10001).ToArray();
-            if (samples.Length == 0 || samples.Length > 10000 || samples.Any(p => !double.IsFinite(p.X + p.Y))) throw new ArgumentException("画笔轨迹过长。");
-            PointCount = samples.Length;
-            _stroke = new Stroke(new StylusPointCollection(samples.Select(p => new StylusPoint(p.X, p.Y))))
+            if (_points.Length == 0 || _points.Length > 10000 || _points.Any(p => !double.IsFinite(p.X + p.Y))) throw new ArgumentException("画笔轨迹过长。");
+            PointCount = _points.Length;
+            _stroke = new Stroke(new StylusPointCollection(_points.Select(p => new StylusPoint(p.X, p.Y))))
             { DrawingAttributes = new DrawingAttributes { Color = Color, Width = width, Height = width, IgnorePressure = true, FitToCurve = false } };
         }
+    }
+
+    public CaptureMark Move(Vector offset)
+    {
+        if (!double.IsFinite(offset.X + offset.Y)) throw new ArgumentException("Invalid annotation offset.");
+        return new CaptureMark(Tool, Start + offset, End + offset, Color, Width, Text, FontSize,
+            Tool == CaptureTool.Pen ? _points.Select(point => point + offset) : null);
+    }
+
+    public CaptureMark Resize(Rect target)
+    {
+        if (!double.IsFinite(target.X + target.Y + target.Width + target.Height) || target.Width < 1 || target.Height < 1)
+            throw new ArgumentException("Invalid annotation bounds.");
+        var source = Bounds;
+        Point Map(Point point) => new(target.Left + (point.X - source.Left) / Math.Max(1, source.Width) * target.Width,
+            target.Top + (point.Y - source.Top) / Math.Max(1, source.Height) * target.Height);
+        if (Tool == CaptureTool.Text)
+        {
+            var factor = Math.Max(target.Width / Math.Max(1, source.Width), target.Height / Math.Max(1, source.Height));
+            return new CaptureMark(Tool, target.TopLeft, target.TopLeft, Color, Width, Text, Math.Clamp(FontSize * factor, 12, 64));
+        }
+        if (Tool == CaptureTool.Pen)
+            return new CaptureMark(Tool, Map(Start), Map(End), Color, Width, Text, FontSize, _points.Select(Map));
+        return new CaptureMark(Tool, Map(Start), Map(End), Color, Width, Text, FontSize);
+    }
+
+    public CaptureMark WithEndpoints(Point start, Point end) => new(Tool, start, end, Color, Width, Text, FontSize,
+        Tool == CaptureTool.Pen ? _points : null);
+    public CaptureMark WithStyle(Color color, double width, double fontSize) => new(Tool, Start, End, color, width, Text, fontSize,
+        Tool == CaptureTool.Pen ? _points : null);
+    public CaptureMark WithText(string text) => new(Tool, Start, End, Color, Width, text, FontSize,
+        Tool == CaptureTool.Pen ? _points : null);
+
+    public bool HitTest(Point point, double tolerance)
+    {
+        if (Tool == CaptureTool.Arrow) return DistanceToSegment(point, Start, End) <= tolerance;
+        if (Tool == CaptureTool.Pen)
+        {
+            for (var i = 1; i < _points.Length; i++) if (DistanceToSegment(point, _points[i - 1], _points[i]) <= tolerance + Width / 2) return true;
+            return false;
+        }
+        return Bounds.Contains(point);
+    }
+
+    private static double DistanceToSegment(Point point, Point start, Point end)
+    {
+        var line = end - start; var length = line.LengthSquared;
+        if (length < 0.001) return (point - start).Length;
+        var t = Math.Clamp(Vector.Multiply(point - start, line) / length, 0, 1);
+        return (point - (start + line * t)).Length;
     }
     public void Draw(DrawingContext context, BitmapSource? source = null)
     {
@@ -121,6 +187,16 @@ public sealed class CaptureDocument
     {
         if (Marks.Count >= 300 || Marks.Sum(m => m.PointCount) + mark.PointCount > 100000) throw new InvalidOperationException("标注数量已达上限，请保存当前截图。");
         Push(new(Crop, _history[_index].Marks.Append(mark).ToArray()));
+    }
+    public void ReplaceMark(int index, CaptureMark mark)
+    {
+        if (index < 0 || index >= Marks.Count) throw new ArgumentOutOfRangeException(nameof(index));
+        var marks = _history[_index].Marks.ToArray(); marks[index] = mark; Push(new(Crop, marks));
+    }
+    public void RemoveMark(int index)
+    {
+        if (index < 0 || index >= Marks.Count) throw new ArgumentOutOfRangeException(nameof(index));
+        Push(new(Crop, _history[_index].Marks.Where((_, at) => at != index).ToArray()));
     }
     public void SetCrop(Int32Rect crop)
     {

@@ -37,7 +37,7 @@
                 <StackPanel x:Name="FontOptions" Orientation="Horizontal" Margin="10,0,0,0">
                     <TextBlock Text="字号" FontSize="12" VerticalAlignment="Center"/>
                     <Slider x:Name="TextSize" Width="72" Minimum="12" Maximum="64" Value="22" IsSnapToTickEnabled="True" TickFrequency="2" AutomationProperties.Name="字号" ValueChanged="Options_Changed"/>
-                    <TextBox x:Name="LabelInput" Width="140" MaxLength="500" Margin="8,0,0,0" ToolTip="标注文字" AutomationProperties.Name="标注文字" TextChanged="Label_Changed"/>
+                    <TextBox x:Name="LabelInput" Width="140" MaxLength="500" Margin="8,0,0,0" ToolTip="标注文字" AutomationProperties.Name="标注文字" TextChanged="Label_Changed" LostKeyboardFocus="Label_Commit" KeyDown="Label_KeyDown"/>
                 </StackPanel>
                 <StackPanel x:Name="MosaicOptions" Orientation="Horizontal" Margin="10,0,0,0" Visibility="Collapsed">
                     <TextBlock Text="马赛克" FontSize="12" VerticalAlignment="Center"/>
@@ -46,6 +46,7 @@
             </WrapPanel>
             <WrapPanel x:Name="CommandRow" HorizontalAlignment="Center">
                 <Border Style="{StaticResource ToolGroup}"><WrapPanel>
+                    <RadioButton x:Name="SelectTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Select" ToolTip="选择标注" AutomationProperties.Name="选择标注" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7C9;"/></RadioButton>
                     <RadioButton x:Name="CropTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Crop" ToolTip="裁剪" AutomationProperties.Name="裁剪" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7A8;"/></RadioButton>
                     <RadioButton x:Name="RectangleTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Rectangle" ToolTip="矩形" AutomationProperties.Name="矩形" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE739;"/></RadioButton>
                     <RadioButton x:Name="EllipseTool" Style="{StaticResource Tool}" GroupName="Mode" Tag="Ellipse" ToolTip="椭圆" AutomationProperties.Name="椭圆" Click="Tool_Click"><TextBlock FontFamily="{StaticResource IconFont}" Text="&#xEA3A;"/></RadioButton>
@@ -57,6 +58,7 @@
                 <Border Style="{StaticResource ToolGroup}"><StackPanel Orientation="Horizontal">
                     <Button x:Name="UndoButton" Style="{StaticResource Command}" Content="&#xE7A7;" ToolTip="撤销" AutomationProperties.Name="撤销" Click="Undo_Click"/>
                     <Button x:Name="RedoButton" Style="{StaticResource Command}" Content="&#xE7A6;" ToolTip="重做" AutomationProperties.Name="重做" Click="Redo_Click"/>
+                    <Button x:Name="DeleteButton" Style="{StaticResource Command}" Content="&#xE74D;" ToolTip="删除标注" AutomationProperties.Name="删除标注" Click="Delete_Click"/>
                 </StackPanel></Border>
                 <Border Style="{StaticResource ToolGroup}" Margin="0"><StackPanel Orientation="Horizontal">
                     <Button x:Name="CancelButton" Style="{StaticResource Command}" Content="&#xE711;" Foreground="{DynamicResource DangerBrush}" ToolTip="取消编辑" AutomationProperties.Name="取消编辑" Click="Cancel_Click"/>
