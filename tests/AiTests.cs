@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using YeShunguangPet;
@@ -15,7 +16,8 @@ internal static class AiTests
             AllowSpeechSuggestions = true
         };
         options.Validate();
-        check(options.AllowSpeechSuggestions && options.Provider == AiProviderKind.Direct, "AI options validate without enabling any network request");
+        check(options.AllowSpeechSuggestions && options.Provider == AiProviderKind.Direct && options.Profiles.Single().Id == AiOptions.DefaultProfileId,
+            "legacy AI options migrate to one default provider profile without enabling any network request");
         check(AiProviderFactory.Create(new AiOptions(), new AiSecretStore(Path.Combine(root, "disabled-key.bin"))) is null,
             "disabled AI provider factory remains offline");
 
@@ -28,6 +30,10 @@ internal static class AiTests
             check(secrets.HasKey && secrets.Load() == "test-secret-value" && !stored.Contains(Convert.ToHexString(Encoding.UTF8.GetBytes("test-secret-value")), StringComparison.Ordinal),
                 "AI key is encrypted at rest and roundtrips for the current Windows user");
             secrets.Delete(); check(!secrets.HasKey, "AI secret deletion removes the encrypted key file");
+            var second = secrets.ForProfile(Guid.NewGuid().ToString("N")); second.Save("second-secret");
+            check(second.FilePath != secrets.FilePath && second.Load() == "second-secret" && !secrets.HasKey,
+                "provider profiles keep independent DPAPI key files without reusing the legacy key");
+            second.Delete();
         }
         catch (CryptographicException)
         {
@@ -41,5 +47,11 @@ internal static class AiTests
         try { AiSuggestionService.Parse("{\"text\":\"" + new string('x', 241) + "\"}"); }
         catch (InvalidDataException) { rejected = true; }
         check(rejected, "oversized AI suggestion text is rejected before reaching the UI");
+
+        var profiles = options.Clone();
+        var local = new AiProviderProfile { Name = "本地", Provider = AiProviderKind.Local, Endpoint = "http://localhost:1234/v1", Model = "local-model" };
+        profiles.Profiles.Add(local); profiles.ActiveProfileId = local.Id; profiles.Normalize(); profiles.Validate();
+        check(profiles.ActiveProfile().Name == "本地" && profiles.Provider == AiProviderKind.Local && options.Profiles.Count == 1,
+            "AI profile selection updates the compatibility projection without mutating the source draft");
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -83,6 +84,25 @@ internal static class AiChatTests
         await live.CompleteAsync(new AiPrompt("system", "suggestion"));
         using (var json = JsonDocument.Parse(handler.Body!))
             check(json.RootElement.GetProperty("response_format").GetProperty("type").GetString() == "json_object", "existing suggestions preserve JSON response mode");
+        var fallback = new StringBuilder();
+        await foreach (var delta in live.StreamAsync(new AiPrompt("system", "fallback") { JsonResponse = false })) fallback.Append(delta);
+        check(fallback.ToString() == "answer", "streaming provider falls back to a regular JSON response for compatible local services");
+
+        var streamHandler = new StreamHandler(); using var streamHttp = new HttpClient(streamHandler);
+        var streamProvider = new OpenAiCompatibleProvider(new AiProviderProfile { Name = "stream", Provider = AiProviderKind.Local,
+            Endpoint = "http://localhost:1234/v1", Model = "model" }, http: streamHttp);
+        var streamed = new StringBuilder();
+        await foreach (var delta in streamProvider.StreamAsync(new AiPrompt("system", "stream") { JsonResponse = false })) streamed.Append(delta);
+        using (var json = JsonDocument.Parse(streamHandler.Body!))
+            check(streamed.ToString() == "流式回复" && json.RootElement.GetProperty("stream").GetBoolean(),
+                "OpenAI-compatible streaming parses SSE deltas and marks the request as streaming");
+
+        var streamStore = new AiChatStore(Path.Combine(root, "ai-chat-stream"));
+        var streamSession = new AiChatSession(streamStore, "stream-character", "流光", "");
+        var progress = new ProgressCapture();
+        await streamSession.SendStreamingAsync(new StreamingProvider(), "开始", progress, default);
+        check(progress.Values.SequenceEqual(new[] { "分段", "分段完成" }) && streamSession.State.Messages[^1].Content == "分段完成",
+            "streaming chat reports cumulative text but persists only the complete exchange");
     }
 
     private static async Task Reject(Func<Task> action, Action<bool, string> check, string name)
@@ -114,5 +134,30 @@ internal static class AiChatTests
             Body = await request.Content!.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"answer\"}}]}", Encoding.UTF8, "application/json") };
         }
+    }
+    private sealed class StreamHandler : HttpMessageHandler
+    {
+        public string? Body;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            var sse = "data: {\"choices\":[{\"delta\":{\"content\":\"流式\"}}]}\n\n" +
+                      "data: {\"choices\":[{\"delta\":{\"content\":\"回复\"}}]}\n\n" + "data: [DONE]\n\n";
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(sse, Encoding.UTF8, "text/event-stream") };
+        }
+    }
+    private sealed class StreamingProvider : IStreamingAiProvider
+    {
+        public string Name => "streaming-test";
+        public Task<string> CompleteAsync(AiPrompt prompt, CancellationToken cancellationToken = default) => Task.FromResult("unused");
+        public async IAsyncEnumerable<string> StreamAsync(AiPrompt prompt, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            yield return "分段"; await Task.Yield(); cancellationToken.ThrowIfCancellationRequested(); yield return "完成";
+        }
+    }
+    private sealed class ProgressCapture : IProgress<string>
+    {
+        public System.Collections.Generic.List<string> Values { get; } = new();
+        public void Report(string value) => Values.Add(value);
     }
 }

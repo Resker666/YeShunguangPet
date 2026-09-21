@@ -142,6 +142,12 @@ public sealed class AiChatSession
     }
 
     public async Task<string> SendAsync(IAiProvider provider, string input, CancellationToken token)
+        => await SendCoreAsync(provider, input, null, token).ConfigureAwait(false);
+
+    public async Task<string> SendStreamingAsync(IAiProvider provider, string input, IProgress<string>? progress, CancellationToken token)
+        => await SendCoreAsync(provider, input, progress, token).ConfigureAwait(false);
+
+    private async Task<string> SendCoreAsync(IAiProvider provider, string input, IProgress<string>? progress, CancellationToken token)
     {
         Enter();
         try
@@ -151,7 +157,23 @@ public sealed class AiChatSession
             if (string.IsNullOrWhiteSpace(input)) throw new InvalidDataException("请输入消息。");
             var next = State.Copy();
             var prompt = new AiPrompt(next.Profile.BuildContext(_name) + "\n直接返回自然语言，不要返回 JSON。", input.Trim()) { JsonResponse = false, History = next.Messages.ToArray() };
-            var answer = await provider.CompleteAsync(prompt, token).ConfigureAwait(false);
+            string answer;
+            if (provider is IStreamingAiProvider streaming)
+            {
+                var builder = new StringBuilder();
+                await foreach (var delta in streaming.StreamAsync(prompt, token).ConfigureAwait(false))
+                {
+                    builder.Append(delta);
+                    if (builder.Length > 8000) throw new InvalidDataException("AI 回复最多 8000 个字符。");
+                    progress?.Report(builder.ToString());
+                }
+                answer = builder.ToString();
+            }
+            else
+            {
+                answer = await provider.CompleteAsync(prompt, token).ConfigureAwait(false);
+                progress?.Report(answer);
+            }
             token.ThrowIfCancellationRequested();
             AiChatStore.ValidateText(answer, 8000, "AI 回复");
             if (string.IsNullOrWhiteSpace(answer)) throw new InvalidDataException("AI 返回内容为空。");

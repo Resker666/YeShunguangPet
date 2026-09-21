@@ -33,6 +33,8 @@ public sealed class CapturePinWindow : ThemedWindow
     private readonly CaptureRect? _anchor;
     private readonly Func<Point> _cursorPosition;
     private readonly int _mosaicBlockSize;
+    private readonly IOcrService _ocr;
+    private readonly Func<IAiProvider?>? _aiProviderFactory;
     private bool _hovered;
     private bool _maximized;
     private bool _editing;
@@ -50,9 +52,10 @@ public sealed class CapturePinWindow : ThemedWindow
     internal CaptureDocument? EditDocument => _editDocument;
     internal CaptureSurface? EditSurface => _editSurface;
     internal string EditError => _editError;
-    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null, Func<Point>? cursorPosition = null, int mosaicBlockSize = 18)
+    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null, Func<Point>? cursorPosition = null, int mosaicBlockSize = 18, IOcrService? ocr = null, Func<IAiProvider?>? aiProviderFactory = null)
     {
         Snapshot = image; _copy = copy ?? Clipboard.SetImage; _anchor = anchor; _cursorPosition = cursorPosition ?? ScreenCapture.CursorPosition; _mosaicBlockSize = mosaicBlockSize;
+        _ocr = ocr ?? new WindowsOcrService(); _aiProviderFactory = aiProviderFactory;
         Title = $"贴图 {number}"; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; ShowInTaskbar = false; Topmost = true; ShowActivated = false; WindowStartupLocation = WindowStartupLocation.Manual;
         Background = Brushes.Transparent; Opacity = 0;
@@ -92,7 +95,7 @@ public sealed class CapturePinWindow : ThemedWindow
         _surface.Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 6, Opacity = 0.22 };
         Content = _surface; ApplyTheme();
         _menu = new PetContextMenu();
-        AddMenu("编辑", BeginEdit); _menu.Items.Add(new Separator());
+        AddMenu("编辑", BeginEdit); AddMenu("文字助手", OpenTextAssistant); _menu.Items.Add(new Separator());
         AddMenu("复制", () => _copy(Snapshot)); AddMenu("保存 PNG", Save);
         _menu.Items.Add(new Separator()); AddMenu("放大", () => SetZoom(_zoom * 1.25)); AddMenu("缩小", () => SetZoom(_zoom / 1.25)); AddMenu("恢复大小", ResetZoom);
         _menu.Items.Add(new Separator()); AddMenu("隐藏贴图", Hide); AddMenu("关闭贴图", Close);
@@ -162,6 +165,11 @@ public sealed class CapturePinWindow : ThemedWindow
     private TextBlock Glyph(string value)
     {
         var glyph = new TextBlock { Text = value, FontSize = 14 }; glyph.SetResourceReference(TextBlock.FontFamilyProperty, "IconFont"); return glyph;
+    }
+    private void OpenTextAssistant()
+    {
+        var assistant = new CaptureTextAssistantWindow(Snapshot, _ocr, _aiProviderFactory) { Owner = this };
+        assistant.ShowDialog();
     }
     private void AddResizeHandle(Grid grid, ResizeEdge edge, double width, double height, HorizontalAlignment horizontal, VerticalAlignment vertical, Cursor cursor)
     {

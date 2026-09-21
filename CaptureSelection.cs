@@ -30,7 +30,10 @@ public sealed class CaptureSelection : IDisposable
     private readonly TaskCompletionSource<CaptureResult?> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly CaptureRegion _region;
     private readonly CaptureSurface _annotation;
+    private readonly IOcrService _ocr;
+    private readonly Func<IAiProvider?>? _aiProviderFactory;
     private CaptureToolbarWindow? _toolbar;
+    private CaptureTextAssistantWindow? _assistant;
     private TextBox? _textInput;
     private Canvas? _textHost;
     private Point _textPoint;
@@ -55,10 +58,11 @@ public sealed class CaptureSelection : IDisposable
     public bool IsDragging => _region.IsDragging || _painting;
     internal bool CursorAssistVisible => _hasCursorPoint && !_committed && !IsDragging && !_painting;
 
-    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null, int mosaicBlockSize = 18)
+    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null, int mosaicBlockSize = 18, IOcrService? ocr = null, Func<IAiProvider?>? aiProviderFactory = null)
     {
         if (frame.Monitors.Count == 0 || frame.Image.PixelWidth != frame.Bounds.Width || frame.Image.PixelHeight != frame.Bounds.Height) throw new ArgumentException("Invalid capture frame.");
         _frame = frame; _cursor = cursorPosition ?? ScreenCapture.CursorPosition; _copy = copy ?? Clipboard.SetImage; _savePath = savePath; _pin = pin; _pinAt = pinAt;
+        _ocr = ocr ?? new WindowsOcrService(); _aiProviderFactory = aiProviderFactory;
         _region = new CaptureRegion(frame.Bounds); Document = new CaptureDocument(frame.Image); _annotation = new CaptureSurface(Document) { MosaicBlockSize = mosaicBlockSize };
         Document.Changed += OnDocumentChanged; _annotation.Error += ShowError;
         _annotation.SelectionChanged += AnnotationSelectionChanged; _annotation.TextEditRequested += EditSelectedText;
@@ -184,6 +188,18 @@ public sealed class CaptureSelection : IDisposable
     public void Undo() { if (!CommitText()) return; CancelGesture(); Document.Undo(); ShowToolbar(); }
     public void Redo() { if (!CommitText()) return; CancelGesture(); Document.Redo(); ShowToolbar(); }
     public void DeleteSelected() { if (!CommitText()) return; _annotation.DeleteSelected(); ShowToolbar(); }
+    public void OpenTextAssistant()
+    {
+        if (_finished || _modalExport || !HasSelection || IsDragging || !CommitText()) return;
+        try
+        {
+            _modalExport = true;
+            _assistant = new CaptureTextAssistantWindow(Document.Flatten(), _ocr, _aiProviderFactory) { Owner = _toolbar };
+            _assistant.ShowDialog();
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { _assistant = null; _modalExport = false; _toolbar?.Activate(); PlaceToolbar(); }
+    }
     public bool Complete(CaptureOutput output)
     {
         if (_finished || _modalExport || !HasSelection || IsDragging) return false;
@@ -239,7 +255,7 @@ public sealed class CaptureSelection : IDisposable
         {
             if (!_frame.Monitors[_toolbarMonitor].ToRect().IntersectsWith(Selection.ToRect())) _toolbarMonitor = MonitorAt(new Point(Selection.Right - 1, Selection.Bottom - 1));
             var monitor = _frame.Monitors[_toolbarMonitor]; var dpi = VisualTreeHelper.GetDpi(_toolbar);
-            _toolbar.Width = Math.Min(680, Math.Max(80, (monitor.Width - 16) / dpi.DpiScaleX));
+            _toolbar.Width = Math.Min(720, Math.Max(80, (monitor.Width - 16) / dpi.DpiScaleX));
             _toolbar.UpdateLayout();
             var size = new Size(_toolbar.ActualWidth * dpi.DpiScaleX, _toolbar.ActualHeight * dpi.DpiScaleY);
             if (size.Width < 1 || size.Height < 1) return;
@@ -426,6 +442,7 @@ public sealed class CaptureSelection : IDisposable
         _cancellation.Dispose(); SystemEvents.DisplaySettingsChanged -= CancelForDisplay; SystemEvents.SessionSwitch -= CancelForSession;
         Document.Changed -= OnDocumentChanged; _annotation.Error -= ShowError;
         _annotation.SelectionChanged -= AnnotationSelectionChanged; _annotation.TextEditRequested -= EditSelectedText;
+        _assistant?.Close(); _assistant = null;
         _toolbar?.Close(); _toolbar = null;
         foreach (var window in _windows.ToArray()) window.Close(); _windows.Clear();
         if (error is null) _result.TrySetResult(result); else _result.TrySetException(error);

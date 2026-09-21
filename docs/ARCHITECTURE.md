@@ -105,6 +105,10 @@ DesktopSession.Clock                   同一桌面会话的可注入时钟
 
 `Flatten` 把当前选区和标注合成为单张 RenderTargetBitmap，遮挡向外对齐整像素，不绘制边框、手柄或工具栏。复制/保存成功才结束会话；保存对话框有独立的模态保护，取消不退出。贴图先在会话内验证容量并创建隐藏窗口，退出浮层、恢复桌面后才显示，避免容量失败时丢弃截图。贴图关闭后从列表移除；截图与贴图不进入桌面配置、皮肤包或诊断报告。
 
+`WindowsOcrService` 把当前合成位图在内存中编码并交给 Windows OCR，超出系统 OCR 尺寸限制时只缩放识别副本，不改变截图。`CaptureTextAssistantWindow` 保存可编辑识别文本和临时 AI 结果，不写临时图片或历史；Provider 只接收用户确认的文字。
+
+AI 配置保留旧单 Provider 字段作为兼容投影，实际使用带稳定 ID 的 Profile 列表。默认 Profile 继续读取旧 DPAPI Key；其他 Profile 的 Key 按 ID 哈希后分别加密存储。流式 Provider 解析 OpenAI-compatible SSE，聊天会话只在流结束、长度校验和本地保存全部成功后提交完整问答。
+
 屏幕读取和鼠标位置提供可注入边界，测试用生成的图片和坐标验证工作流。实际屏幕读取仍受 Windows 桌面权限、会话和显卡限制，不使用权限绕过或抓取安全桌面的替代手段。
 
 ## 完成提醒（v2.11）

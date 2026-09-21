@@ -127,7 +127,7 @@ internal static class InlineCaptureUiTests
     {
         Wait(); var toolbar = Field<CaptureToolbarWindow>(capture, "_toolbar"); var bounds = NativeBounds(toolbar);
         check(monitor.ToRect().Contains(bounds), $"floating toolbar stays inside monitor: {bounds}");
-        foreach (var name in new[] { "DoneButton", "CancelButton", "SaveButton", "PinButton" })
+        foreach (var name in new[] { "DoneButton", "CancelButton", "SaveButton", "PinButton", "TextAssistantButton" })
         {
             var button = Find<FrameworkElement>(toolbar, name); var root = (FrameworkElement)toolbar.Content;
             var rect = button.TransformToAncestor(root).TransformBounds(new Rect(button.RenderSize));

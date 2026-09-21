@@ -164,6 +164,7 @@ internal static class Program
             UiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);
             DiagnosticsTests.Run((success, name) => Check(success, name), catalog, _root);
             UpdateTests.Run((success, name) => Check(success, name), _root);
+            OcrTests.Run((success, name) => Check(success, name));
             AiTests.Run((success, name) => Check(success, name), _root);
             AiChatTests.Run((success, name) => Check(success, name), _root);
             AiChatUiTests.Run((success, name) => Check(success, name), catalog, _root, args.Length > 1 ? args[1] : null);

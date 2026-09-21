@@ -14,6 +14,15 @@ public sealed class AiSecretStore
     public AiSecretStore(string? filePath = null)
         => FilePath = filePath ?? Path.Combine(PetSettings.SettingsDirectory, "ai-secret.bin");
 
+    public AiSecretStore ForProfile(string profileId)
+    {
+        if (profileId == AiOptions.DefaultProfileId) return this;
+        if (!Guid.TryParseExact(profileId, "N", out _)) throw new InvalidDataException("AI 配置标识无效。");
+        var directory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(FilePath))!, "ai-secrets");
+        var name = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(profileId))) + ".bin";
+        return new AiSecretStore(Path.Combine(directory, name));
+    }
+
     public void Save(string apiKey)
     {
         if (string.IsNullOrWhiteSpace(apiKey)) { Delete(); return; }

@@ -61,6 +61,7 @@ public partial class CaptureToolbarWindow : ThemedWindow
     private void Delete_Click(object sender, RoutedEventArgs e) => _capture.DeleteSelected();
     private void Save_Click(object sender, RoutedEventArgs e) => _capture.Complete(CaptureOutput.Save);
     private void Pin_Click(object sender, RoutedEventArgs e) => _capture.Complete(CaptureOutput.Pin);
+    private void TextAssistant_Click(object sender, RoutedEventArgs e) => _capture.OpenTextAssistant();
     private void Done_Click(object sender, RoutedEventArgs e) => _capture.Complete(CaptureOutput.Copy);
     private void Cancel_Click(object sender, RoutedEventArgs e) => _capture.Cancel();
     private void Toolbar_KeyDown(object sender, KeyEventArgs e) => _capture.HandleKey(e);

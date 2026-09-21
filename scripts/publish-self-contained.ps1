@@ -7,7 +7,13 @@ param(
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $ProjectFile = Join-Path $ProjectRoot "YeShunguangPet.Wpf.csproj"
-$PublishDir = Join-Path $ProjectRoot "bin\$Configuration\net8.0-windows\$Runtime\publish"
+[xml]$ProjectXml = Get-Content -LiteralPath $ProjectFile
+$PropertyGroup = $ProjectXml.Project.PropertyGroup |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_.TargetFramework) } |
+    Select-Object -First 1
+$TargetFramework = [string]$PropertyGroup.TargetFramework
+if ([string]::IsNullOrWhiteSpace($TargetFramework)) { throw "Target framework is missing from YeShunguangPet.Wpf.csproj." }
+$PublishDir = Join-Path $ProjectRoot "bin\$Configuration\$TargetFramework\$Runtime\publish"
 
 & (Join-Path $PSScriptRoot "verify-assets.ps1")
 

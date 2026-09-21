@@ -13,10 +13,10 @@ $VersionPropertyGroup = $ProjectXml.Project.PropertyGroup |
     Where-Object { -not [string]::IsNullOrWhiteSpace($_.Version) } |
     Select-Object -First 1
 $Version = [string]$VersionPropertyGroup.Version
+$TargetFramework = [string]$VersionPropertyGroup.TargetFramework
 
-if ([string]::IsNullOrWhiteSpace($Version)) {
-    throw "Project version is missing from YeShunguangPet.Wpf.csproj."
-}
+if ([string]::IsNullOrWhiteSpace($Version)) { throw "Project version is missing from YeShunguangPet.Wpf.csproj." }
+if ([string]::IsNullOrWhiteSpace($TargetFramework)) { throw "Target framework is missing from YeShunguangPet.Wpf.csproj." }
 
 & (Join-Path $PSScriptRoot "publish-self-contained.ps1") `
     -Configuration $Configuration `
@@ -27,7 +27,7 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$PublishDir = Join-Path $ProjectRoot "bin\$Configuration\net8.0-windows\$Runtime\publish"
+$PublishDir = Join-Path $ProjectRoot "bin\$Configuration\$TargetFramework\$Runtime\publish"
 $Executable = Join-Path $PublishDir "YeShunguangPet.exe"
 if (-not (Test-Path -LiteralPath $Executable)) {
     throw "Published executable was not found: $Executable"

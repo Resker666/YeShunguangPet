@@ -1,0 +1,32 @@
+<ui:ThemedWindow x:Class="YeShunguangPet.CaptureTextAssistantWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:YeShunguangPet"
+    Title="文字助手" Width="780" Height="720" MinWidth="620" MinHeight="580" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                <Button x:Name="RecognizeButton" Content="重新识别" Click="Recognize_Click"/>
+                <Button Content="复制原文" Margin="8,0,0,0" Click="CopySource_Click"/>
+            </StackPanel>
+            <TextBlock Text="识别文字" Style="{StaticResource SectionHeading}" VerticalAlignment="Center"/>
+        </DockPanel>
+        <TextBox x:Name="SourceText" Grid.Row="1" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="20000" Padding="12" AutomationProperties.Name="OCR 识别文字"/>
+        <Grid Grid.Row="2" Margin="0,14,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <ComboBox x:Name="ActionSelector" Width="120" SelectedValuePath="Tag" SelectedIndex="0" AutomationProperties.Name="AI 文字操作" SelectionChanged="Action_Changed">
+                <ComboBoxItem Tag="Summary" Content="总结"/><ComboBoxItem Tag="Translate" Content="翻译"/><ComboBoxItem Tag="Rewrite" Content="改写"/>
+            </ComboBox>
+            <ComboBox x:Name="LanguageSelector" Grid.Column="1" Width="120" Margin="8,0,0,0" SelectedValuePath="Tag" SelectedIndex="1" Visibility="Collapsed" AutomationProperties.Name="翻译目标语言">
+                <ComboBoxItem Tag="简体中文" Content="简体中文"/><ComboBoxItem Tag="English" Content="English"/><ComboBoxItem Tag="日本語" Content="日本語"/><ComboBoxItem Tag="한국어" Content="한국어"/>
+            </ComboBox>
+            <ComboBox x:Name="RewriteSelector" Grid.Column="2" Width="120" Margin="8,0,0,0" SelectedValuePath="Tag" SelectedIndex="0" Visibility="Collapsed" AutomationProperties.Name="改写风格">
+                <ComboBoxItem Tag="清晰简洁" Content="清晰简洁"/><ComboBoxItem Tag="正式" Content="正式"/><ComboBoxItem Tag="自然口语" Content="自然口语"/><ComboBoxItem Tag="精简" Content="精简"/>
+            </ComboBox>
+            <Button x:Name="StopButton" Grid.Column="4" Content="停止" IsEnabled="False" Click="Stop_Click"/>
+            <Button x:Name="RunButton" Grid.Column="5" Content="开始" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="Run_Click"/>
+        </Grid>
+        <TextBox x:Name="ResultText" Grid.Row="3" IsReadOnly="True" IsReadOnlyCaretVisible="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="12" AutomationProperties.Name="AI 处理结果"/>
+        <DockPanel Grid.Row="4" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Right" Content="复制结果" Click="CopyResult_Click"/>
+            <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
+        </DockPanel>
+    </Grid>
+</ui:ThemedWindow>

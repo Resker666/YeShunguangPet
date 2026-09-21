@@ -38,14 +38,17 @@ public partial class AiChatWindow : ThemedWindow
         };
     }
 
-    private void RefreshMessages()
+    private void RefreshMessages(string? pendingUser = null, string? pendingAssistant = null)
     {
-        MessagesList.ItemsSource = _session.State.Messages.Select(message => new
+        var messages = _session.State.Messages.Select(message => new
         {
             Speaker = message.Role == "user" ? "你" : _pet.Manifest.Name,
             Text = message.Content
-        }).ToArray();
-        EmptyText.Visibility = _session.State.Messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }).ToList();
+        if (pendingUser is not null) messages.Add(new { Speaker = "你", Text = pendingUser });
+        if (pendingAssistant is not null) messages.Add(new { Speaker = _pet.Manifest.Name, Text = pendingAssistant });
+        MessagesList.ItemsSource = messages;
+        EmptyText.Visibility = messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         MessagesScroll.ScrollToEnd();
     }
 
@@ -82,16 +85,18 @@ public partial class AiChatWindow : ThemedWindow
         {
             var provider = _providerFactory() ?? throw new InvalidOperationException("请先在 AI 设置中启用并配置服务。");
             StatusText.Text = "正在回复…";
-            await _session.SendAsync(provider, input, cancellation.Token);
+            RefreshMessages(input, string.Empty);
+            var progress = new DispatcherProgress(this, text => { if (!_closed) RefreshMessages(input, text); });
+            await _session.SendStreamingAsync(provider, input, progress, cancellation.Token);
             if (_closed) return;
             MessageInput.Clear(); RefreshMessages();
             StatusText.Text = "已保存到本机 · 保留最近 12 轮对话";
             SendButton.Content = "发送";
         }
-        catch (OperationCanceledException) { if (!_closed) StatusText.Text = "请求已停止，消息草稿已保留。"; }
+        catch (OperationCanceledException) { if (!_closed) { RefreshMessages(); StatusText.Text = "请求已停止，消息草稿已保留。"; } }
         catch (Exception ex)
         {
-            if (!_closed) { StatusText.Text = "发送失败：" + ex.Message + " 草稿已保留，可重试。"; SendButton.Content = "重试"; }
+            if (!_closed) { RefreshMessages(); StatusText.Text = "发送失败：" + ex.Message + " 草稿已保留，可重试。"; SendButton.Content = "重试"; }
         }
         finally { _request = null; if (!_closed) { SetBusy(false); MessageInput.Focus(); } }
     }
@@ -115,5 +120,14 @@ public partial class AiChatWindow : ThemedWindow
         _dirty = false;
         _request?.Cancel();
         Close();
+    }
+
+    private sealed class DispatcherProgress(AiChatWindow owner, Action<string> update) : IProgress<string>
+    {
+        public void Report(string value)
+        {
+            if (owner.Dispatcher.CheckAccess()) update(value);
+            else owner.Dispatcher.Invoke(() => update(value));
+        }
     }
 }

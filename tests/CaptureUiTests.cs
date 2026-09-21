@@ -239,7 +239,8 @@ internal static class CaptureUiTests
         check(new[] { "置顶贴图", "隐藏贴图", "最大化贴图", "关闭贴图" }.All(titleCommands.Contains) && !titleCommands.Contains("贴图操作"),
             "pinned screenshot title bar keeps window actions and removes the redundant more button");
         var menu = Field<ContextMenu>(resizePin, "_menu");
-        check(menu.Items.OfType<MenuItem>().Any(item => Equals(item.Header, "编辑")), "pinned screenshot image menu exposes in-place editing");
+        check(new[] { "编辑", "文字助手" }.All(label => menu.Items.OfType<MenuItem>().Any(item => Equals(item.Header, label))),
+            "pinned screenshot image menu exposes in-place editing and local text recognition");
         var maximize = Descendants(visual).OfType<Button>().Single(button => System.Windows.Automation.AutomationProperties.GetName(button) == "最大化贴图");
         var normalBounds = WindowBounds(resizePin); maximize.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); Wait(80);
         var maximizedBounds = WindowBounds(resizePin);
