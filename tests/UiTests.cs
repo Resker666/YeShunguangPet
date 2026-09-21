@@ -89,7 +89,8 @@ internal static class UiTests
             Await(Task.Delay(80));
             check(!timer.IsEnabled, "settings page suspends invisible role previews");
             var updateCheck = (CheckBox)manager.FindName("UpdateCheck");
-            check(updateCheck.IsChecked == false && ((TextBlock)manager.FindName("CurrentVersionText")).Text.Contains("v2.26.0", StringComparison.Ordinal),
+            check(updateCheck.IsChecked == false && ((TextBlock)manager.FindName("CurrentVersionText")).Text.Contains(
+                    $"v{GitHubUpdateChecker.CurrentVersion.ToString(3)}", StringComparison.Ordinal),
                 "control center keeps startup update checks offline by default and shows the current version");
             updateCheck.IsChecked = true;
             check(config.Updates.CheckOnStartup, "control center persists explicit startup update consent");
