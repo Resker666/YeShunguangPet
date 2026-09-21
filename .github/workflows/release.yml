@@ -15,12 +15,12 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "8.0.425"
 
       - name: Verify tag version
         if: startsWith(github.ref, 'refs/tags/v')
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload quality diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quality-diagnostics
           path: |
@@ -68,7 +68,7 @@ jobs:
           retention-days: 7
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: YeShunguangPet-windows-x64
           path: |

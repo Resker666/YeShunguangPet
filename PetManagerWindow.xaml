@@ -98,7 +98,14 @@
                             <Separator Margin="0,24,0,22"/>
                             <TextBlock Text="常规" Style="{StaticResource SectionTitle}"/>
                             <CheckBox x:Name="StartupCheck" Content="开机启动" Margin="0,0,0,12" Checked="Startup_Changed" Unchecked="Startup_Changed"/>
-                            <CheckBox x:Name="NotificationsCheck" Content="桌面通知与完成动作" Checked="Notifications_Changed" Unchecked="Notifications_Changed"/>
+                            <CheckBox x:Name="NotificationsCheck" Content="桌面通知与完成动作" Margin="0,0,0,12" Checked="Notifications_Changed" Unchecked="Notifications_Changed"/>
+                            <CheckBox x:Name="UpdateCheck" Content="启动时检查更新（访问 GitHub）" Checked="UpdatePreference_Changed" Unchecked="UpdatePreference_Changed"/>
+                            <DockPanel Margin="0,14,0,0" LastChildFill="False">
+                                <Button x:Name="CheckUpdatesButton" DockPanel.Dock="Left" Content="检查更新" Click="CheckUpdates_Click"/>
+                                <Button x:Name="OpenUpdateButton" DockPanel.Dock="Left" Content="打开下载页" Margin="8,0,0,0" Visibility="Collapsed" Click="OpenUpdate_Click"/>
+                                <TextBlock x:Name="CurrentVersionText" DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
+                            </DockPanel>
+                            <TextBlock x:Name="UpdateStatusText" Text="默认不联网；手动检查或开启上方选项时才访问 GitHub。" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,8,0,0"/>
                         </StackPanel>
                         <StackPanel x:Name="RoleSettingsPanel" Visibility="Collapsed"><ComboBox x:Name="RoleChoice" DisplayMemberPath="DisplayName" SelectionChanged="RoleChoice_Changed" Margin="0,0,0,24" AutomationProperties.Name="当前角色"/><ContentControl x:Name="SettingsRoleHost" HorizontalContentAlignment="Stretch"/><TextBlock x:Name="NoRoleText" Text="暂无桌面角色" Foreground="{DynamicResource SecondaryTextBrush}"/></StackPanel>
                     </StackPanel>

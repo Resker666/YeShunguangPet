@@ -25,7 +25,9 @@ internal static class UiTests
         check(coldPackages.Length > 0 && coldPackages.All(p => p.SpriteSheet.IsFrozen), "native startup uses sheets first decoded by a background thread");
         var config = DesktopConfiguration.Migrate(new PetSettings { Topmost = false, LookAtMouse = false, RandomIdleActions = false });
         config.Appearance = new AppearanceOptions { Theme = "light" };
-        using var desktop = new DesktopSession(config, catalog, _ => { }, nativeIntegration: false);
+        var updateChecker = new UpdateTests.FakeChecker(new UpdateCheckResult(GitHubUpdateChecker.CurrentVersion, new Version(9, 9, 9),
+            new Uri("https://github.com/Resker666/YeShunguangPet/releases/tag/v9.9.9")));
+        using var desktop = new DesktopSession(config, catalog, _ => { }, nativeIntegration: false, updateChecker: updateChecker);
         desktop.Start(showWindows: false);
         desktop.Add(catalog.Scan().Pets.FirstOrDefault(p => p.Id == "robin")?.Id ?? PetPackage.DefaultId, show: false);
         desktop.Add(PetPackage.DefaultId, show: false);
@@ -86,10 +88,24 @@ internal static class UiTests
             manager.Height = 740;
             Await(Task.Delay(80));
             check(!timer.IsEnabled, "settings page suspends invisible role previews");
+            var updateCheck = (CheckBox)manager.FindName("UpdateCheck");
+            check(updateCheck.IsChecked == false && ((TextBlock)manager.FindName("CurrentVersionText")).Text.Contains("v2.26.0", StringComparison.Ordinal),
+                "control center keeps startup update checks offline by default and shows the current version");
+            updateCheck.IsChecked = true;
+            check(config.Updates.CheckOnStartup, "control center persists explicit startup update consent");
+            ((Button)manager.FindName("CheckUpdatesButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Await(Task.Delay(60));
+            check(updateChecker.Calls == 1 && ((TextBlock)manager.FindName("UpdateStatusText")).Text.Contains("v9.9.9", StringComparison.Ordinal) &&
+                  ((Button)manager.FindName("OpenUpdateButton")).Visibility == Visibility.Visible,
+                "manual update check reports a newer release without downloading it");
             ((RadioButton)manager.FindName("DarkTheme")).IsChecked = true;
             ((CheckBox)manager.FindName("MotionCheck")).IsChecked = true;
             Await(Task.Delay(180));
             Render(manager, renders, "native-settings-dark.png", 984, 701);
+            scroll.ScrollToBottom(); Await(Task.Delay(80));
+            check(((Button)manager.FindName("CheckUpdatesButton")).ActualHeight > 0 && ((TextBlock)manager.FindName("UpdateStatusText")).ActualHeight > 0,
+                "update controls remain reachable at the bottom of the settings page");
+            Render(manager, renders, "native-settings-updates-dark.png", 984, 701);
             ((RadioButton)manager.FindName("RoleScope")).IsChecked = true;
             Await(Task.Delay(80));
             var selector = (ComboBox)manager.FindName("RoleChoice");

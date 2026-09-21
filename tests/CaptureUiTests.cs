@@ -208,13 +208,20 @@ internal static class CaptureUiTests
             WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, Topmost = true, Background = new SolidColorBrush(Color.FromRgb(240, 30, 180)) };
         try
         {
-            fixture.Show(); Wait(150);
+            fixture.Show(); fixture.Activate(); fixture.UpdateLayout();
             var native = typeof(MainWindow).Assembly.GetType("YeShunguangPet.NativeMethods")!;
             var args = new object[] { fixture, Rect.Empty }; native.GetMethod("TryGetWindowBounds", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, args);
             var bounds = (Rect)args[1];
-            var image = ScreenCapture.ReadRegion(new CaptureRect((int)(bounds.Left + bounds.Width / 2), (int)(bounds.Top + bounds.Height / 2), 8, 8));
-            var pixel = CaptureTests.Pixel(image, 4, 4);
-            check(image.IsFrozen && pixel[2] > 200 && pixel[1] < 80 && pixel[0] > 130, "real Windows capture reads the owned test window pixels correctly");
+            BitmapSource? image = null; byte[]? pixel = null;
+            for (var attempt = 0; attempt < 20; attempt++)
+            {
+                Wait(attempt == 0 ? 150 : 100);
+                image = ScreenCapture.ReadRegion(new CaptureRect((int)(bounds.Left + bounds.Width / 2), (int)(bounds.Top + bounds.Height / 2), 8, 8));
+                pixel = CaptureTests.Pixel(image, 4, 4);
+                if (image.IsFrozen && pixel[2] > 200 && pixel[1] < 80 && pixel[0] > 130) break;
+            }
+            check(image is { IsFrozen: true } && pixel is not null && pixel[2] > 200 && pixel[1] < 80 && pixel[0] > 130,
+                "real Windows capture waits for the owned test window to reach the compositor");
         }
         finally { fixture.Close(); }
     }

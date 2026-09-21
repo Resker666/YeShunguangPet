@@ -22,6 +22,7 @@ public partial class PetManagerWindow : ThemedWindow
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private IReadOnlyList<PetEntry> _skins = Array.Empty<PetEntry>();
     private bool _ready, _refreshing, _closed, _busy;
+    private Uri? _updatePage;
     private PetCard? Selected => Instances.SelectedItem as PetCard;
 
     public PetManagerWindow(DesktopSession desktop)
@@ -83,6 +84,8 @@ public partial class PetManagerWindow : ThemedWindow
         QuietCheck.IsChecked = _desktop.Companion.Settings.DoNotDisturb;
         NotificationsCheck.IsChecked = _desktop.Companion.Settings.NotificationsEnabled;
         StartupCheck.IsChecked = _desktop.Companion.Settings.LaunchAtStartup;
+        UpdateCheck.IsChecked = _desktop.Configuration.Updates.CheckOnStartup;
+        CurrentVersionText.Text = $"当前版本 v{GitHubUpdateChecker.CurrentVersion.ToString(3)}";
         RefreshAppearance();
         _refreshing = false;
         RefreshSelection();
@@ -239,6 +242,48 @@ public partial class PetManagerWindow : ThemedWindow
     {
         if (!_ready || _refreshing) return;
         Run(() => { var settings = _desktop.Companion.Settings.Clone(); settings.NotificationsEnabled = NotificationsCheck.IsChecked == true; _desktop.UpdateGlobal(settings); });
+    }
+    private void UpdatePreference_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || _refreshing) return;
+        try
+        {
+            _desktop.UpdateUpdateOptions(new UpdateOptions { CheckOnStartup = UpdateCheck.IsChecked == true });
+            UpdateStatusText.Text = UpdateCheck.IsChecked == true
+                ? "已启用启动检查；只访问 GitHub Release，不会自动下载或安装。"
+                : "默认不联网；手动检查或开启上方选项时才访问 GitHub。";
+        }
+        catch (Exception ex)
+        {
+            _refreshing = true; UpdateCheck.IsChecked = _desktop.Configuration.Updates.CheckOnStartup; _refreshing = false;
+            UpdateStatusText.Text = "更新设置未保存：" + ex.Message;
+        }
+    }
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closed) return;
+        CheckUpdatesButton.IsEnabled = false; OpenUpdateButton.Visibility = Visibility.Collapsed;
+        UpdateStatusText.Text = "正在检查 GitHub Release...";
+        try
+        {
+            var result = await _desktop.CheckForUpdatesAsync(_lifetime.Token);
+            if (_closed) return;
+            _updatePage = result.ReleasePage;
+            if (result.IsUpdateAvailable)
+            {
+                UpdateStatusText.Text = $"发现新版本 v{result.LatestVersionText}，当前为 v{result.CurrentVersionText}。";
+                OpenUpdateButton.Visibility = Visibility.Visible;
+            }
+            else UpdateStatusText.Text = $"当前已是最新版 v{result.CurrentVersionText}。";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { if (!_closed) UpdateStatusText.Text = "检查更新失败：" + ex.Message; }
+        finally { if (!_closed) CheckUpdatesButton.IsEnabled = true; }
+    }
+    private void OpenUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        try { GitHubUpdateChecker.OpenReleasePage(_updatePage); }
+        catch (Exception ex) { UpdateStatusText.Text = "无法打开下载页：" + ex.Message; }
     }
     private void Startup_Changed(object sender, RoutedEventArgs e)
     {

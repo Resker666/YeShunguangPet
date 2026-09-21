@@ -26,6 +26,9 @@ public sealed partial class DesktopSession : IDisposable
     private bool _disposed;
     private bool _started;
     private readonly DesktopSpeech _speech;
+    private readonly IUpdateChecker _updateChecker;
+    private readonly CancellationTokenSource _sessionLifetime = new();
+    private Action? _trayBalloonAction;
     public DesktopConfiguration Configuration { get; }
     public CompanionRuntime Companion { get; }
     public PetCatalog Catalog { get; }
@@ -35,7 +38,7 @@ public sealed partial class DesktopSession : IDisposable
     public event Action? Changed;
     public event Action? ExitRequested;
 
-    public DesktopSession(DesktopConfiguration configuration, PetCatalog catalog, Action<DesktopConfiguration> save, bool nativeIntegration = true, TimeProvider? clock = null, StudyHistory? history = null, IShortcutRegistrar? shortcutRegistrar = null)
+    public DesktopSession(DesktopConfiguration configuration, PetCatalog catalog, Action<DesktopConfiguration> save, bool nativeIntegration = true, TimeProvider? clock = null, StudyHistory? history = null, IShortcutRegistrar? shortcutRegistrar = null, IUpdateChecker? updateChecker = null)
     {
         configuration.Validate();
         Configuration = configuration;
@@ -43,6 +46,7 @@ public sealed partial class DesktopSession : IDisposable
         Catalog = catalog;
         _save = save;
         _nativeIntegration = nativeIntegration;
+        _updateChecker = updateChecker ?? new GitHubUpdateChecker();
         Clock = clock ?? TimeProvider.System;
         var globalSettings = new PetSettings();
         configuration.Companion.ApplyTo(globalSettings);
@@ -69,6 +73,7 @@ public sealed partial class DesktopSession : IDisposable
         Companion.Start();
         Persist();
         if (_nativeIntegration && Windows.Count == 0) OpenManager();
+        if (_nativeIntegration && Configuration.Updates.CheckOnStartup) _ = CheckForUpdatesAtStartupAsync();
     }
 
     private MainWindow CreateWindow(PetInstanceOptions instance, bool show, PetPackage? prepared = null)
@@ -226,6 +231,18 @@ public sealed partial class DesktopSession : IDisposable
         try { Persist(); } catch { Configuration.Ai = previous; throw; }
         Changed?.Invoke();
     }
+    public void UpdateUpdateOptions(UpdateOptions options)
+    {
+        var previous = Configuration.Updates;
+        Configuration.Updates = options.Clone();
+        try { Persist(); } catch { Configuration.Updates = previous; throw; }
+        Changed?.Invoke();
+    }
+    public Task<UpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _updateChecker.CheckAsync(cancellationToken);
+    }
     public void OpenAiSettings(Window? owner = null)
     {
         if (_disposed) return;
@@ -318,7 +335,12 @@ public sealed partial class DesktopSession : IDisposable
         _tray = new WinForms.NotifyIcon { Icon = _icon ?? Drawing.SystemIcons.Application, Text = "叶瞬光桌面宠物", ContextMenuStrip = _trayMenu, Visible = true };
         _tray.MouseClick += TrayClick;
         _tray.DoubleClick += (_, _) => { if (Environment.TickCount64 > _ignoreTrayDoubleClickUntil && !_capturing) ToggleAll(); };
-        _tray.BalloonTipClicked += (_, _) => OpenFocus();
+        _tray.BalloonTipClicked += (_, _) =>
+        {
+            var action = _trayBalloonAction; _trayBalloonAction = null;
+            try { (action ?? OpenFocus)(); }
+            catch (Exception ex) { AppLogger.Error("Tray notification action failed.", ex); }
+        };
         UpdateCompletionTray();
     }
 
@@ -328,7 +350,27 @@ public sealed partial class DesktopSession : IDisposable
         return IntPtr.Zero;
     }
 
-    private void ShowNotification(string title, string message) { if (!_capturing) _tray?.ShowBalloonTip(5000, title, message, WinForms.ToolTipIcon.None); }
+    private void ShowNotification(string title, string message)
+    {
+        if (_capturing) return;
+        _trayBalloonAction = OpenFocus;
+        _tray?.ShowBalloonTip(5000, title, message, WinForms.ToolTipIcon.None);
+    }
+
+    private async Task CheckForUpdatesAtStartupAsync()
+    {
+        try
+        {
+            await Task.Delay(1500, _sessionLifetime.Token);
+            var result = await CheckForUpdatesAsync(_sessionLifetime.Token);
+            if (!result.IsUpdateAvailable || _disposed) return;
+            AppLogger.Info($"Update available: {result.CurrentVersionText} -> {result.LatestVersionText}.");
+            _trayBalloonAction = () => GitHubUpdateChecker.OpenReleasePage(result.ReleasePage);
+            _tray?.ShowBalloonTip(8000, $"发现新版本 v{result.LatestVersionText}", "点击打开 GitHub 下载页面。", WinForms.ToolTipIcon.Info);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { AppLogger.Error("Automatic update check failed.", ex); }
+    }
 
     public void Dispose() => DisposeCore(saveConfiguration: true);
     internal void DisposeAfterFailure() => DisposeCore(saveConfiguration: false);
@@ -342,6 +384,7 @@ public sealed partial class DesktopSession : IDisposable
             try { action(); }
             catch (Exception ex) { AppLogger.Error("Desktop shutdown cleanup failed.", ex); }
         }
+        Cleanup(_sessionLifetime.Cancel);
         Cleanup(_speech.Dispose);
         Cleanup(DisposeCapture);
         foreach (var window in Windows) Cleanup(window.PrepareForApplicationShutdown);
@@ -373,6 +416,7 @@ public sealed partial class DesktopSession : IDisposable
         Cleanup(() => _trayMenu?.Dispose());
         Cleanup(() => _icon?.Dispose());
         Cleanup(() => _noticeIcon?.Dispose());
+        Cleanup(_sessionLifetime.Dispose);
         Changed = null;
         ExitRequested = null;
     }
