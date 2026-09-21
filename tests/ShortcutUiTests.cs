@@ -86,11 +86,13 @@ internal static class ShortcutUiTests
         desktop.UpdateShortcuts(options);
         check(((System.Windows.Forms.ToolStripMenuItem)tray.Items.Find("recallAll", false).Single()).ShortcutKeyDisplayString == "Ctrl+Alt+Shift+F11", "already-created tray reflects the saved shortcut hint");
         var pet = desktop.Windows.First(); Call(pet, "BuildWindowContextMenu"); Call(pet, "UpdateMenuChecks");
-        check(PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "设置")) is not null &&
-              PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "角色设置")) is not null &&
-              PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "专注计时")).InputGestureText == "Ctrl+Shift+F", "desktop menu separates global settings from current-role settings");
-        desktop.UpdateShortcuts(new ShortcutOptions { RecallAll = null }); Call(pet, "UpdateMenuChecks");
-        check(PetContextMenu.Descendants(pet.ContextMenu).Single(x => Equals(x.Header, "召回主屏幕")).InputGestureText.Length == 0, "disabled shortcuts disappear from menu hints without removing commands");
+        var petItems = PetContextMenu.Descendants(pet.ContextMenu).ToArray();
+        check(!petItems.Any(x => Equals(x.Header, "设置") || Equals(x.Header, "角色设置") || Equals(x.Header, "召回主屏幕")) &&
+              petItems.Single(x => Equals(x.Header, "专注计时")).InputGestureText == "Ctrl+Shift+F",
+            "desktop menu keeps immediate shortcuts while delegating settings and recall management");
+        desktop.UpdateShortcuts(new ShortcutOptions { RecallAll = null });
+        check(string.IsNullOrEmpty(((System.Windows.Forms.ToolStripMenuItem)tray.Items.Find("recallAll", false).Single()).ShortcutKeyDisplayString),
+            "disabled recall shortcut disappears from the retained tray command hint");
     }
 
     private static void VerifyCommands(Action<bool, string> check, DesktopSession desktop, ShortcutTests.FakeRegistrar native, SpeechStudyTests.ManualClock clock)

@@ -84,8 +84,15 @@ internal static class MiniMenuTests
         check(roots.Any(i => Equals(i.Header, "专注计时")) && !roots.Any(i => Equals(i.Header, "学习陪伴")), "desktop menu offers focus timing without a study-only label");
         check(roots.Length <= 12 && roots.Any(i => Equals(i.Header, "聊天")) && roots.All(i => i.Tag is not PetState), "desktop root menu offers character chat and keeps animation choices in a submenu");
         check(items.Count(i => i.Tag is PetState) == 7 && items.Single(i => Equals(i.Header, "显示与行为")).Items.Count > 5, "all prior actions and display options remain available");
-        check(roots.Any(i => Equals(i.Header, "查看角色介绍")) && roots.Any(i => Equals(i.Header, "关闭此角色...")), "read-only introduction and confirmed close are distinct root commands");
-        check(items.Single(i => Equals(i.Header, "召回主屏幕")).InputGestureText == "Ctrl+Alt+Y", "grouping preserves the summon shortcut hint");
+        var capture = roots.Single(i => Equals(i.Header, "截图"));
+        check(Equals(capture.Tag, ShortcutAction.Capture) && capture.Items.Count == 0 &&
+              !items.Any(i => Equals(i.Header, "当前屏幕") || Equals(i.Header, "全部屏幕")),
+            "desktop screenshot command starts region capture directly without a redundant mode submenu");
+        check(roots.Any(i => Equals(i.Header, "关闭此角色...")) &&
+              !roots.Any(i => Equals(i.Header, "查看角色介绍") || Equals(i.Header, "退出程序")),
+            "desktop menu keeps role close while removing redundant introduction and application exit commands");
+        check(!roots.Any(i => Equals(i.Header, "设置") || Equals(i.Header, "角色设置") || Equals(i.Header, "召回主屏幕")),
+            "desktop menu delegates settings and recall management to the tray and control center");
     }
 
     public static void RunLive(Action<bool, string> check, PetCatalog catalog, string renders)

@@ -560,17 +560,8 @@ public partial class MainWindow : Window
         var menu = new PetContextMenu();
         menu.Items.Add(CreateShortcutMenuItem("专注计时", ShortcutAction.OpenFocus, (_, _) => Dispatcher.BeginInvoke(OpenFocusWindow), "\uE916"));
         if (_desktop is not null)
-        {
-            var capture = new MenuItem { Header = "截图", Icon = MenuIcon("\uE722") };
-            capture.Items.Add(CreateShortcutMenuItem("区域截图", ShortcutAction.Capture, (_, _) => Dispatcher.BeginInvoke(_desktop.StartCapture), "\uE7A8"));
-            capture.Items.Add(CreateShortcutMenuItem("当前屏幕", ShortcutAction.CaptureCurrentScreen, (_, _) => Dispatcher.BeginInvoke(_desktop.StartCurrentScreenCapture), "\uE7F4"));
-            capture.Items.Add(CreateShortcutMenuItem("全部屏幕", ShortcutAction.CaptureAllScreens, (_, _) => Dispatcher.BeginInvoke(_desktop.StartAllScreensCapture), "\uE9A6"));
-            menu.Items.Add(capture);
-        }
+            menu.Items.Add(CreateShortcutMenuItem("截图", ShortcutAction.Capture, (_, _) => Dispatcher.BeginInvoke(_desktop.StartCapture), "\uE722"));
         if (_desktop is not null) menu.Items.Add(CreateMenuItem("聊天", (_, _) => Dispatcher.BeginInvoke(new Action(() => _desktop.OpenChat(_pet, this))), icon: "\uE8F2"));
-        if (_desktop is not null) menu.Items.Add(CreateMenuItem("设置", (_, _) => Dispatcher.BeginInvoke(_desktop.OpenManager), icon: "\uE713"));
-        menu.Items.Add(CreateMenuItem("角色设置", (_, _) => Dispatcher.BeginInvoke(OpenSettings), icon: "\uE716"));
-        menu.Items.Add(CreateMenuItem("查看角色介绍", (_, _) => Dispatcher.BeginInvoke(OpenAbout), icon: "\uE946"));
         menu.Items.Add(new Separator());
         var actions = new MenuItem { Header = "动作", Icon = MenuIcon("\uE768") };
         actions.Items.Add(CreateAnimationMenuItem("待机", PetState.Idle));
@@ -586,7 +577,6 @@ public partial class MainWindow : Window
         display.Items.Add(CreateMenuItem("放大", (_, _) => ChangeScale(ScaleStep), icon: "\uE8A3"));
         display.Items.Add(CreateMenuItem("缩小", (_, _) => ChangeScale(-ScaleStep), icon: "\uE71F"));
         display.Items.Add(new Separator());
-        menu.Items.Add(CreateShortcutMenuItem("召回主屏幕", ShortcutAction.RecallAll, (_, _) => RecallToPrimaryScreen(), "\uE80F"));
 
         _windowTopmostItem = CreateCheckMenuItem("总在最前", _settings.Topmost, (_, _) =>
         {
@@ -642,8 +632,6 @@ public partial class MainWindow : Window
             close.SetResourceReference(ForegroundProperty, "DangerBrush");
             menu.Items.Add(close);
         }
-        menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("退出程序", (_, _) => ExitApplication(), icon: "\uE7E8"));
         menu.Opened += (_, _) => { UpdateMenuChecks(); BeginMenuInteraction(); };
         menu.Closed += (_, _) => EndMenuInteraction();
         ContextMenu = menu;
