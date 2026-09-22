@@ -49,7 +49,7 @@ public sealed class AiChatState
 public sealed class AiChatStore
 {
     private readonly string _directory;
-    public AiChatStore(string? directory = null) => _directory = directory ?? Path.Combine(PetSettings.SettingsDirectory, "ai-characters");
+    public AiChatStore(string? directory = null) => _directory = directory ?? AppPaths.AiCharactersDirectory;
 
     public AiChatState? Load(string id)
     {

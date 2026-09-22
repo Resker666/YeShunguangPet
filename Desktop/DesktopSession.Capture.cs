@@ -59,7 +59,7 @@ public sealed partial class DesktopSession
             var frame = (readScreen ?? ScreenCapture.ReadDesktop)();
             _selection = new CaptureSelection(frame, cursor, copy, savePath,
                 pinAt: (image, region) => stagedPin = PinCapture(image, show: false, anchor: region),
-                mosaicBlockSize: Configuration.Companion.MosaicBlockSize, aiProviderFactory: CreateCaptureAiProvider);
+                mosaicBlockSize: Configuration.Companion.MosaicBlockSize, textProcessor: CreateCaptureTextProcessor());
             if (interact is not null)
             {
                 _selection.Prepare(mode, origin ?? new Point(frame.Bounds.X, frame.Bounds.Y));
@@ -93,7 +93,7 @@ public sealed partial class DesktopSession
             throw new InvalidOperationException("贴图已达上限（8 张或合计 4800 万像素），请先关闭部分贴图。");
         if (!image.IsFrozen) image = CaptureRaster.Crop(image, new Int32Rect(0, 0, image.PixelWidth, image.PixelHeight));
         var pin = new CapturePinWindow(image, ++_pinSequence, copy, anchor, mosaicBlockSize: Configuration.Companion.MosaicBlockSize,
-            aiProviderFactory: CreateCaptureAiProvider);
+            textProcessor: CreateCaptureTextProcessor());
         pin.Closed += (_, _) => { _pins.Remove(pin); Changed?.Invoke(); };
         _pins.Add(pin);
         try { if (show) pin.Show(); Changed?.Invoke(); return pin; }
@@ -120,6 +120,7 @@ public sealed partial class DesktopSession
         var options = Configuration.Ai;
         return options.Enabled && options.AllowCaptureAssistant ? AiProviderFactory.Create(options, new AiSecretStore()) : null;
     }
+    private ICaptureTextProcessor CreateCaptureTextProcessor() => new AiCaptureTextProcessor(CreateCaptureAiProvider);
     private void DisposeCapture()
     {
         _captureLifetime.Cancel(); _selection?.Dispose(); ClosePins(); _captureLifetime.Dispose();

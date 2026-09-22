@@ -10,18 +10,20 @@ namespace YeShunguangPet;
 
 public partial class AiChatWindow : ThemedWindow
 {
-    private readonly DesktopSession _desktop;
     private readonly PetPackage _pet;
     private readonly AiChatSession _session;
     private readonly Func<IAiProvider?> _providerFactory;
+    private readonly Action<Window>? _openSettings;
     private CancellationTokenSource? _request;
     private bool _loading = true, _dirty, _closed;
 
-    public AiChatWindow(DesktopSession desktop, PetPackage pet, AiChatStore? store = null, Func<IAiProvider?>? providerFactory = null)
+    public AiChatWindow(PetPackage pet, Func<AiOptions> options, Action<Window>? openSettings = null,
+        AiChatStore? store = null, Func<IAiProvider?>? providerFactory = null)
     {
-        _desktop = desktop; _pet = pet;
+        ArgumentNullException.ThrowIfNull(options);
+        _pet = pet; _openSettings = openSettings;
         _session = new AiChatSession(store ?? new AiChatStore(), pet.Manifest.Id, pet.Manifest.Name, pet.Manifest.Description);
-        _providerFactory = providerFactory ?? (() => AiProviderFactory.Create(desktop.Configuration.Ai, new AiSecretStore()));
+        _providerFactory = providerFactory ?? (() => AiProviderFactory.Create(options(), new AiSecretStore()));
         InitializeComponent();
         Title = pet.Manifest.Name + " · 聊天";
         Portrait.Source = pet.Preview; NameText.Text = pet.Manifest.Name;
@@ -30,7 +32,7 @@ public partial class AiChatWindow : ThemedWindow
         StyleInput.Text = profile.SpeakingStyle; ExamplesInput.Text = profile.Examples;
         _loading = false;
         RefreshMessages();
-        StatusText.Text = desktop.Configuration.Ai.Enabled ? "准备好了，发送消息开始聊天。" : "请先在 AI 设置中启用并配置服务。人设可先离线编辑。";
+        StatusText.Text = options().Enabled ? "准备好了，发送消息开始聊天。" : "请先在 AI 设置中启用并配置服务。人设可先离线编辑。";
         Closed += (_, _) => { _closed = true; _request?.Cancel(); };
         Closing += (_, e) =>
         {
@@ -113,7 +115,7 @@ public partial class AiChatWindow : ThemedWindow
         try { _session.ClearHistory(); RefreshMessages(); StatusText.Text = "聊天记录已清空，人设已保留。"; }
         catch (Exception ex) { StatusText.Text = "清空失败：" + ex.Message; }
     }
-    private void Settings_Click(object sender, RoutedEventArgs e) => _desktop.OpenAiSettings(this);
+    private void Settings_Click(object sender, RoutedEventArgs e) => _openSettings?.Invoke(this);
 
     internal void CloseForShutdown()
     {

@@ -50,8 +50,8 @@ public sealed partial class DesktopSession : IDisposable
         Clock = clock ?? TimeProvider.System;
         var globalSettings = new PetSettings();
         configuration.Companion.ApplyTo(globalSettings);
-        Companion = new CompanionRuntime(globalSettings, clock, history, PersistCompanionDurations, configuration.FocusWindow, PersistFocusWindow);
-        Companion.ConfigureAi(() => Configuration.Ai);
+        Companion = new CompanionRuntime(globalSettings, clock, history, PersistCompanionDurations, configuration.FocusWindow, PersistFocusWindow,
+            new AiStudySummaryService(() => Configuration.Ai));
         Companion.DurationsChanged += () =>
         {
             foreach (var window in Windows) window.ApplyGlobal(Configuration.Companion);
@@ -246,7 +246,7 @@ public sealed partial class DesktopSession : IDisposable
     public void OpenAiSettings(Window? owner = null)
     {
         if (_disposed) return;
-        var dialog = new AiSettingsWindow(this) { Owner = owner };
+        var dialog = new AiSettingsWindow(Configuration.Ai, UpdateAi) { Owner = owner };
         dialog.ShowDialog();
     }
 

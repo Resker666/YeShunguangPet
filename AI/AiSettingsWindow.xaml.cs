@@ -9,17 +9,19 @@ namespace YeShunguangPet;
 
 public partial class AiSettingsWindow : ThemedWindow
 {
-    private readonly DesktopSession _desktop;
-    private readonly AiSecretStore _secrets = new();
+    private readonly Action<AiOptions> _saveOptions;
+    private readonly AiSecretStore _secrets;
     private readonly AiOptions _draft;
     private readonly Dictionary<string, string> _pendingKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _deletedProfiles = new(StringComparer.Ordinal);
     private string? _currentProfileId;
     private bool _loading, _busy;
-    public AiSettingsWindow(DesktopSession desktop)
+    public AiSettingsWindow(AiOptions options, Action<AiOptions> saveOptions, AiSecretStore? secrets = null)
     {
-        _desktop = desktop; InitializeComponent(); _loading = true;
-        _draft = desktop.Configuration.Ai.Clone(); _draft.Normalize();
+        _saveOptions = saveOptions ?? throw new ArgumentNullException(nameof(saveOptions));
+        _secrets = secrets ?? new AiSecretStore();
+        InitializeComponent(); _loading = true;
+        _draft = options.Clone(); _draft.Normalize();
         EnabledCheck.IsChecked = _draft.Enabled; SpeechCheck.IsChecked = _draft.AllowSpeechSuggestions;
         SummaryCheck.IsChecked = _draft.AllowStudySummaries; CaptureCheck.IsChecked = _draft.AllowCaptureAssistant;
         RefreshProfiles(_draft.ActiveProfileId);
@@ -73,7 +75,7 @@ public partial class AiSettingsWindow : ThemedWindow
                 throw new InvalidOperationException("启用直连 API 前请先配置 API Key。");
             foreach (var (id, key) in _pendingKeys) _secrets.ForProfile(id).Save(key);
             foreach (var id in _deletedProfiles) _secrets.ForProfile(id).Delete();
-            _desktop.UpdateAi(options); _pendingKeys.Clear(); _deletedProfiles.Clear();
+            _saveOptions(options); _pendingKeys.Clear(); _deletedProfiles.Clear();
             StatusText.Text = "已保存。AI 仍只会在用户主动点击时请求。"; RefreshKeyStatus(active.Id); return true;
         }
         catch (Exception ex) { StatusText.Text = ex.Message; return false; }

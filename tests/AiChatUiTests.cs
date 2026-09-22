@@ -29,7 +29,8 @@ internal static class AiChatUiTests
                 VerifySettings(check, desktop, root, renders, theme);
                 VerifyTextAssistant(check, root, renders, theme);
                 var provider = new ReplyProvider();
-                var window = new AiChatWindow(desktop, pet, new AiChatStore(Path.Combine(root, "chat-ui-" + theme)), () => provider);
+                var window = new AiChatWindow(pet, () => desktop.Configuration.Ai, _ => { },
+                    new AiChatStore(Path.Combine(root, "chat-ui-" + theme)), () => provider);
                 try
                 {
                     ((TextBox)window.FindName("BackgroundInput")).Text = "云岿山的小剑客，喜欢练剑。";
@@ -61,7 +62,7 @@ internal static class AiChatUiTests
     }
     private static void VerifySettings(Action<bool, string> check, DesktopSession desktop, string root, string? renders, string theme)
     {
-        var window = new AiSettingsWindow(desktop);
+        var window = new AiSettingsWindow(desktop.Configuration.Ai, desktop.UpdateAi);
         try
         {
             Show(window); var profiles = (ComboBox)window.FindName("ProfileSelector");
@@ -84,7 +85,7 @@ internal static class AiChatUiTests
     private static void VerifyTextAssistant(Action<bool, string> check, string root, string? renders, string theme)
     {
         var provider = new AssistantProvider(); var ocr = new FakeOcr();
-        var window = new CaptureTextAssistantWindow(CaptureTests.Fixture(480, 180), ocr, () => provider);
+        var window = new CaptureTextAssistantWindow(CaptureTests.Fixture(480, 180), ocr, new AiCaptureTextProcessor(() => provider));
         try
         {
             Show(window); Await(Task.Delay(80));

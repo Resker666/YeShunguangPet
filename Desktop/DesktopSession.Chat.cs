@@ -15,7 +15,7 @@ public sealed partial class DesktopSession
         try
         {
             _speech.Dismiss();
-            var dialog = new AiChatWindow(this, pet) { Owner = owner };
+            var dialog = new AiChatWindow(pet, () => Configuration.Ai, OpenAiSettings) { Owner = owner };
             if (editProfile) ((System.Windows.Controls.TabControl)dialog.FindName("ChatTabs")).SelectedIndex = 1;
             _chatWindows.Add(pet.Manifest.Id, dialog);
             try { dialog.ShowDialog(); }

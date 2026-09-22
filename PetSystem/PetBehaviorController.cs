@@ -186,7 +186,7 @@ public sealed class PetBehaviorController
         var seconds = Math.Clamp(_clock.GetElapsedTime(_motionAt).TotalSeconds, 0, 0.1);
         _motionAt = _clock.GetTimestamp(); RoamPaused = cursorNear;
         if (cursorNear) return new(left, RoamDirection, RoamRemaining);
-        var step = DesktopBehavior.Move(left, RoamDirection, RoamRemaining, speed * seconds, minimum, maximum);
+        var step = PetMotion.Move(left, RoamDirection, RoamRemaining, speed * seconds, minimum, maximum);
         RoamDirection = step.Direction; RoamRemaining = step.Remaining;
         return step;
     }

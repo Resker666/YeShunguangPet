@@ -2,19 +2,8 @@ using System;
 
 namespace YeShunguangPet;
 
-public static class DesktopBehavior
+public static class PetMotion
 {
-    public static bool IsQuiet(PetSettings settings, DateTime localTime)
-    {
-        if (settings.DoNotDisturb) return true;
-        if (!settings.QuietHoursEnabled) return false;
-        var minute = localTime.Hour * 60 + localTime.Minute;
-        var start = settings.QuietStartMinute;
-        var end = settings.QuietEndMinute;
-        if (start == end) return true;
-        return start < end ? minute >= start && minute < end : minute >= start || minute < end;
-    }
-
     public static bool ExceedsDragThreshold(double dx, double dy, double horizontal, double vertical)
         => Math.Abs(dx) >= horizontal || Math.Abs(dy) >= vertical;
 

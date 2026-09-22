@@ -11,7 +11,7 @@ public partial class MainWindow
     private readonly SessionVisuals _sessionVisuals;
     private bool _sessionOwnsAnimation => _behavior.SessionOwnsAnimation;
 
-    private bool IsQuietNow => _settings.DoNotDisturb || (_settings.QuietHoursEnabled && DesktopBehavior.IsQuiet(_settings, _clock.GetLocalNow().DateTime));
+    private bool IsQuietNow => QuietHours.IsActive(_settings, _clock.GetLocalNow().DateTime);
     private bool SuppressAutomaticBehavior => IsQuietNow || (_settings.PauseDuringFocus && _focusSession.IsFocusing);
 
     private void InitializeCompanion()

@@ -50,7 +50,7 @@ public partial class MainWindow
         if (!_pointerDown || e.LeftButton != MouseButtonState.Pressed) return;
         var cursor = CursorScreenPosition();
         var dpi = VisualTreeHelper.GetDpi(this);
-        if (!DesktopBehavior.ExceedsDragThreshold((cursor.X - _pressScreen.X) / dpi.DpiScaleX,
+        if (!PetMotion.ExceedsDragThreshold((cursor.X - _pressScreen.X) / dpi.DpiScaleX,
             (cursor.Y - _pressScreen.Y) / dpi.DpiScaleY,
             SystemParameters.MinimumHorizontalDragDistance, SystemParameters.MinimumVerticalDragDistance)) return;
         _pointerDown = false;
@@ -97,7 +97,7 @@ public partial class MainWindow
     private bool IsCursorNearPet(double extraRadius = 0)
     {
         var point = PointFromScreen(CursorScreenPosition());
-        return DesktopBehavior.IsNear(point.X, point.Y, ActualWidth, ActualHeight, _settings.MousePauseRadius + extraRadius);
+        return PetMotion.IsNear(point.X, point.Y, ActualWidth, ActualHeight, _settings.MousePauseRadius + extraRadius);
     }
 
     private static Point CursorScreenPosition()

@@ -14,7 +14,7 @@ public sealed class CompanionService : IDisposable
     public StudyHistory History { get; }
     public bool IsDisposed { get; private set; }
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
-    public bool IsQuiet => DesktopBehavior.IsQuiet(Settings, _clock.GetLocalNow().DateTime);
+    public bool IsQuiet => QuietHours.IsActive(Settings, _clock.GetLocalNow().DateTime);
     public FocusWindowOptions WindowOptions => _windowOptions.Copy();
     public event Action? Pulse;
     public event Action<string, string>? Notification;

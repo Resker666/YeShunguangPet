@@ -12,7 +12,7 @@ public sealed class AiSecretStore
     public bool HasKey => File.Exists(FilePath);
 
     public AiSecretStore(string? filePath = null)
-        => FilePath = filePath ?? Path.Combine(PetSettings.SettingsDirectory, "ai-secret.bin");
+        => FilePath = filePath ?? AppPaths.AiSecretPath;
 
     public AiSecretStore ForProfile(string profileId)
     {

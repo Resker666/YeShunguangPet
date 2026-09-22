@@ -8,7 +8,7 @@ namespace YeShunguangPet;
 
 public sealed class PetSettings
 {
-    private const string AppName = "YeShunguangPet";
+    private const string AppName = AppPaths.AppName;
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public double? Left { get; set; }
@@ -41,10 +41,9 @@ public sealed class PetSettings
     public int QuietEndMinute { get; set; } = 8 * 60;
     public int MosaicBlockSize { get; set; } = 18;
 
-    public static string SettingsDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
+    public static string SettingsDirectory => AppPaths.SettingsDirectory;
 
-    public static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
+    public static string SettingsPath => AppPaths.LegacySettingsPath;
 
     public static PetSettings Load()
     {

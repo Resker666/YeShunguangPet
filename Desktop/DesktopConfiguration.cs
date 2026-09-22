@@ -168,8 +168,8 @@ public sealed class DesktopSettingsStore
 
     public DesktopSettingsStore(string? path = null, string? legacyPath = null)
     {
-        Path = path ?? System.IO.Path.Combine(PetSettings.SettingsDirectory, "desktop-v2.json");
-        _legacyPath = legacyPath ?? PetSettings.SettingsPath;
+        Path = path ?? AppPaths.DesktopSettingsPath;
+        _legacyPath = legacyPath ?? AppPaths.LegacySettingsPath;
     }
 
     public DesktopConfiguration Load()

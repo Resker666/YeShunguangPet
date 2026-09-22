@@ -33,6 +33,7 @@ internal static class Program
         try
         {
             var source = Path.GetFullPath(args[0]);
+            ArchitectureTests.Run((success, name) => Check(success, name), source);
             if (args.Length > 1 && args[1] == "--ai-chat-tests")
             {
                 AiTests.Run((success, name) => Check(success, name), _root);

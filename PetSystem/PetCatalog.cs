@@ -26,7 +26,7 @@ public sealed partial class PetCatalog
     public PetCatalog(string? bundledDirectory = null, string? userDirectory = null)
     {
         BundledDirectory = Path.GetFullPath(bundledDirectory ?? Path.Combine(AppContext.BaseDirectory, "Pets"));
-        UserDirectory = Path.GetFullPath(userDirectory ?? Path.Combine(PetSettings.SettingsDirectory, "Pets"));
+        UserDirectory = Path.GetFullPath(userDirectory ?? AppPaths.UserPetsDirectory);
     }
 
     public PetCatalogResult Scan()

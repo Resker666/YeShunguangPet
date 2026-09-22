@@ -71,42 +71,42 @@ internal static class CompanionTests
             !settings.DoNotDisturb && settings.FocusMinutes == 25 && settings.BreakMinutes == 5,
             "v1.2 settings migrate to conservative companion defaults");
         settings.QuietHoursEnabled = true;
-        check(DesktopBehavior.IsQuiet(settings, At(22, 0)) && DesktopBehavior.IsQuiet(settings, At(7, 59)) &&
-            !DesktopBehavior.IsQuiet(settings, At(8, 0)) && !DesktopBehavior.IsQuiet(settings, At(12, 0)),
+        check(QuietHours.IsActive(settings, At(22, 0)) && QuietHours.IsActive(settings, At(7, 59)) &&
+            !QuietHours.IsActive(settings, At(8, 0)) && !QuietHours.IsActive(settings, At(12, 0)),
             "overnight quiet hours have correct boundaries");
         settings.QuietStartMinute = 9 * 60;
         settings.QuietEndMinute = 17 * 60;
-        check(DesktopBehavior.IsQuiet(settings, At(9, 0)) && !DesktopBehavior.IsQuiet(settings, At(17, 0)),
+        check(QuietHours.IsActive(settings, At(9, 0)) && !QuietHours.IsActive(settings, At(17, 0)),
             "daytime quiet hours have correct boundaries");
         settings.QuietEndMinute = settings.QuietStartMinute;
-        check(DesktopBehavior.IsQuiet(settings, At(3, 0)), "equal quiet endpoints mean all day");
+        check(QuietHours.IsActive(settings, At(3, 0)), "equal quiet endpoints mean all day");
         settings.QuietHoursEnabled = false;
         settings.DoNotDisturb = true;
-        check(DesktopBehavior.IsQuiet(settings, At(12, 0)), "manual quiet works without schedule");
+        check(QuietHours.IsActive(settings, At(12, 0)), "manual quiet works without schedule");
         settings.FocusMinutes = 40;
         settings.MousePauseRadius = 120;
         var clone = JsonSerializer.Deserialize<PetSettings>(JsonSerializer.Serialize(settings.Clone()))!;
         check(clone.DoNotDisturb && clone.FocusMinutes == 40 && clone.MousePauseRadius == 120 && clone.SelectedPetId == "robin",
             "companion preferences survive clone and serialization");
 
-        var step = DesktopBehavior.Move(90, 1, 50, 20, 0, 100);
+        var step = PetMotion.Move(90, 1, 50, 20, 0, 100);
         check(step.Left == 90 && step.Direction == -1 && step.Remaining == 30, "roam reverses at right edge without overshoot");
-        step = DesktopBehavior.Move(10, -1, 50, 20, 0, 100);
+        step = PetMotion.Move(10, -1, 50, 20, 0, 100);
         check(step.Left == 10 && step.Direction == 1 && step.Remaining == 30, "roam reverses at left edge without overshoot");
-        step = DesktopBehavior.Move(-1800, -1, 50, 20, -1920, -1800);
+        step = PetMotion.Move(-1800, -1, 50, 20, -1920, -1800);
         check(step.Left == -1820, "roaming supports monitors with negative coordinates");
-        step = DesktopBehavior.Move(90, 1, 10, 20, 0, 100);
+        step = PetMotion.Move(90, 1, 10, 20, 0, 100);
         check(step.Left == 100 && step.Remaining == 0, "roaming finishes at distance budget");
-        step = DesktopBehavior.Move(900, 1, 50, 20, 0, 100);
+        step = PetMotion.Move(900, 1, 50, 20, 0, 100);
         check(step.Left == 80, "display bounds changes clamp roaming position");
-        step = DesktopBehavior.Move(10, 1, 20, 10, 0, 0);
+        step = PetMotion.Move(10, 1, 20, 10, 0, 0);
         check(step.Left == 0 && step.Remaining == 0, "oversized pet cannot roam outside work area");
-        check(DesktopBehavior.IsNear(-40, 80, 192, 208, 80) &&
-            !DesktopBehavior.IsNear(-81, 80, 192, 208, 80), "proximity measures from pet bounds");
-        check(!DesktopBehavior.ExceedsDragThreshold(2, 2, 4, 4) &&
-            DesktopBehavior.ExceedsDragThreshold(6 / 1.5, 0, 4, 4), "click and DPI-normalized drag thresholds");
-        check(DesktopBehavior.IsNear(-90, 80, 192, 208, 100) &&
-            !DesktopBehavior.IsNear(-90, 80, 192, 208, 80), "proximity hysteresis prevents rapid pause toggles");
+        check(PetMotion.IsNear(-40, 80, 192, 208, 80) &&
+            !PetMotion.IsNear(-81, 80, 192, 208, 80), "proximity measures from pet bounds");
+        check(!PetMotion.ExceedsDragThreshold(2, 2, 4, 4) &&
+            PetMotion.ExceedsDragThreshold(6 / 1.5, 0, 4, 4), "click and DPI-normalized drag thresholds");
+        check(PetMotion.IsNear(-90, 80, 192, 208, 100) &&
+            !PetMotion.IsNear(-90, 80, 192, 208, 80), "proximity hysteresis prevents rapid pause toggles");
 
         VerifyWindows(check, pet, renderRoot);
         VerifyClickEvents(check, pet);

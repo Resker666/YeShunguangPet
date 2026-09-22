@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -17,7 +19,7 @@ public sealed class CompanionRuntime : IDisposable
     private FocusWindow? _window;
     private StudyWindow? _studyWindow;
     private string? _avatarInstance;
-    private Func<AiOptions>? _aiOptions;
+    private readonly IStudySummaryService? _studySummary;
     private bool _disposed;
     public bool IsQuiet => _service.IsQuiet;
     public event Action? Pulse { add => _service.Pulse += value; remove => _service.Pulse -= value; }
@@ -31,9 +33,10 @@ public sealed class CompanionRuntime : IDisposable
     public void AcknowledgeCompletion() { if (!SuppressCompletionAcknowledgement) _service.AcknowledgeCompletion(); }
 
     public CompanionRuntime(PetSettings settings, TimeProvider? clock = null, StudyHistory? history = null, Action<PetSettings>? persistDurations = null,
-        FocusWindowOptions? windowOptions = null, Action<FocusWindowOptions>? persistWindow = null)
+        FocusWindowOptions? windowOptions = null, Action<FocusWindowOptions>? persistWindow = null, IStudySummaryService? studySummary = null)
     {
         _service = new CompanionService(settings, clock, history, persistDurations, windowOptions, persistWindow);
+        _studySummary = studySummary;
         _timer.Tick += (_, _) => Tick();
     }
 
@@ -42,9 +45,13 @@ public sealed class CompanionRuntime : IDisposable
     public void SetDurations(int focusMinutes, int breakMinutes) => _service.SetDurations(focusMinutes, breakMinutes);
     public void Tick() => _service.Tick();
     public void SaveWindowOptions(FocusWindowOptions options) => _service.SaveWindowOptions(options);
-    internal void ConfigureAi(Func<AiOptions> options) => _aiOptions = options;
-    internal AiOptions? AiConfiguration => _aiOptions?.Invoke();
-    internal IAiProvider? CreateAiProvider() => _aiOptions is null ? null : AiProviderFactory.Create(_aiOptions(), new AiSecretStore());
+    internal bool CanSummarizeStudy => _studySummary?.IsAvailable == true;
+    internal Task<string> SummarizeStudyAsync(CancellationToken cancellationToken)
+    {
+        if (_studySummary is null) throw new InvalidOperationException("请先在 AI 设置中启用专注总结。");
+        var today = History.Totals(Today);
+        return _studySummary.SummarizeAsync(new StudySummaryRequest(Today, today, History.Week(Today)), cancellationToken);
+    }
 
     public void Open(PetPackage pet, string? instanceId = null)
     {

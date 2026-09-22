@@ -31,7 +31,7 @@ public sealed class CaptureSelection : IDisposable
     private readonly CaptureRegion _region;
     private readonly CaptureSurface _annotation;
     private readonly IOcrService _ocr;
-    private readonly Func<IAiProvider?>? _aiProviderFactory;
+    private readonly ICaptureTextProcessor? _textProcessor;
     private CaptureToolbarWindow? _toolbar;
     private CaptureTextAssistantWindow? _assistant;
     private TextBox? _textInput;
@@ -58,11 +58,11 @@ public sealed class CaptureSelection : IDisposable
     public bool IsDragging => _region.IsDragging || _painting;
     internal bool CursorAssistVisible => _hasCursorPoint && !_committed && !IsDragging && !_painting;
 
-    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null, int mosaicBlockSize = 18, IOcrService? ocr = null, Func<IAiProvider?>? aiProviderFactory = null)
+    public CaptureSelection(CaptureFrame frame, Func<Point>? cursorPosition = null, Action<BitmapSource>? copy = null, Func<Window, string?>? savePath = null, Action<BitmapSource>? pin = null, Action<BitmapSource, CaptureRect>? pinAt = null, int mosaicBlockSize = 18, IOcrService? ocr = null, ICaptureTextProcessor? textProcessor = null)
     {
         if (frame.Monitors.Count == 0 || frame.Image.PixelWidth != frame.Bounds.Width || frame.Image.PixelHeight != frame.Bounds.Height) throw new ArgumentException("Invalid capture frame.");
         _frame = frame; _cursor = cursorPosition ?? ScreenCapture.CursorPosition; _copy = copy ?? Clipboard.SetImage; _savePath = savePath; _pin = pin; _pinAt = pinAt;
-        _ocr = ocr ?? new WindowsOcrService(); _aiProviderFactory = aiProviderFactory;
+        _ocr = ocr ?? new WindowsOcrService(); _textProcessor = textProcessor;
         _region = new CaptureRegion(frame.Bounds); Document = new CaptureDocument(frame.Image); _annotation = new CaptureSurface(Document) { MosaicBlockSize = mosaicBlockSize };
         Document.Changed += OnDocumentChanged; _annotation.Error += ShowError;
         _annotation.SelectionChanged += AnnotationSelectionChanged; _annotation.TextEditRequested += EditSelectedText;
@@ -194,7 +194,7 @@ public sealed class CaptureSelection : IDisposable
         try
         {
             _modalExport = true;
-            _assistant = new CaptureTextAssistantWindow(Document.Flatten(), _ocr, _aiProviderFactory) { Owner = _toolbar };
+            _assistant = new CaptureTextAssistantWindow(Document.Flatten(), _ocr, _textProcessor) { Owner = _toolbar };
             _assistant.ShowDialog();
         }
         catch (Exception ex) { ShowError(ex.Message); }

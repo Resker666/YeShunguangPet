@@ -34,7 +34,7 @@ public sealed class CapturePinWindow : ThemedWindow
     private readonly Func<Point> _cursorPosition;
     private readonly int _mosaicBlockSize;
     private readonly IOcrService _ocr;
-    private readonly Func<IAiProvider?>? _aiProviderFactory;
+    private readonly ICaptureTextProcessor? _textProcessor;
     private bool _hovered;
     private bool _maximized;
     private bool _editing;
@@ -52,10 +52,10 @@ public sealed class CapturePinWindow : ThemedWindow
     internal CaptureDocument? EditDocument => _editDocument;
     internal CaptureSurface? EditSurface => _editSurface;
     internal string EditError => _editError;
-    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null, Func<Point>? cursorPosition = null, int mosaicBlockSize = 18, IOcrService? ocr = null, Func<IAiProvider?>? aiProviderFactory = null)
+    public CapturePinWindow(BitmapSource image, int number, Action<BitmapSource>? copy = null, CaptureRect? anchor = null, Func<Point>? cursorPosition = null, int mosaicBlockSize = 18, IOcrService? ocr = null, ICaptureTextProcessor? textProcessor = null)
     {
         Snapshot = image; _copy = copy ?? Clipboard.SetImage; _anchor = anchor; _cursorPosition = cursorPosition ?? ScreenCapture.CursorPosition; _mosaicBlockSize = mosaicBlockSize;
-        _ocr = ocr ?? new WindowsOcrService(); _aiProviderFactory = aiProviderFactory;
+        _ocr = ocr ?? new WindowsOcrService(); _textProcessor = textProcessor;
         Title = $"贴图 {number}"; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; ShowInTaskbar = false; Topmost = true; ShowActivated = false; WindowStartupLocation = WindowStartupLocation.Manual;
         Background = Brushes.Transparent; Opacity = 0;
@@ -168,7 +168,7 @@ public sealed class CapturePinWindow : ThemedWindow
     }
     private void OpenTextAssistant()
     {
-        var assistant = new CaptureTextAssistantWindow(Snapshot, _ocr, _aiProviderFactory) { Owner = this };
+        var assistant = new CaptureTextAssistantWindow(Snapshot, _ocr, _textProcessor) { Owner = this };
         assistant.ShowDialog();
     }
     private void AddResizeHandle(Grid grid, ResizeEdge edge, double width, double height, HorizontalAlignment horizontal, VerticalAlignment vertical, Cursor cursor)

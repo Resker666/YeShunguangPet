@@ -13,13 +13,13 @@ public partial class CaptureTextAssistantWindow : ThemedWindow
 {
     private readonly BitmapSource _image;
     private readonly IOcrService _ocr;
-    private readonly Func<IAiProvider?>? _providerFactory;
+    private readonly ICaptureTextProcessor? _textProcessor;
     private CancellationTokenSource? _operation;
     private bool _closed;
 
-    public CaptureTextAssistantWindow(BitmapSource image, IOcrService? ocr = null, Func<IAiProvider?>? providerFactory = null)
+    public CaptureTextAssistantWindow(BitmapSource image, IOcrService? ocr = null, ICaptureTextProcessor? textProcessor = null)
     {
-        _image = image ?? throw new ArgumentNullException(nameof(image)); _ocr = ocr ?? new WindowsOcrService(); _providerFactory = providerFactory;
+        _image = image ?? throw new ArgumentNullException(nameof(image)); _ocr = ocr ?? new WindowsOcrService(); _textProcessor = textProcessor;
         InitializeComponent();
         Loaded += async (_, _) => await RecognizeAsync();
         Closed += (_, _) => { _closed = true; _operation?.Cancel(); };
@@ -52,26 +52,16 @@ public partial class CaptureTextAssistantWindow : ThemedWindow
         using var cancellation = new CancellationTokenSource(); _operation = cancellation; SetBusy(true); ResultText.Clear();
         try
         {
-            var provider = _providerFactory?.Invoke() ?? throw new InvalidOperationException("请先在 AI 设置中启用“允许 AI 处理手动确认的 OCR 文字”。");
-            var action = (ActionSelector.SelectedValue as string) ?? "Summary";
-            var system = action switch
-            {
-                "Translate" => $"把用户提供的文字完整翻译为 {(LanguageSelector.SelectedValue as string) ?? "English"}。保留段落和事实，只返回译文。",
-                "Rewrite" => $"把用户提供的文字改写为 {(RewriteSelector.SelectedValue as string) ?? "清晰简洁"} 风格。保留事实，只返回改写结果。",
-                _ => "用简体中文总结用户提供的文字，保留关键事实和行动项，只返回总结。"
-            };
-            var prompt = new AiPrompt(system + "你只能处理本次明确提供的文字，不要声称读取图片、屏幕或文件。", source) { JsonResponse = false };
+            var processor = _textProcessor ?? throw new InvalidOperationException("请先在 AI 设置中启用“允许 AI 处理手动确认的 OCR 文字”。");
+            var action = Enum.TryParse<CaptureTextAction>((ActionSelector.SelectedValue as string) ?? "Summary", out var parsed) ? parsed : CaptureTextAction.Summary;
+            var request = new CaptureTextRequest(action, source, LanguageSelector.SelectedValue as string, RewriteSelector.SelectedValue as string);
             StatusText.Text = "正在处理…仅发送上方文字";
-            if (provider is IStreamingAiProvider streaming)
+            var builder = new StringBuilder();
+            await foreach (var delta in processor.ProcessAsync(request, cancellation.Token))
             {
-                var builder = new StringBuilder();
-                await foreach (var delta in streaming.StreamAsync(prompt, cancellation.Token))
-                {
-                    builder.Append(delta); if (builder.Length > 20000) throw new InvalidDataException("AI 结果过长。");
-                    ResultText.Text = builder.ToString(); ResultText.ScrollToEnd();
-                }
+                builder.Append(delta); if (builder.Length > 20000) throw new InvalidDataException("AI 结果过长。");
+                ResultText.Text = builder.ToString(); ResultText.ScrollToEnd();
             }
-            else ResultText.Text = await provider.CompleteAsync(prompt, cancellation.Token);
             if (string.IsNullOrWhiteSpace(ResultText.Text)) throw new InvalidDataException("AI 返回内容为空。");
             StatusText.Text = "处理完成，结果未自动保存。";
         }
